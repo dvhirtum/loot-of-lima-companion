@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    PURE ENGINE. Deliberately has NO PackageReference elements and no ProjectReference
+    to anything else in this solution. Randomness enters only via an injected
+    IShuffleSource. AssemblyPurityTests enforces this.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data\*.json" />
+  </ItemGroup>
+
+</Project>

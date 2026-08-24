@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LootOfLima.Rules\LootOfLima.Rules.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <EmbeddedResource Include="Data\scenarios.json" />
+    <EmbeddedResource Include="Data\scenario-answers.bin" />
+  </ItemGroup>
+
+</Project>

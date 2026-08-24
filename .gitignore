@@ -427,3 +427,9 @@ FodyWeavers.xsd
 *.msix
 *.msm
 *.msp
+
+# Source rulebook and scenario books: kept locally only, never committed.
+# They are the ScenarioImporter's input; its decoded output in
+# src/LootOfLima.Scenarios/Data is committed instead, so building and
+# testing never need these files.
+docs/**/*.pdf

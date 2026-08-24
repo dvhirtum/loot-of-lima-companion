@@ -1,0 +1,11 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Client-facing DTOs only. Deliberately does NOT reference LootOfLima.Rules, so that
+    GameState / Deal / Seat / SecretQuestion are unreachable from any hub signature.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+</Project>
