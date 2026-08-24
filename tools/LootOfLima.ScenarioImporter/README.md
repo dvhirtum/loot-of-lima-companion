@@ -23,6 +23,20 @@ dotnet run --project tools/LootOfLima.ScenarioImporter -- \
 
 `pdftotext` (poppler) on `PATH`. Developed against **poppler 4.00**.
 
+**The PDFs are not in this repository.** `docs/**/*.pdf` is gitignored: they are publisher
+material, they are large, and nothing but this tool reads them. Its decoded output *is* committed,
+so building, testing and running the app never need them.
+
+To re-run the importer you must supply them yourself:
+
+| File | Location |
+|---|---|
+| `LootOfLima_Rulebook_211007.pdf` | `docs/` |
+| `Loot-of-Lima_book_1.pdf` … `_20.pdf` | `docs/solo and 2-player rules/` |
+
+Both are distributed by Allplay from the [Loot of Lima product
+page](https://www.allplay.com/board-games/loot-of-lima).
+
 ## Output
 
 | File | Contents |
