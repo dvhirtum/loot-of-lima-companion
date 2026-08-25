@@ -230,6 +230,17 @@ dotnet_naming_rule.parameters_and_locals_are_camel_case.style = camel_case
 dotnet_naming_rule.parameters_and_locals_are_camel_case.severity = warning
 
 # ---------------------------------------------------------------------------
+# Tests
+# ---------------------------------------------------------------------------
+[tests/**/*.cs]
+
+# Test folders are named for the type under test — Engine/, BoardLayout/, LocationId/ — so
+# matching namespaces to folders would put a namespace and a production type in scope under the
+# same name (CS0118: the namespace shadows the class). Test namespaces stay flat at the project
+# root instead.
+dotnet_style_namespace_match_folder = false
+
+# ---------------------------------------------------------------------------
 # Generated output is not ours to style.
 # ---------------------------------------------------------------------------
 [**/{obj,bin}/**.cs]

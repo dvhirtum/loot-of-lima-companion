@@ -14,7 +14,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 
 | Milestone | State |
 |---|---|
-| M1 — pure rules engine + scenario oracle | **Done.** 996 tests green |
+| M1 — pure rules engine + scenario oracle | **Done.** 1238 tests green |
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | Next |
 | M3 — minimal API + SignalR server | Not started |
 | M4-M6 — Angular client, then polish | Not started |
@@ -26,7 +26,7 @@ repo). Read it before starting a milestone.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 996 passing
+dotnet test       # expect 1238 passing
 ```
 
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so
@@ -110,3 +110,8 @@ reads them, and its output is committed, so build and test never need them.
 - Branch off `main` and open a PR; never commit to `main` directly.
 - Unit-test each piece as it is built. The rules engine is pure, so there is no excuse not to.
 - **Code style lives in `.editorconfig` and is enforced, not suggested.**
+- **Test layout and naming:** one folder per type under test, one test class per method
+  (`Engine/CountInRangeTests.cs`), mirroring the production layout. Name tests
+  `Should_<expected>_when_<condition>` in snake_case, and write the `// Arrange`, `// Act` and
+  `// Assert` comments out explicitly. Test namespaces stay flat at the project root — a folder
+  named for the SUT would otherwise shadow the production type (CS0118).
