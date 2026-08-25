@@ -9,7 +9,7 @@ public class AssemblyPurityTests
     [Fact]
     public void Rules_assembly_references_only_the_base_class_library()
     {
-        var referenced = typeof(BoardLayout).Assembly
+        string[] referenced = typeof(BoardLayout).Assembly
             .GetReferencedAssemblies()
             .Select(a => a.Name ?? string.Empty)
             .Where(name => !name.StartsWith("System", StringComparison.Ordinal))

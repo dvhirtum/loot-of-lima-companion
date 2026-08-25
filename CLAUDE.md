@@ -20,8 +20,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4-M6 — Angular client, then polish | Not started |
 
 **The full plan lives at `C:\Users\Dick\.claude\plans\nested-hatching-petal.md`** (outside the
-repo, on Dick's machine). Read it before starting a milestone — it holds the settled product
-decisions and the rules research, and saves re-deriving any of it.
+repo). Read it before starting a milestone.
 
 ## Build and test
 
@@ -83,12 +82,10 @@ web/loot-of-lima-web/       (M4) Angular workspace.
 
 ## Settled product decisions
 
-- **The app does not model the roll.** The dice stay physical; the app never asks what was rolled
-  and lets a player construct any question, trusting their roll allows it. So Barrel and Shovel have
-  no in-app mechanics — they are only marked as spent. The die faces are recorded in `docs/dice.md`
-  for reference; no code reads them.
-- **The app always owns the deal.** It shuffles or loads a scenario, privately tells each human
-  which tokens to pull, and simulates token passing. Nobody types a hand in.
+- **The app does not model the roll.** So Barrel and Shovel have no in-app mechanics — they are
+  only marked as spent. The die faces are recorded in `docs/dice.md` for reference; no code reads
+  them.
+- **The app always owns the deal.** Nobody types a hand in.
 - **The app auto-answers for humans too**, from the hand it dealt.
 - **Bots never take turns**, they only answer — faithful to the scenario books, which are pure
   puzzles where only the human asks.
@@ -112,3 +109,4 @@ reads them, and its output is committed, so build and test never need them.
 
 - Branch off `main` and open a PR; never commit to `main` directly.
 - Unit-test each piece as it is built. The rules engine is pure, so there is no excuse not to.
+- **Code style lives in `.editorconfig` and is enforced, not suggested.**

@@ -11,10 +11,10 @@ public static class Engine
     {
         ArgumentNullException.ThrowIfNull(layout);
 
-        var arc = layout.ArcSectorMask(range.Start, range.End);
-        var count = 0;
+        byte arc = layout.ArcSectorMask(range.Start, range.End);
+        int count = 0;
 
-        foreach (var location in hand)
+        foreach (LocationId location in hand)
         {
             if (range.TerrainFilter is { } terrain && location.Terrain != terrain)
             {

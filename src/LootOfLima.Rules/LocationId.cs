@@ -36,7 +36,7 @@ public readonly record struct LocationId(Terrain Terrain, int Number) : ICompara
     /// <summary>Parses <c>B1</c>/<c>F6</c>/<c>M8</c>. Also accepts the books' reversed form (<c>1B</c>).</summary>
     public static LocationId Parse(string text)
     {
-        if (!TryParse(text, out var location))
+        if (!TryParse(text, out LocationId location))
         {
             throw new FormatException($"'{text}' is not a location (expected e.g. B1, F6, M8).");
         }
@@ -52,20 +52,20 @@ public readonly record struct LocationId(Terrain Terrain, int Number) : ICompara
             return false;
         }
 
-        var span = text.AsSpan().Trim();
+        ReadOnlySpan<char> span = text.AsSpan().Trim();
         if (span.Length != 2)
         {
             return false;
         }
 
         // Accept both "B1" and the scenario books' "1B".
-        var (letter, digit) = char.IsAsciiDigit(span[0]) ? (span[1], span[0]) : (span[0], span[1]);
+        (char letter, char digit) = char.IsAsciiDigit(span[0]) ? (span[1], span[0]) : (span[0], span[1]);
         if (!char.IsAsciiDigit(digit) || letter is not ('B' or 'F' or 'M' or 'b' or 'f' or 'm'))
         {
             return false;
         }
 
-        var number = digit - '0';
+        int number = digit - '0';
         if (number is < 1 or > PerTerrain)
         {
             return false;

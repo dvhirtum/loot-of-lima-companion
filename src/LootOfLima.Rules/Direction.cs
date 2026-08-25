@@ -29,7 +29,7 @@ public static class Directions
     public static Direction Previous(this Direction direction) => (Direction)(((int)direction + Count - 1) % Count);
 
     public static Direction Parse(string text) =>
-        Enum.TryParse<Direction>(text.Trim(), ignoreCase: true, out var direction)
+        Enum.TryParse<Direction>(text.Trim(), ignoreCase: true, out Direction direction)
             ? direction
             : throw new FormatException($"'{text}' is not a compass direction.");
 }

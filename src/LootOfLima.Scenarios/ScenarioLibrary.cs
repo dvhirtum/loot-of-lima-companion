@@ -28,7 +28,7 @@ public static class ScenarioLibrary
     public static IReadOnlyList<Scenario> All => Data.Value.Ordered;
 
     public static Scenario Get(string id) =>
-        Data.Value.ById.TryGetValue(id, out var scenario)
+        Data.Value.ById.TryGetValue(id, out Scenario? scenario)
             ? scenario
             : throw new KeyNotFoundException($"No scenario with id '{id}'.");
 
@@ -38,7 +38,7 @@ public static class ScenarioLibrary
     /// </summary>
     public static ReadOnlyMemory<byte> PublishedAnswers(string id)
     {
-        var position = Data.Value.Position[id];
+        int position = Data.Value.Position[id];
         return Data.Value.Answers.AsMemory(position * AnswersPerScenario, AnswersPerScenario);
     }
 
@@ -70,27 +70,28 @@ public static class ScenarioLibrary
 
     private static LibraryData Load()
     {
-        var assembly = typeof(ScenarioLibrary).GetTypeInfo().Assembly;
+        Assembly assembly = typeof(ScenarioLibrary).GetTypeInfo().Assembly;
 
-        using var jsonStream = assembly.GetManifestResourceStream("LootOfLima.Scenarios.Data.scenarios.json")
+        using Stream jsonStream = assembly.GetManifestResourceStream("LootOfLima.Scenarios.Data.scenarios.json")
             ?? throw new InvalidOperationException("Embedded scenarios.json is missing.");
-        using var answerStream = assembly.GetManifestResourceStream("LootOfLima.Scenarios.Data.scenario-answers.bin")
+        using Stream answerStream =
+            assembly.GetManifestResourceStream("LootOfLima.Scenarios.Data.scenario-answers.bin")
             ?? throw new InvalidOperationException("Embedded scenario-answers.bin is missing.");
 
-        using var buffer = new MemoryStream();
+        using MemoryStream buffer = new();
         answerStream.CopyTo(buffer);
-        var answers = buffer.ToArray();
+        byte[] answers = buffer.ToArray();
 
-        using var document = JsonDocument.Parse(jsonStream);
-        var root = document.RootElement;
+        using JsonDocument document = JsonDocument.Parse(jsonStream);
+        JsonElement root = document.RootElement;
 
-        var ordered = new List<Scenario>();
-        foreach (var element in root.GetProperty("scenarios").EnumerateArray())
+        List<Scenario> ordered = new();
+        foreach (JsonElement element in root.GetProperty("scenarios").EnumerateArray())
         {
             ordered.Add(ReadScenario(element));
         }
 
-        var expected = ordered.Count * AnswersPerScenario;
+        int expected = ordered.Count * AnswersPerScenario;
         if (answers.Length != expected)
         {
             throw new InvalidOperationException(
@@ -108,13 +109,13 @@ public static class ScenarioLibrary
 
     private static Scenario ReadScenario(JsonElement element)
     {
-        var hands = new List<IReadOnlyList<LocationId>>();
-        foreach (var hand in element.GetProperty("hands").EnumerateArray())
+        List<IReadOnlyList<LocationId>> hands = new();
+        foreach (JsonElement hand in element.GetProperty("hands").EnumerateArray())
         {
             hands.Add(ParseLocations(hand.GetString()));
         }
 
-        var fewest = (element.GetProperty("fewestTerrain").GetString() ?? string.Empty)
+        Terrain?[] fewest = (element.GetProperty("fewestTerrain").GetString() ?? string.Empty)
             .Split(' ', StringSplitOptions.RemoveEmptyEntries)
             .Select(code => code == "?" ? (Terrain?)null : Terrains.FromCode(code[0]))
             .ToArray();

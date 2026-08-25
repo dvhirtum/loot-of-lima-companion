@@ -37,13 +37,13 @@ internal sealed partial class LookupChart
     /// <param name="cellWidth">2 for the token chart, 1 for the answer chart.</param>
     public static LookupChart Parse(string text, int cellWidth)
     {
-        var expectedLength = Columns * cellWidth;
-        var cells = new string[Rows * Columns];
-        var seen = new bool[Rows];
+        int expectedLength = Columns * cellWidth;
+        string[] cells = new string[Rows * Columns];
+        bool[] seen = new bool[Rows];
 
-        foreach (var line in text.Split('\n'))
+        foreach (string line in text.Split('\n'))
         {
-            var match = RowPattern().Match(line);
+            Match match = RowPattern().Match(line);
             if (!match.Success)
             {
                 continue;
@@ -51,27 +51,27 @@ internal sealed partial class LookupChart
 
             // Whitespace inside a row is arbitrary: some rows are grouped in fives, some are one
             // continuous run, and rows 'M' and ' I' have irregular leading spacing.
-            var payload = WhitespacePattern().Replace(match.Groups[2].Value, string.Empty);
+            string payload = WhitespacePattern().Replace(match.Groups[2].Value, string.Empty);
             if (payload.Length != expectedLength)
             {
                 // Not a data row (e.g. the "PAGE 15" footer, which also starts with a capital).
                 continue;
             }
 
-            var rowIndex = match.Groups[1].Value[0] - 'A';
+            int rowIndex = match.Groups[1].Value[0] - 'A';
             if (seen[rowIndex])
             {
                 throw new FormatException($"Lookup chart row '{match.Groups[1].Value}' appears twice.");
             }
 
             seen[rowIndex] = true;
-            for (var column = 0; column < Columns; column++)
+            for (int column = 0; column < Columns; column++)
             {
                 cells[(rowIndex * Columns) + column] = payload.Substring(column * cellWidth, cellWidth);
             }
         }
 
-        var missing = Enumerable.Range(0, Rows).Where(i => !seen[i]).Select(i => (char)('A' + i)).ToArray();
+        char[] missing = Enumerable.Range(0, Rows).Where(i => !seen[i]).Select(i => (char)('A' + i)).ToArray();
         if (missing.Length > 0)
         {
             throw new FormatException($"Lookup chart is missing rows: {string.Join(", ", missing)}.");

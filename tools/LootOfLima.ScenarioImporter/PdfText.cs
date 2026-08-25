@@ -20,15 +20,15 @@ internal static partial class PdfText
     /// grid needed for the multi-column Scenario Tokens Chart; the default layout mode mangles it.</summary>
     public static string ExtractPage(string pdfPath, int page, bool linePrinter = false)
     {
-        var mode = linePrinter ? "-lineprinter -fixed 5" : "-layout";
-        var startInfo = new ProcessStartInfo("pdftotext")
+        string mode = linePrinter ? "-lineprinter -fixed 5" : "-layout";
+        ProcessStartInfo startInfo = new("pdftotext")
         {
             RedirectStandardOutput = true,
             RedirectStandardError = true,
             UseShellExecute = false,
         };
 
-        foreach (var argument in mode.Split(' '))
+        foreach (string argument in mode.Split(' '))
         {
             startInfo.ArgumentList.Add(argument);
         }
@@ -40,11 +40,11 @@ internal static partial class PdfText
         startInfo.ArgumentList.Add(pdfPath);
         startInfo.ArgumentList.Add("-");
 
-        using var process = Process.Start(startInfo)
+        using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Could not start pdftotext. Is poppler on PATH?");
 
-        var stdout = process.StandardOutput.ReadToEnd();
-        var stderr = process.StandardError.ReadToEnd();
+        string stdout = process.StandardOutput.ReadToEnd();
+        string stderr = process.StandardError.ReadToEnd();
         process.WaitForExit();
 
         if (process.ExitCode != 0)

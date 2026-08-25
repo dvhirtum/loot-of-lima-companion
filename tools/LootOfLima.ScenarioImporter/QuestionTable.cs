@@ -36,9 +36,9 @@ internal sealed class QuestionTable
     /// <param name="answerChart">The book's answer lookup chart (page 16).</param>
     public static QuestionTable Parse(string pageText, LookupChart answerChart)
     {
-        var rows = new List<List<CodeToken>>();
+        List<List<CodeToken>> rows = new();
 
-        foreach (var line in pageText.Split('\n'))
+        foreach (string line in pageText.Split('\n'))
         {
             List<CodeToken> tokens;
             try
@@ -54,34 +54,34 @@ internal sealed class QuestionTable
             // A data row carries exactly 32 lookup codes. Row and block labels ("A", "B", "F",
             // "M", "NE", ...) tokenize as bare letters and are dropped; header and footer lines
             // never reach 32 codes.
-            var codes = tokens.Where(t => !t.IsBareLetter).ToList();
+            List<CodeToken> codes = tokens.Where(t => !t.IsBareLetter).ToList();
             if (codes.Count == CodesPerLine)
             {
                 rows.Add(codes);
             }
         }
 
-        var expectedRows = Directions.Count * TerrainRows.Count;   // 32
+        int expectedRows = Directions.Count * TerrainRows.Count;   // 32
         if (rows.Count != expectedRows)
         {
             throw new FormatException($"Expected {expectedRows} question rows, found {rows.Count}.");
         }
 
-        var answers = new byte[Directions.Count * Directions.Count * TerrainRows.Count * PlayerCount];
+        byte[] answers = new byte[Directions.Count * Directions.Count * TerrainRows.Count * PlayerCount];
 
-        for (var row = 0; row < expectedRows; row++)
+        for (int row = 0; row < expectedRows; row++)
         {
-            var end = (Direction)(row / TerrainRows.Count);
-            var terrainRow = row % TerrainRows.Count;
+            Direction end = (Direction)(row / TerrainRows.Count);
+            int terrainRow = row % TerrainRows.Count;
 
-            for (var column = 0; column < CodesPerLine; column++)
+            for (int column = 0; column < CodesPerLine; column++)
             {
-                var start = (Direction)(column / PlayerCount);
-                var player = FirstPlayer + (column % PlayerCount);
+                Direction start = (Direction)(column / PlayerCount);
+                int player = FirstPlayer + (column % PlayerCount);
 
-                var code = rows[row][column];
-                var decoded = answerChart[code.Letter, code.Number!.Value];
-                if (!byte.TryParse(decoded, out var answer))
+                CodeToken code = rows[row][column];
+                string decoded = answerChart[code.Letter, code.Number!.Value];
+                if (!byte.TryParse(decoded, out byte answer))
                 {
                     throw new FormatException($"Answer code {code} decoded to '{decoded}', not a digit.");
                 }
@@ -102,15 +102,15 @@ internal sealed class QuestionTable
     public List<LocationId> DeriveHand(int player, BoardLayout layout)
     {
         ArgumentNullException.ThrowIfNull(layout);
-        var hand = new List<LocationId>();
+        List<LocationId> hand = new();
 
-        for (var terrainRow = 1; terrainRow < TerrainRows.Count; terrainRow++)
+        for (int terrainRow = 1; terrainRow < TerrainRows.Count; terrainRow++)
         {
-            var terrain = TerrainRows[terrainRow]!.Value;
+            Terrain terrain = TerrainRows[terrainRow]!.Value;
 
-            foreach (var sector in Directions.All)
+            foreach (Direction sector in Directions.All)
             {
-                var count = this[sector, sector.Next(), terrainRow, player];
+                byte count = this[sector, sector.Next(), terrainRow, player];
                 switch (count)
                 {
                     case 0:

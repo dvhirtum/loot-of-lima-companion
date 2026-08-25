@@ -25,7 +25,7 @@ public class EngineTests
     [InlineData(Direction.N, Direction.SW, 3)]
     public void Reproduces_the_published_mountain_answers(Direction start, Direction end, int expected)
     {
-        var range = new QueryRange(start, end, Terrain.Mountain);
+        QueryRange range = new(start, end, Terrain.Mountain);
         Assert.Equal(expected, Engine.CountInRange(Book1Scenario1Player3, range, Layout));
     }
 
@@ -37,18 +37,18 @@ public class EngineTests
     [InlineData(Direction.N, Direction.NW, 1)]
     public void Reproduces_the_published_beach_answers(Direction start, Direction end, int expected)
     {
-        var range = new QueryRange(start, end, Terrain.Beach);
+        QueryRange range = new(start, end, Terrain.Beach);
         Assert.Equal(expected, Engine.CountInRange(Book1Scenario1Player3, range, Layout));
     }
 
     [Fact]
     public void Player_with_no_forest_tokens_answers_zero_to_every_forest_question()
     {
-        foreach (var start in Directions.All)
+        foreach (Direction start in Directions.All)
         {
-            foreach (var end in Directions.All)
+            foreach (Direction end in Directions.All)
             {
-                var range = new QueryRange(start, end, Terrain.Forest);
+                QueryRange range = new(start, end, Terrain.Forest);
                 Assert.Equal(0, Engine.CountInRange(Book1Scenario1Player3, range, Layout));
             }
         }
@@ -57,12 +57,12 @@ public class EngineTests
     [Fact]
     public void All_terrain_answer_equals_the_sum_of_the_three_terrain_answers()
     {
-        foreach (var start in Directions.All)
+        foreach (Direction start in Directions.All)
         {
-            foreach (var end in Directions.All)
+            foreach (Direction end in Directions.All)
             {
-                var all = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(start, end), Layout);
-                var summed = Terrains.All.Sum(terrain =>
+                int all = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(start, end), Layout);
+                int summed = Terrains.All.Sum(terrain =>
                     Engine.CountInRange(Book1Scenario1Player3, new QueryRange(start, end, terrain), Layout));
 
                 Assert.Equal(all, summed);
@@ -73,9 +73,9 @@ public class EngineTests
     [Fact]
     public void Coincident_arrows_return_the_whole_hand()
     {
-        foreach (var direction in Directions.All)
+        foreach (Direction direction in Directions.All)
         {
-            var range = new QueryRange(direction, direction);
+            QueryRange range = new(direction, direction);
             Assert.Equal(
                 Book1Scenario1Player3.Length,
                 Engine.CountInRange(Book1Scenario1Player3, range, Layout));
@@ -85,17 +85,17 @@ public class EngineTests
     [Fact]
     public void Complementary_arcs_partition_the_hand()
     {
-        foreach (var a in Directions.All)
+        foreach (Direction a in Directions.All)
         {
-            foreach (var b in Directions.All)
+            foreach (Direction b in Directions.All)
             {
                 if (a == b)
                 {
                     continue;
                 }
 
-                var forward = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(a, b), Layout);
-                var backward = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(b, a), Layout);
+                int forward = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(a, b), Layout);
+                int backward = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(b, a), Layout);
 
                 Assert.Equal(Book1Scenario1Player3.Length, forward + backward);
             }
@@ -103,8 +103,6 @@ public class EngineTests
     }
 
     [Fact]
-    public void Empty_hand_always_answers_zero()
-    {
+    public void Empty_hand_always_answers_zero() =>
         Assert.Equal(0, Engine.CountInRange([], new QueryRange(Direction.N, Direction.S), Layout));
-    }
 }

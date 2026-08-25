@@ -11,7 +11,7 @@ public readonly record struct QueryRange(Direction Start, Direction End, Terrain
 {
     public override string ToString()
     {
-        var terrain = TerrainFilter is { } t ? t.ToString() : "any terrain";
+        string terrain = TerrainFilter is { } t ? t.ToString() : "any terrain";
         return $"{Start}->{End} ({terrain})";
     }
 }

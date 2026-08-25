@@ -7,8 +7,8 @@ public class BoardLayoutTests
     [Fact]
     public void Every_location_is_assigned_to_exactly_one_sector()
     {
-        var perSector = new int[Directions.Count];
-        foreach (var location in LocationId.All)
+        int[] perSector = new int[Directions.Count];
+        foreach (LocationId location in LocationId.All)
         {
             perSector[(int)Layout.SectorOf(location)]++;
         }
@@ -20,9 +20,9 @@ public class BoardLayoutTests
     [Fact]
     public void Each_sector_holds_one_location_of_each_terrain()
     {
-        foreach (var sector in Directions.All)
+        foreach (Direction sector in Directions.All)
         {
-            var terrains = Layout.LocationsIn(sector).Select(l => l.Terrain).Order().ToArray();
+            Terrain[] terrains = Layout.LocationsIn(sector).Select(l => l.Terrain).Order().ToArray();
             Assert.Equal([Terrain.Beach, Terrain.Forest, Terrain.Mountain], terrains);
         }
     }
@@ -30,7 +30,7 @@ public class BoardLayoutTests
     [Fact]
     public void Coincident_arrows_sweep_the_whole_circle()
     {
-        foreach (var direction in Directions.All)
+        foreach (Direction direction in Directions.All)
         {
             Assert.Equal(Directions.Count, Layout.ArcSectorCount(direction, direction));
         }
@@ -39,7 +39,7 @@ public class BoardLayoutTests
     [Fact]
     public void Adjacent_arrows_cover_exactly_the_start_sector()
     {
-        foreach (var direction in Directions.All)
+        foreach (Direction direction in Directions.All)
         {
             Assert.Equal(1, Layout.ArcSectorCount(direction, direction.Next()));
             Assert.True(Layout.ArcContains(direction, direction.Next(), direction));
@@ -49,17 +49,17 @@ public class BoardLayoutTests
     [Fact]
     public void Opposing_arcs_are_disjoint_and_together_cover_the_circle()
     {
-        foreach (var a in Directions.All)
+        foreach (Direction a in Directions.All)
         {
-            foreach (var b in Directions.All)
+            foreach (Direction b in Directions.All)
             {
                 if (a == b)
                 {
                     continue;
                 }
 
-                var forward = Layout.ArcSectorMask(a, b);
-                var backward = Layout.ArcSectorMask(b, a);
+                byte forward = Layout.ArcSectorMask(a, b);
+                byte backward = Layout.ArcSectorMask(b, a);
 
                 Assert.Equal(0, forward & backward);
                 Assert.Equal(0xFF, forward | backward);

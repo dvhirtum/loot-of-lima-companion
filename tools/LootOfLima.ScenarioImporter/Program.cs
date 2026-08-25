@@ -3,8 +3,8 @@ using System.Text.Json.Serialization;
 using LootOfLima.Rules;
 using LootOfLima.ScenarioImporter;
 
-var pdfDir = GetOption(args, "--pdf-dir") ?? Path.Combine("docs", "solo and 2-player rules");
-var outDir = GetOption(args, "--out-dir") ?? Path.Combine("src", "LootOfLima.Scenarios", "Data");
+string pdfDir = GetOption(args, "--pdf-dir") ?? Path.Combine("docs", "solo and 2-player rules");
+string outDir = GetOption(args, "--out-dir") ?? Path.Combine("src", "LootOfLima.Scenarios", "Data");
 
 if (!Directory.Exists(pdfDir))
 {
@@ -15,17 +15,17 @@ if (!Directory.Exists(pdfDir))
 // Diagnostic mode: dump how a single page tokenizes. Invaluable when a book's layout shifts.
 if (GetOption(args, "--debug-page") is { } debugPage)
 {
-    var debugBook = GetOption(args, "--debug-book") ?? "1";
-    var debugPath = Path.Combine(pdfDir, $"Loot-of-Lima_book_{debugBook}.pdf");
-    var linePrinter = int.Parse(debugPage) == 2;
+    string debugBook = GetOption(args, "--debug-book") ?? "1";
+    string debugPath = Path.Combine(pdfDir, $"Loot-of-Lima_book_{debugBook}.pdf");
+    bool linePrinter = int.Parse(debugPage) == 2;
 
-    foreach (var line in PdfText.ExtractPage(debugPath, int.Parse(debugPage), linePrinter).Split('\n'))
+    foreach (string line in PdfText.ExtractPage(debugPath, int.Parse(debugPage), linePrinter).Split('\n'))
     {
         string summary;
         try
         {
-            var tokens = CodeTokenizer.Tokenize(line);
-            var codes = tokens.Count(t => !t.IsBareLetter);
+            List<CodeToken> tokens = CodeTokenizer.Tokenize(line);
+            int codes = tokens.Count(t => !t.IsBareLetter);
             summary = $"{codes,3} codes, {tokens.Count - codes,2} bare";
         }
         catch (FormatException ex)
@@ -33,21 +33,21 @@ if (GetOption(args, "--debug-page") is { } debugPage)
             summary = $"TOKENIZE FAILED: {ex.Message}";
         }
 
-        var preview = line.Length > 60 ? line[..60] : line;
+        string preview = line.Length > 60 ? line[..60] : line;
         Console.WriteLine($"{summary} | {preview}");
     }
 
     return 0;
 }
 
-var layout = BoardLayout.Default;
-var scenarios = new List<ScenarioRecord>();
-var answerBlob = new List<byte>();
-var failures = new List<string>();
+BoardLayout layout = BoardLayout.Default;
+List<ScenarioRecord> scenarios = new();
+List<byte> answerBlob = new();
+List<string> failures = new();
 
-for (var book = 1; book <= 20; book++)
+for (int book = 1; book <= 20; book++)
 {
-    var pdfPath = Path.Combine(pdfDir, $"Loot-of-Lima_book_{book}.pdf");
+    string pdfPath = Path.Combine(pdfDir, $"Loot-of-Lima_book_{book}.pdf");
     if (!File.Exists(pdfPath))
     {
         failures.Add($"book {book}: file not found ({pdfPath})");
@@ -72,20 +72,20 @@ for (var book = 1; book <= 20; book++)
         continue;
     }
 
-    for (var number = 1; number <= 12; number++)
+    for (int number = 1; number <= 12; number++)
     {
-        var id = $"b{book}s{number}";
+        string id = $"b{book}s{number}";
         try
         {
-            var page = number + 2;   // scenario 1 is on page 3
-            var table = QuestionTable.Parse(PdfText.ExtractPage(pdfPath, page), answerChart);
+            int page = number + 2;   // scenario 1 is on page 3
+            QuestionTable table = QuestionTable.Parse(PdfText.ExtractPage(pdfPath, page), answerChart);
 
-            if (!tokensChart.TryGetValue(number, out var printed))
+            if (!tokensChart.TryGetValue(number, out ScenarioTokens? printed))
             {
                 throw new FormatException("no entry found on the Scenario Tokens Chart.");
             }
 
-            var record = BuildScenario(id, book, number, table, printed, layout);
+            ScenarioRecord record = BuildScenario(id, book, number, table, printed, layout);
             scenarios.Add(record);
             answerBlob.AddRange(table.ToCanonicalBytes());
         }
@@ -98,14 +98,14 @@ for (var book = 1; book <= 20; book++)
 
 Directory.CreateDirectory(outDir);
 
-var document = new ScenarioFile(
+ScenarioFile document = new(
     SchemaVersion: 1,
     GeneratedUtc: DateTime.UtcNow.ToString("O"),
     AnswerOrdering: "start x end x terrainFilter(all,beach,forest,mountain) x player(2..5)",
     AnswersPerScenario: 1024,
     Scenarios: scenarios);
 
-var jsonOptions = new JsonSerializerOptions
+JsonSerializerOptions jsonOptions = new()
 {
     WriteIndented = true,
     PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -124,7 +124,7 @@ if (failures.Count > 0)
 {
     Console.WriteLine();
     Console.Error.WriteLine($"{failures.Count} scenario(s) could NOT be verified and were not emitted:");
-    foreach (var failure in failures)
+    foreach (string failure in failures)
     {
         Console.Error.WriteLine($"  {failure}");
     }
@@ -141,10 +141,10 @@ static ScenarioRecord BuildScenario(
     BoardLayout layout)
 {
     // P2-P5 come straight out of the published answers; no page-2 parsing involved.
-    var hands = new List<LocationId>[5];
-    for (var player = QuestionTable.FirstPlayer; player <= QuestionTable.LastPlayer; player++)
+    List<LocationId>[] hands = new List<LocationId>[5];
+    for (int player = QuestionTable.FirstPlayer; player <= QuestionTable.LastPlayer; player++)
     {
-        var hand = table.DeriveHand(player, layout);
+        List<LocationId> hand = table.DeriveHand(player, layout);
         if (hand.Count != 4)
         {
             throw new FormatException($"derived hand for P{player} has {hand.Count} tokens, expected 4.");
@@ -153,7 +153,7 @@ static ScenarioRecord BuildScenario(
         hands[player - 1] = hand;
 
         // Independent cross-check against the printed chart, when we managed to read it.
-        var fromChart = printed.Hands[player - 1];
+        LocationId[]? fromChart = printed.Hands[player - 1];
         if (fromChart is not null && !fromChart.Order().SequenceEqual(hand.Order()))
         {
             throw new FormatException(
@@ -166,7 +166,7 @@ static ScenarioRecord BuildScenario(
     // board layout, the arc semantics and the decode all agree with the book.
     VerifyAgainstBook(table, hands, layout);
 
-    var p1 = printed.Hands[0]
+    LocationId[] p1 = printed.Hands[0]
         ?? throw new FormatException("could not read P1 from the Scenario Tokens Chart.");
     if (p1.Length != 4)
     {
@@ -175,14 +175,14 @@ static ScenarioRecord BuildScenario(
 
     hands[0] = [.. p1];
 
-    var reveal = printed.Reveal
+    LocationId[] reveal = printed.Reveal
         ?? throw new FormatException("could not read the Reveal row from the Scenario Tokens Chart.");
     if (reveal.Length != 2)
     {
         throw new FormatException($"Reveal has {reveal.Length} tokens, expected 2.");
     }
 
-    var dealt = hands.SelectMany(h => h).Concat(reveal).ToList();
+    List<LocationId> dealt = hands.SelectMany(h => h).Concat(reveal).ToList();
     if (dealt.Distinct().Count() != dealt.Count)
     {
         throw new FormatException("the same location is dealt twice.");
@@ -193,7 +193,7 @@ static ScenarioRecord BuildScenario(
         throw new FormatException($"{dealt.Count} locations dealt, expected 22.");
     }
 
-    var treasure = LocationId.All.Except(dealt).ToArray();
+    LocationId[] treasure = LocationId.All.Except(dealt).ToArray();
     if (treasure.Length != 2)
     {
         throw new FormatException($"{treasure.Length} locations left for the treasure, expected 2.");
@@ -217,14 +217,15 @@ static ScenarioRecord BuildScenario(
     }
 
     // The printed "fewest terrain" hint must really be a minimum of that hand.
-    for (var seat = 0; seat < 5; seat++)
+    for (int seat = 0; seat < 5; seat++)
     {
         if (printed.FewestTerrain[seat] is not { } fewest)
         {
             continue;
         }
 
-        var counts = Terrains.All.ToDictionary(t => t, t => hands[seat].Count(l => l.Terrain == t));
+        Dictionary<Terrain, int> counts =
+            Terrains.All.ToDictionary(t => t, t => hands[seat].Count(l => l.Terrain == t));
         if (counts[fewest] != counts.Values.Min())
         {
             throw new FormatException(
@@ -246,18 +247,18 @@ static ScenarioRecord BuildScenario(
 
 static void VerifyAgainstBook(QuestionTable table, List<LocationId>[] hands, BoardLayout layout)
 {
-    foreach (var start in Directions.All)
+    foreach (Direction start in Directions.All)
     {
-        foreach (var end in Directions.All)
+        foreach (Direction end in Directions.All)
         {
-            for (var terrainRow = 0; terrainRow < QuestionTable.TerrainRows.Count; terrainRow++)
+            for (int terrainRow = 0; terrainRow < QuestionTable.TerrainRows.Count; terrainRow++)
             {
-                var range = new QueryRange(start, end, QuestionTable.TerrainRows[terrainRow]);
+                QueryRange range = new(start, end, QuestionTable.TerrainRows[terrainRow]);
 
-                for (var player = QuestionTable.FirstPlayer; player <= QuestionTable.LastPlayer; player++)
+                for (int player = QuestionTable.FirstPlayer; player <= QuestionTable.LastPlayer; player++)
                 {
-                    var expected = table[start, end, terrainRow, player];
-                    var actual = Engine.CountInRange(hands[player - 1], range, layout);
+                    byte expected = table[start, end, terrainRow, player];
+                    int actual = Engine.CountInRange(hands[player - 1], range, layout);
 
                     if (expected != actual)
                     {
@@ -272,7 +273,7 @@ static void VerifyAgainstBook(QuestionTable table, List<LocationId>[] hands, Boa
 
 static string? GetOption(string[] args, string name)
 {
-    var index = Array.IndexOf(args, name);
+    int index = Array.IndexOf(args, name);
     return index >= 0 && index + 1 < args.Length ? args[index + 1] : null;
 }
 

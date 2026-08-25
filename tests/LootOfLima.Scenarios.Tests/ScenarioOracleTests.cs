@@ -13,8 +13,8 @@ public class ScenarioOracleTests
     {
         get
         {
-            var data = new TheoryData<string>();
-            foreach (var id in ScenarioLibrary.Ids)
+            TheoryData<string> data = new();
+            foreach (string id in ScenarioLibrary.Ids)
             {
                 data.Add(id);
             }
@@ -27,24 +27,24 @@ public class ScenarioOracleTests
     [MemberData(nameof(AllScenarioIds))]
     public void Engine_reproduces_every_published_answer(string id)
     {
-        var scenario = ScenarioLibrary.Get(id);
-        var published = ScenarioLibrary.PublishedAnswers(id).Span;
-        var layout = BoardLayout.Default;
+        Scenario scenario = ScenarioLibrary.Get(id);
+        ReadOnlySpan<byte> published = ScenarioLibrary.PublishedAnswers(id).Span;
+        BoardLayout layout = BoardLayout.Default;
 
-        foreach (var start in Directions.All)
+        foreach (Direction start in Directions.All)
         {
-            foreach (var end in Directions.All)
+            foreach (Direction end in Directions.All)
             {
-                for (var terrainRow = 0; terrainRow < ScenarioLibrary.TerrainRows.Count; terrainRow++)
+                for (int terrainRow = 0; terrainRow < ScenarioLibrary.TerrainRows.Count; terrainRow++)
                 {
-                    var range = new QueryRange(start, end, ScenarioLibrary.TerrainRows[terrainRow]);
+                    QueryRange range = new(start, end, ScenarioLibrary.TerrainRows[terrainRow]);
 
-                    for (var player = ScenarioLibrary.FirstAnsweringPlayer;
+                    for (int player = ScenarioLibrary.FirstAnsweringPlayer;
                          player <= ScenarioLibrary.LastAnsweringPlayer;
                          player++)
                     {
-                        var expected = published[ScenarioLibrary.AnswerIndex(start, end, terrainRow, player)];
-                        var actual = Engine.CountInRange(scenario.Hands[player - 1], range, layout);
+                        byte expected = published[ScenarioLibrary.AnswerIndex(start, end, terrainRow, player)];
+                        int actual = Engine.CountInRange(scenario.Hands[player - 1], range, layout);
 
                         Assert.Equal(expected, actual);
                     }

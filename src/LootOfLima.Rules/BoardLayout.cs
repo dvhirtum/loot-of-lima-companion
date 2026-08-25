@@ -51,56 +51,56 @@ public sealed class BoardLayout
 
     private static BoardLayout LoadEmbedded()
     {
-        using var stream = typeof(BoardLayout).GetTypeInfo().Assembly.GetManifestResourceStream(ResourceName)
+        using Stream stream = typeof(BoardLayout).GetTypeInfo().Assembly.GetManifestResourceStream(ResourceName)
             ?? throw new InvalidOperationException($"Embedded resource '{ResourceName}' is missing.");
         return Load(stream);
     }
 
     public static BoardLayout Load(Stream json)
     {
-        using var document = JsonDocument.Parse(json);
+        using JsonDocument document = JsonDocument.Parse(json);
         return Load(document.RootElement);
     }
 
     public static BoardLayout Load(JsonElement root)
     {
-        var semantics = root.GetProperty("arcSemantics");
+        JsonElement semantics = root.GetProperty("arcSemantics");
         Require(semantics.GetProperty("startInclusive").GetBoolean(), "startInclusive must be true.");
         Require(semantics.GetProperty("endExclusive").GetBoolean(), "endExclusive must be true.");
         Require(
             semantics.GetProperty("startEqualsEndMeansFullCircle").GetBoolean(),
             "startEqualsEndMeansFullCircle must be true.");
 
-        var sectorOfLocation = new byte[LocationId.TotalCount];
-        var assigned = new bool[LocationId.TotalCount];
+        byte[] sectorOfLocation = new byte[LocationId.TotalCount];
+        bool[] assigned = new bool[LocationId.TotalCount];
 
-        var sectors = root.GetProperty("sectors");
+        JsonElement sectors = root.GetProperty("sectors");
         Require(
             sectors.GetArrayLength() == Directions.Count,
             $"Expected {Directions.Count} sectors, found {sectors.GetArrayLength()}.");
 
-        var seenSectors = new bool[Directions.Count];
-        foreach (var sector in sectors.EnumerateArray())
+        bool[] seenSectors = new bool[Directions.Count];
+        foreach (JsonElement sector in sectors.EnumerateArray())
         {
-            var direction = Directions.Parse(sector.GetProperty("direction").GetString() ?? string.Empty);
+            Direction direction = Directions.Parse(sector.GetProperty("direction").GetString() ?? string.Empty);
             Require(!seenSectors[(int)direction], $"Sector {direction} appears more than once.");
             seenSectors[(int)direction] = true;
 
-            var locations = sector.GetProperty("locations");
+            JsonElement locations = sector.GetProperty("locations");
             Require(
                 locations.GetArrayLength() == 3,
                 $"Sector {direction} must hold exactly 3 locations, found {locations.GetArrayLength()}.");
 
-            foreach (var element in locations.EnumerateArray())
+            foreach (JsonElement element in locations.EnumerateArray())
             {
-                var location = LocationId.Parse(element.GetString() ?? string.Empty);
+                LocationId location = LocationId.Parse(element.GetString() ?? string.Empty);
                 Require(!assigned[location.Index], $"Location {location} is assigned to more than one sector.");
                 assigned[location.Index] = true;
                 sectorOfLocation[location.Index] = (byte)direction;
             }
         }
 
-        for (var i = 0; i < LocationId.TotalCount; i++)
+        for (int i = 0; i < LocationId.TotalCount; i++)
         {
             Require(assigned[i], $"Location {LocationId.FromIndex(i)} is not assigned to any sector.");
         }
@@ -114,14 +114,14 @@ public sealed class BoardLayout
     /// </summary>
     private static byte[] BuildArcMasks()
     {
-        var masks = new byte[Directions.Count * Directions.Count];
-        for (var start = 0; start < Directions.Count; start++)
+        byte[] masks = new byte[Directions.Count * Directions.Count];
+        for (int start = 0; start < Directions.Count; start++)
         {
-            for (var end = 0; end < Directions.Count; end++)
+            for (int end = 0; end < Directions.Count; end++)
             {
-                var span = start == end ? Directions.Count : ((end - start + Directions.Count) % Directions.Count);
-                var mask = 0;
-                for (var step = 0; step < span; step++)
+                int span = start == end ? Directions.Count : ((end - start + Directions.Count) % Directions.Count);
+                int mask = 0;
+                for (int step = 0; step < span; step++)
                 {
                     mask |= 1 << ((start + step) % Directions.Count);
                 }

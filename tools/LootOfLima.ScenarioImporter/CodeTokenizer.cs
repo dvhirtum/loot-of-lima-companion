@@ -22,32 +22,32 @@ internal static class CodeTokenizer
     /// </summary>
     public static List<CodeToken> Tokenize(string line)
     {
-        var tokens = new List<CodeToken>();
+        List<CodeToken> tokens = new();
 
-        for (var i = 0; i < line.Length; i++)
+        for (int i = 0; i < line.Length; i++)
         {
             if (!char.IsAsciiLetterUpper(line[i]))
             {
                 continue;
             }
 
-            var column = i;
-            var letter = line[i];
+            int column = i;
+            char letter = line[i];
 
             // Skip whitespace between the letter and its digits.
-            var j = i + 1;
+            int j = i + 1;
             while (j < line.Length && line[j] == ' ')
             {
                 j++;
             }
 
-            var digitStart = j;
+            int digitStart = j;
             while (j < line.Length && char.IsAsciiDigit(line[j]))
             {
                 j++;
             }
 
-            var digitCount = j - digitStart;
+            int digitCount = j - digitStart;
             if (digitCount == 0)
             {
                 tokens.Add(new CodeToken(letter, null, column));

@@ -35,15 +35,15 @@ internal static partial class TokensChart
 
     public static Dictionary<int, ScenarioTokens> Parse(string pageText, LookupChart tokenChart)
     {
-        var result = new Dictionary<int, ScenarioTokens>();
-        var lines = pageText.Split('\n');
+        Dictionary<int, ScenarioTokens> result = new();
+        string[] lines = pageText.Split('\n');
 
         // Header columns, e.g. "Scenario1Tokens" at offset 12. Each header group covers six blocks.
-        var headers = new List<(int Scenario, int Column)>();
+        List<(int Scenario, int Column)> headers = new();
 
-        foreach (var line in lines)
+        foreach (string line in lines)
         {
-            var headerMatches = HeaderPattern().Matches(line);
+            MatchCollection headerMatches = HeaderPattern().Matches(line);
             if (headerMatches.Count > 0)
             {
                 headers.Clear();
@@ -94,29 +94,29 @@ internal static partial class TokensChart
         }
 
         // A block is: player marker (P1..P5), a bare terrain letter, then four lookup codes.
-        for (var i = 0; i + 1 + CodesPerHand < tokens.Count; i++)
+        for (int i = 0; i + 1 + CodesPerHand < tokens.Count; i++)
         {
-            var marker = tokens[i];
+            CodeToken marker = tokens[i];
             if (marker.Letter != 'P' || marker.Number is not (>= 1 and <= 5))
             {
                 continue;
             }
 
-            var terrainToken = tokens[i + 1];
+            CodeToken terrainToken = tokens[i + 1];
             if (!terrainToken.IsBareLetter || terrainToken.Letter is not ('B' or 'F' or 'M'))
             {
                 continue;
             }
 
-            var codes = tokens.GetRange(i + 2, CodesPerHand);
+            List<CodeToken> codes = tokens.GetRange(i + 2, CodesPerHand);
             if (codes.Exists(c => c.IsBareLetter))
             {
                 continue;
             }
 
-            var scenario = NearestScenario(headers, marker.Column);
-            var entry = GetOrAdd(result, scenario);
-            var player = marker.Number.Value;
+            int scenario = NearestScenario(headers, marker.Column);
+            ScenarioTokens entry = GetOrAdd(result, scenario);
+            int player = marker.Number.Value;
 
             entry.Hands[player - 1] = [.. codes.Select(c => Decode(c, tokenChart))];
             entry.FewestTerrain[player - 1] = Terrains.FromCode(terrainToken.Letter);
@@ -134,17 +134,17 @@ internal static partial class TokensChart
         foreach (Match match in RevealPattern().Matches(line))
         {
             // Everything up to the next "Reveal" (or end of line) belongs to this block.
-            var start = match.Index + match.Length;
-            var nextMatch = match.NextMatch();
-            var end = nextMatch.Success ? nextMatch.Index : line.Length;
+            int start = match.Index + match.Length;
+            Match nextMatch = match.NextMatch();
+            int end = nextMatch.Success ? nextMatch.Index : line.Length;
 
-            var codes = CodeTokenizer.Tokenize(line[start..end]).Where(c => !c.IsBareLetter).ToList();
+            List<CodeToken> codes = CodeTokenizer.Tokenize(line[start..end]).Where(c => !c.IsBareLetter).ToList();
             if (codes.Count != 2)
             {
                 continue;
             }
 
-            var scenario = NearestScenario(headers, match.Index);
+            int scenario = NearestScenario(headers, match.Index);
             GetOrAdd(result, scenario).Reveal = [.. codes.Select(c => Decode(c, tokenChart))];
         }
     }
@@ -160,7 +160,7 @@ internal static partial class TokensChart
         LookupChart tokenChart,
         Dictionary<int, ScenarioTokens> result)
     {
-        var match = SolutionRowPattern().Match(line);
+        Match match = SolutionRowPattern().Match(line);
         if (!match.Success)
         {
             return false;
@@ -183,7 +183,7 @@ internal static partial class TokensChart
             return false;
         }
 
-        var scenario = int.Parse(match.Groups[1].Value);
+        int scenario = int.Parse(match.Groups[1].Value);
         if (scenario is < 1 or > 12)
         {
             return false;
@@ -200,12 +200,12 @@ internal static partial class TokensChart
     /// left of their header, so the nearest header wins rather than the nearest preceding one.</summary>
     private static int NearestScenario(List<(int Scenario, int Column)> headers, int column)
     {
-        var best = headers[0];
-        var bestDistance = int.MaxValue;
+        (int Scenario, int Column) best = headers[0];
+        int bestDistance = int.MaxValue;
 
-        foreach (var header in headers)
+        foreach ((int Scenario, int Column) header in headers)
         {
-            var distance = Math.Abs(header.Column - column);
+            int distance = Math.Abs(header.Column - column);
             if (distance < bestDistance)
             {
                 bestDistance = distance;
@@ -218,7 +218,7 @@ internal static partial class TokensChart
 
     private static ScenarioTokens GetOrAdd(Dictionary<int, ScenarioTokens> result, int scenario)
     {
-        if (!result.TryGetValue(scenario, out var entry))
+        if (!result.TryGetValue(scenario, out ScenarioTokens? entry))
         {
             entry = new ScenarioTokens();
             result[scenario] = entry;
