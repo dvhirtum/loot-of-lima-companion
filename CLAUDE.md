@@ -22,6 +22,9 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 **The full plan lives at `C:\Users\Dick\.claude\plans\nested-hatching-petal.md`** (outside the
 repo). Read it before starting a milestone.
 
+Known defects that are understood but deliberately unfixed live in `docs/known-issues.md`. Check it
+before touching the importer or `BoardLayout`.
+
 ## Build and test
 
 ```
