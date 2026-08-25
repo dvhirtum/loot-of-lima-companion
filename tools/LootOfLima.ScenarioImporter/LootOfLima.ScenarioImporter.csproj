@@ -1,0 +1,13 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- Offline tool. Run manually; not referenced by the server. Requires pdftotext on PATH. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LootOfLima.Rules\LootOfLima.Rules.csproj" />
+  </ItemGroup>
+
+</Project>
