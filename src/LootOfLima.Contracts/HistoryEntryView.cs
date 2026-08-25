@@ -26,6 +26,7 @@ namespace LootOfLima.Contracts;
 [JsonDerivedType(typeof(TokenPassOccurredView), "tokenPassOccurred")]
 [JsonDerivedType(typeof(AccusationView), "accusation")]
 [JsonDerivedType(typeof(AccusationOccurredView), "accusationOccurred")]
+[JsonDerivedType(typeof(FewestTerrainAnnouncedView), "fewestTerrainAnnounced")]
 [JsonDerivedType(typeof(GameEndedView), "gameEnded")]
 public abstract record HistoryEntryView(int Sequence, int TurnNumber);
 
@@ -112,3 +113,16 @@ public sealed record GameEndedView(
     int TurnNumber,
     int? WinnerSeat,
     string Reason) : HistoryEntryView(Sequence, TurnNumber);
+
+/// <summary>
+/// A setup announcement of the terrain a seat holds fewest of. Public.
+/// </summary>
+/// <remarks>
+/// Names only the terrain chosen. There is deliberately no field saying whether the choice broke a
+/// tie: the rulebook says a player breaking one must not reveal that there was one.
+/// </remarks>
+public sealed record FewestTerrainAnnouncedView(
+    int Sequence,
+    int TurnNumber,
+    int SeatIndex,
+    string Terrain) : HistoryEntryView(Sequence, TurnNumber);

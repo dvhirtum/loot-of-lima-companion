@@ -32,6 +32,7 @@ internal static class Replay
         state = Unwrap(GameEngine.ConfirmTokensTaken(state, 0));
 
         PrintDeal(state);
+        PrintAnnouncements(state, "the book prints these, so nobody is asked to choose");
 
         // Four ordinary questions, then a Pistol, then the winning accusation.
         state = Ask(state, 0, 1, new QueryRange(Direction.N, Direction.E));
@@ -84,6 +85,16 @@ internal static class Replay
         {
             state = Unwrap(GameEngine.ConfirmPassDone(state, seat.Index));
         }
+
+        // Nothing is printed here for the humans to read: each announces for itself, and where two
+        // terrains tie the choice is genuinely theirs. This script always takes the first.
+        while (state.Phase == GamePhase.Announcing && state.ActiveSeat is { } announcer)
+        {
+            IReadOnlyList<Terrain> minima = FewestTerrainRule.Minima(state.SeatAt(announcer).Hand);
+            state = Unwrap(GameEngine.AnnounceFewestTerrain(state, announcer, minima[0]));
+        }
+
+        PrintAnnouncements(state, "players chose their own; bots broke ties from the seed");
 
         state = Ask(state, 0, 2, new QueryRange(Direction.N, Direction.S));
         state = Ask(state, 1, 3, new QueryRange(Direction.SW, Direction.NE, Terrain.Forest));
@@ -146,6 +157,23 @@ internal static class Replay
         Console.WriteLine();
     }
 
+    /// <summary>
+    /// The setup announcements. A tie is marked only here, from the hands the harness can see —
+    /// no player and no projection is ever told that a choice broke one.
+    /// </summary>
+    private static void PrintAnnouncements(GameState state, string note)
+    {
+        Console.WriteLine($"  fewest terrain announced ({note})");
+        foreach (Seat seat in state.Seats)
+        {
+            int eligible = FewestTerrainRule.Minima(seat.Hand).Count;
+            string tie = eligible > 1 ? $"   <- chosen from a {eligible}-way tie, which nobody else is told" : string.Empty;
+            Console.WriteLine($"    seat {seat.Index}  {seat.FewestTerrain}{tie}");
+        }
+
+        Console.WriteLine();
+    }
+
     private static void PrintOutcome(GameState state)
     {
         Console.WriteLine();
@@ -200,6 +228,9 @@ internal static class Replay
             $"secret    seat {occurred.AskerSeat} asked seat {occurred.TargetSeat} something (redacted)",
 
         AbilityUsedView ability => $"ability   seat {ability.SeatIndex} spent its {ability.Ability}",
+
+        FewestTerrainAnnouncedView announced =>
+            $"announce  seat {announced.SeatIndex} holds fewest {announced.Terrain}",
 
         TokenPassView pass =>
             $"pass      seat {pass.GiverSeat} gave {pass.Location} to seat {pass.ReceiverSeat} ({pass.Direction})",

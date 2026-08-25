@@ -69,6 +69,7 @@ public static class Projector
             KnownHand: Names(known),
             HandIsComplete: isViewer,
             AbilitiesRemaining: [.. seat.AbilitiesRemaining.Select(ability => ability.ToString())],
+            FewestTerrain: seat.FewestTerrain?.ToString(),
             TokensConfirmed: seat.TokensConfirmed,
             PassConfirmed: seat.PassConfirmed);
     }
@@ -145,6 +146,11 @@ public static class Projector
 
         AccusationEntry accusation => new AccusationOccurredView(
             accusation.Sequence, accusation.TurnNumber, accusation.AccuserSeat),
+
+        // Public in full: it is announced aloud. Note that the entry carries only the terrain
+        // named, so there is nothing here that could betray whether the choice broke a tie.
+        FewestTerrainAnnouncedEntry announced => new FewestTerrainAnnouncedView(
+            announced.Sequence, announced.TurnNumber, announced.SeatIndex, announced.Terrain.ToString()),
 
         GameEndedEntry ended => new GameEndedView(
             ended.Sequence, ended.TurnNumber, ended.WinnerSeat, ended.Reason.ToString()),

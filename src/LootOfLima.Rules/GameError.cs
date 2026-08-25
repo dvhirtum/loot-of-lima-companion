@@ -17,6 +17,7 @@ public enum GameErrorCode
     AbilityAlreadySpent,
     PistolNotSpentThisTurn,
     TerrainFilterNotAllowed,
+    NotAFewestTerrain,
     InvalidAccusation,
     AlreadyConfirmed,
 }

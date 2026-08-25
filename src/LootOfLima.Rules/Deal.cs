@@ -10,12 +10,14 @@ public sealed record Deal
         IReadOnlyList<IReadOnlyList<LocationId>> hands,
         IReadOnlyList<LocationId> publicReveal,
         IReadOnlyList<LocationId> treasure,
-        DealSource source)
+        DealSource source,
+        IReadOnlyList<Terrain?>? prescribedFewestTerrain)
     {
         Hands = hands;
         PublicReveal = publicReveal;
         Treasure = treasure;
         Source = source;
+        PrescribedFewestTerrain = prescribedFewestTerrain;
     }
 
     /// <summary>One hand per seat, in seat order, each sorted by location index.</summary>
@@ -29,17 +31,34 @@ public sealed record Deal
 
     public DealSource Source { get; }
 
+    /// <summary>
+    /// What each seat announces at setup, when the deal already settles it. Null for a generated
+    /// deal, where the players do the announcing themselves.
+    /// </summary>
+    /// <remarks>
+    /// The printed scenarios make this choice on the players' behalf, and it genuinely cannot be
+    /// recomputed: over half of the books' hands hold two terrains tied at the minimum, and the
+    /// rulebook leaves that choice to the player. Recomputing would silently disagree with the
+    /// booklet the player is holding.
+    /// </remarks>
+    public IReadOnlyList<Terrain?>? PrescribedFewestTerrain { get; }
+
     public int PlayerCount => Hands.Count;
 
     /// <summary>
     /// Validates and normalises a deal. Every one of the 24 locations must appear exactly once
     /// across the hands, the reveal and the treasure — the deal is a partition of the island.
     /// </summary>
+    /// <param name="prescribedFewestTerrain">
+    /// One entry per seat when the deal settles the setup announcement itself, as the printed
+    /// scenarios do. Each non-null entry must be a terrain that seat truthfully holds fewest of.
+    /// </param>
     public static Deal Create(
         IReadOnlyList<IReadOnlyList<LocationId>> hands,
         IReadOnlyList<LocationId> publicReveal,
         IReadOnlyList<LocationId> treasure,
-        DealSource source)
+        DealSource source,
+        IReadOnlyList<Terrain?>? prescribedFewestTerrain = null)
     {
         ArgumentNullException.ThrowIfNull(hands);
         ArgumentNullException.ThrowIfNull(publicReveal);
@@ -106,10 +125,33 @@ public sealed record Deal
             }
         }
 
+        if (prescribedFewestTerrain is not null)
+        {
+            if (prescribedFewestTerrain.Count != playerCount)
+            {
+                throw new ArgumentException(
+                    $"The deal prescribes {prescribedFewestTerrain.Count} announcements for {playerCount} seats.",
+                    nameof(prescribedFewestTerrain));
+            }
+
+            for (int seat = 0; seat < playerCount; seat++)
+            {
+                if (prescribedFewestTerrain[seat] is { } announced
+                    && !FewestTerrainRule.IsTruthful(hands[seat], announced))
+                {
+                    throw new ArgumentException(
+                        $"Seat {seat} is prescribed to announce {announced}, which is not a terrain it holds "
+                        + "fewest of.",
+                        nameof(prescribedFewestTerrain));
+                }
+            }
+        }
+
         return new Deal(
             hands: [.. hands.Select(hand => (IReadOnlyList<LocationId>)[.. hand.Order()])],
             publicReveal: [.. publicReveal.Order()],
             treasure: [.. treasure.Order()],
-            source: source);
+            source: source,
+            prescribedFewestTerrain: prescribedFewestTerrain is null ? null : [.. prescribedFewestTerrain]);
     }
 }

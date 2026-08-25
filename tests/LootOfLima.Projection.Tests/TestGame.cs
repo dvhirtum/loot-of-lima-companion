@@ -30,10 +30,22 @@ internal static class TestGame
     public static Setup Deal(int playerCount, DealSourceKind kind = DealSourceKind.Generated)
     {
         Setup generated = Dealer.Create(playerCount, DefaultSeed);
-        return kind == DealSourceKind.Generated
-            ? generated
-            : Setup.Create(
-                generated.Hands, generated.PublicReveal, generated.Treasure, DealSource.Scenario("test-scenario"));
+        if (kind == DealSourceKind.Generated)
+        {
+            return generated;
+        }
+
+        // A real scenario deal carries the book's printed "fewest terrain" letters, which settle
+        // the setup announcement for every seat. Stand in for them with the first truthful choice.
+        IReadOnlyList<Terrain?> prescribed =
+            [.. generated.Hands.Select(hand => (Terrain?)FewestTerrainRule.Minima(hand)[0])];
+
+        return Setup.Create(
+            generated.Hands,
+            generated.PublicReveal,
+            generated.Treasure,
+            DealSource.Scenario("test-scenario"),
+            prescribed);
     }
 
     public static GameState Lobby(int playerCount, int humans) =>
@@ -53,9 +65,34 @@ internal static class TestGame
             state = Unwrap(GameEngine.ConfirmTokensTaken(state, seat.Index));
         }
 
-        if (state.Phase != GamePhase.Passing)
+        if (state.Phase == GamePhase.Passing)
         {
-            return state;
+            foreach (Seat seat in state.HumanSeats.ToList())
+            {
+                state = Unwrap(GameEngine.ConfirmPassDone(state, seat.Index));
+            }
+        }
+
+        // Each human names the first terrain it truthfully holds fewest of; bots and prescribed
+        // seats settle themselves.
+        while (state.Phase == GamePhase.Announcing && state.ActiveSeat is { } seatIndex)
+        {
+            Terrain terrain = FewestTerrainRule.Minima(state.SeatAt(seatIndex).Hand)[0];
+            state = Unwrap(GameEngine.AnnounceFewestTerrain(state, seatIndex, terrain));
+        }
+
+        return state;
+    }
+
+    /// <summary>Dealt and passed, waiting on the first seat to announce its fewest terrain.</summary>
+    public static GameState Announcing(int playerCount = 5, int humans = 3)
+    {
+        GameState state = Unwrap(GameEngine.Start(
+            Lobby(playerCount, humans), Deal(playerCount), new DeterministicShuffleSource(DefaultSeed)));
+
+        foreach (Seat seat in state.HumanSeats.ToList())
+        {
+            state = Unwrap(GameEngine.ConfirmTokensTaken(state, seat.Index));
         }
 
         foreach (Seat seat in state.HumanSeats.ToList())

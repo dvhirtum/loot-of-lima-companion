@@ -16,6 +16,10 @@ public sealed record SeatSpec(SeatKind Kind, string DisplayName, string? PlayerI
 /// The turn on which this seat spent its Pistol. A secret question is legal only while this equals
 /// the current turn number, so the ability unlocks exactly one question on exactly one turn.
 /// </param>
+/// <param name="FewestTerrain">
+/// The terrain this seat announced holding fewest of at setup, or null before it announced. Public
+/// to everybody once made — that is the entire point of announcing it.
+/// </param>
 public sealed record Seat(
     int Index,
     SeatKind Kind,
@@ -26,7 +30,8 @@ public sealed record Seat(
     bool Eliminated,
     bool TokensConfirmed,
     bool PassConfirmed,
-    int? PistolArmedTurn)
+    int? PistolArmedTurn,
+    Terrain? FewestTerrain)
 {
     public bool IsHuman => Kind == SeatKind.Human;
 
@@ -47,7 +52,8 @@ public sealed record Seat(
             Eliminated: false,
             TokensConfirmed: false,
             PassConfirmed: false,
-            PistolArmedTurn: null);
+            PistolArmedTurn: null,
+            FewestTerrain: null);
     }
 
     public override string ToString() => $"seat {Index} ({DisplayName}, {Kind})";

@@ -68,3 +68,16 @@ public sealed record GameEndedEntry(
     int TurnNumber,
     int? WinnerSeat,
     GameEndReason Reason) : HistoryEntry(Sequence, TurnNumber);
+
+/// <summary>
+/// A setup announcement of the terrain a seat holds fewest of. Public: it is announced aloud.
+/// </summary>
+/// <remarks>
+/// Carries only the terrain named, never how many terrains were eligible. The rulebook is explicit
+/// that a player breaking a tie must not reveal that there was one.
+/// </remarks>
+public sealed record FewestTerrainAnnouncedEntry(
+    int Sequence,
+    int TurnNumber,
+    int SeatIndex,
+    Terrain Terrain) : HistoryEntry(Sequence, TurnNumber);

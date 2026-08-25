@@ -14,6 +14,10 @@ namespace LootOfLima.Contracts;
 /// viewer themselves. A client must not infer anything from a short list without this flag.
 /// </param>
 /// <param name="AbilitiesRemaining">Unspent ability tokens. Public: they sit face up on the board.</param>
+/// <param name="FewestTerrain">
+/// The terrain this seat announced holding fewest of at setup, or null before it announced.
+/// Public, and deliberately says nothing about whether the choice broke a tie.
+/// </param>
 public sealed record SeatView(
     int Index,
     string Kind,
@@ -25,5 +29,6 @@ public sealed record SeatView(
     IReadOnlyList<string> KnownHand,
     bool HandIsComplete,
     IReadOnlyList<string> AbilitiesRemaining,
+    string? FewestTerrain,
     bool TokensConfirmed,
     bool PassConfirmed);

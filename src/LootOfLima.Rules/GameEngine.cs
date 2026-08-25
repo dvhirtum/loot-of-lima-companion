@@ -157,7 +157,7 @@ public static class GameEngine
             return Result<GameState>.Success(next);
         }
 
-        return Result<GameState>.Success(next.PendingPasses.Count > 0 ? BeginPassing(next) : BeginPlay(next));
+        return Result<GameState>.Success(next.PendingPasses.Count > 0 ? BeginPassing(next) : BeginAnnouncing(next));
     }
 
     /// <summary>The same gate for passing: this player has handed their token over.</summary>
@@ -178,7 +178,42 @@ public static class GameEngine
 
         GameState next = WithSeat(state, seat with { PassConfirmed = true });
         return Result<GameState>.Success(
-            next.HumanSeats.Any(other => !other.PassConfirmed) ? next : BeginPlay(next));
+            next.HumanSeats.Any(other => !other.PassConfirmed) ? next : BeginAnnouncing(next));
+    }
+
+    /// <summary>
+    /// Announces the terrain this seat holds fewest of, in turn order, before play begins.
+    /// </summary>
+    /// <remarks>
+    /// Holding none of a terrain counts as fewest. Where two terrains tie the choice is the
+    /// player's, so the engine checks only that the announcement is truthful and records nothing
+    /// about how many terrains were eligible — the rulebook says the tie itself stays hidden.
+    /// </remarks>
+    public static Result<GameState> AnnounceFewestTerrain(GameState state, int seatIndex, Terrain terrain)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if ((Reject(state, GamePhase.Announcing) ?? RejectHumanSeat(state, seatIndex)) is { } error)
+        {
+            return error;
+        }
+
+        if (state.ActiveSeat != seatIndex)
+        {
+            return new GameError(
+                GameErrorCode.NotYourTurn,
+                $"Seat {state.ActiveSeat} announces before seat {seatIndex} does.");
+        }
+
+        Seat seat = state.SeatAt(seatIndex);
+        if (!FewestTerrainRule.IsTruthful(seat.Hand, terrain))
+        {
+            return new GameError(
+                GameErrorCode.NotAFewestTerrain,
+                $"Seat {seatIndex} does not hold {terrain} fewest of.");
+        }
+
+        return Result<GameState>.Success(AdvanceAnnouncing(Announce(state, seat, terrain)));
     }
 
     /// <summary>
@@ -359,6 +394,71 @@ public static class GameEngine
 
         return next;
     }
+
+    private static GameState BeginAnnouncing(GameState state) =>
+        AdvanceAnnouncing(state with { Phase = GamePhase.Announcing, ActiveSeat = null });
+
+    /// <summary>
+    /// Walks the seats in order, settling every announcement that needs no human, and stops at the
+    /// first seat that does. When none is left, play begins.
+    /// </summary>
+    /// <remarks>
+    /// Turn order is enforced rather than treated as a formality: a player breaking a tie has heard
+    /// everybody before them, so who announces when can genuinely change what they choose.
+    /// </remarks>
+    private static GameState AdvanceAnnouncing(GameState state)
+    {
+        GameState next = state;
+
+        foreach (Seat seat in state.Seats)
+        {
+            if (next.SeatAt(seat.Index).FewestTerrain is not null)
+            {
+                continue;
+            }
+
+            if (PrescribedFor(next, seat.Index) is { } prescribed)
+            {
+                next = Announce(next, next.SeatAt(seat.Index), prescribed);
+                continue;
+            }
+
+            if (seat.IsHuman)
+            {
+                return next with { ActiveSeat = seat.Index };
+            }
+
+            next = Announce(next, next.SeatAt(seat.Index), ChooseFewestTerrain(next, next.SeatAt(seat.Index)));
+        }
+
+        return BeginPlay(next);
+    }
+
+    private static Terrain? PrescribedFor(GameState state, int seatIndex) =>
+        state.Deal?.PrescribedFewestTerrain is { } prescribed ? prescribed[seatIndex] : null;
+
+    /// <summary>Breaks a bot's tie.</summary>
+    /// <remarks>
+    /// Deliberately not the first tied terrain in declaration order. A fixed order would tell
+    /// everybody that the terrains before the announced one are strictly more common, which is more
+    /// than the rule reveals — and the rule says a tie must stay hidden. Derived from the game's
+    /// seed, which is never projected, so the choice stays reproducible without being inferable.
+    /// </remarks>
+    private static Terrain ChooseFewestTerrain(GameState state, Seat seat)
+    {
+        IReadOnlyList<Terrain> minima = FewestTerrainRule.Minima(seat.Hand);
+        if (minima.Count == 1)
+        {
+            return minima[0];
+        }
+
+        IShuffleSource source = new DeterministicShuffleSource(unchecked((state.RandomSeed * 397) ^ seat.Index));
+        return minima[source.Next(minima.Count)];
+    }
+
+    private static GameState Announce(GameState state, Seat seat, Terrain terrain) => WithHistory(
+        WithSeat(state, seat with { FewestTerrain = terrain }),
+        sequence => new FewestTerrainAnnouncedEntry(sequence, 0, seat.Index, terrain));
 
     private static GameState BeginPlay(GameState state) => state with
     {

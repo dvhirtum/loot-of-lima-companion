@@ -5,13 +5,30 @@ namespace LootOfLima.Rules.Tests.GameEngine;
 public class ConfirmPassDoneTests
 {
     [Fact]
-    public void Should_start_play_when_the_last_human_confirms()
+    public void Should_move_to_the_announcements_when_the_last_human_confirms()
     {
         // Arrange
+        // Announcing comes after passing, because passing changes what a seat holds fewest of.
         GameState state = TestGame.Unwrap(Sut.ConfirmTokensTaken(TestGame.Dealing(5), 0));
 
         // Act
-        GameState playing = TestGame.Unwrap(Sut.ConfirmPassDone(state, 0));
+        GameState announcing = TestGame.Unwrap(Sut.ConfirmPassDone(state, 0));
+
+        // Assert
+        Assert.Equal(GamePhase.Announcing, announcing.Phase);
+        Assert.Equal(0, announcing.ActiveSeat);
+        Assert.Equal(0, announcing.TurnNumber);
+    }
+
+    [Fact]
+    public void Should_start_play_when_the_announcements_are_done()
+    {
+        // Arrange
+        GameState state = TestGame.Unwrap(Sut.ConfirmTokensTaken(TestGame.Dealing(5), 0));
+        state = TestGame.Unwrap(Sut.ConfirmPassDone(state, 0));
+
+        // Act
+        GameState playing = TestGame.AnnounceAll(state);
 
         // Assert
         Assert.Equal(GamePhase.InProgress, playing.Phase);

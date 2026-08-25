@@ -17,9 +17,15 @@ public enum GamePhase
     /// <summary>Tokens are being passed. Skipped entirely when passing does not apply.</summary>
     Passing = 2,
 
+    /// <summary>
+    /// In turn order, each player announces the terrain they hold fewest of. Applies at every table
+    /// size, and comes after passing because passing changes what a player holds fewest of.
+    /// </summary>
+    Announcing = 3,
+
     /// <summary>Questions, abilities and accusations.</summary>
-    InProgress = 3,
+    InProgress = 4,
 
     /// <summary>Over. This is the only phase in which the treasure is projected to anyone.</summary>
-    Finished = 4,
+    Finished = 5,
 }

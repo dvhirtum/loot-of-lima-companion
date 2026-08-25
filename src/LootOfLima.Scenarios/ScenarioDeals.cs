@@ -10,9 +10,16 @@ public static class ScenarioDeals
     /// the engine by a side door.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The resulting deal is marked <see cref="DealSourceKind.Scenario"/>, which is what suppresses
     /// setup token passing: the books have no passing, and their published answers describe the
     /// hands precisely as dealt.
+    /// </para>
+    /// <para>
+    /// The book's printed "fewest terrain" letters become the setup announcements. They cannot be
+    /// recomputed — most hands hold two terrains tied at the minimum, and the rulebook leaves that
+    /// choice to the player, so the book has already made it on their behalf.
+    /// </para>
     /// </remarks>
     public static Deal ToDeal(this Scenario scenario)
     {
@@ -22,6 +29,7 @@ public static class ScenarioDeals
             hands: scenario.Hands,
             publicReveal: scenario.PublicReveal,
             treasure: scenario.Treasure,
-            source: DealSource.Scenario(scenario.Id));
+            source: DealSource.Scenario(scenario.Id),
+            prescribedFewestTerrain: scenario.FewestTerrain);
     }
 }

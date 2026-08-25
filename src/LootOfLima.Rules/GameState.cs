@@ -5,7 +5,10 @@ namespace LootOfLima.Rules;
 /// be serialized to anyone. Clients only ever see what the projection makes of it.
 /// </summary>
 /// <param name="Deal">Null until the game starts.</param>
-/// <param name="ActiveSeat">Whose turn it is; null outside <see cref="GamePhase.InProgress"/>.</param>
+/// <param name="ActiveSeat">
+/// The seat the game is waiting on: whose turn it is during play, and who must announce next
+/// during <see cref="GamePhase.Announcing"/>. Null when the game is waiting on nobody in particular.
+/// </param>
 /// <param name="TurnNumber">Counts from 1 once play starts, and from 0 before it.</param>
 /// <param name="PendingPasses">
 /// Passes chosen at deal time but not yet delivered. They wait because a player has to pick up the

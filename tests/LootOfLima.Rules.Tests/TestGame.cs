@@ -3,6 +3,7 @@
 // folder name, hence Setup, Deals, Play and friends.
 using Board = LootOfLima.Rules.BoardLayout;
 using Deals = LootOfLima.Rules.Dealer;
+using FewestRule = LootOfLima.Rules.FewestTerrainRule;
 using Location = LootOfLima.Rules.LocationId;
 using Play = LootOfLima.Rules.GameEngine;
 using RandomSource = LootOfLima.Rules.DeterministicShuffleSource;
@@ -39,10 +40,22 @@ internal static class TestGame
         int seed = DefaultSeed)
     {
         Setup generated = Deals.Create(playerCount, seed);
-        return kind == DealSourceKind.Generated
-            ? generated
-            : Setup.Create(
-                generated.Hands, generated.PublicReveal, generated.Treasure, DealSource.Scenario("test-scenario"));
+        if (kind == DealSourceKind.Generated)
+        {
+            return generated;
+        }
+
+        // A real scenario deal carries the book's printed "fewest terrain" letters, which settle
+        // the setup announcement for every seat. Stand in for them with the first truthful choice.
+        IReadOnlyList<Terrain?> prescribed =
+            [.. generated.Hands.Select(hand => (Terrain?)FewestRule.Minima(hand)[0])];
+
+        return Setup.Create(
+            generated.Hands,
+            generated.PublicReveal,
+            generated.Treasure,
+            DealSource.Scenario("test-scenario"),
+            prescribed);
     }
 
     public static GameState Lobby(int playerCount, int humans = 1) =>
@@ -70,14 +83,27 @@ internal static class TestGame
             state = Unwrap(Play.ConfirmTokensTaken(state, seat.Index));
         }
 
-        if (state.Phase != GamePhase.Passing)
+        if (state.Phase == GamePhase.Passing)
         {
-            return state;
+            foreach (Seat seat in state.HumanSeats.ToList())
+            {
+                state = Unwrap(Play.ConfirmPassDone(state, seat.Index));
+            }
         }
 
-        foreach (Seat seat in state.HumanSeats.ToList())
+        return AnnounceAll(state);
+    }
+
+    /// <summary>
+    /// Walks the setup announcement to its end, each human naming the first terrain it truthfully
+    /// holds fewest of. Bots and prescribed seats settle themselves.
+    /// </summary>
+    public static GameState AnnounceAll(GameState state)
+    {
+        while (state.Phase == GamePhase.Announcing && state.ActiveSeat is { } seatIndex)
         {
-            state = Unwrap(Play.ConfirmPassDone(state, seat.Index));
+            Terrain terrain = FewestRule.Minima(state.SeatAt(seatIndex).Hand)[0];
+            state = Unwrap(Play.AnnounceFewestTerrain(state, seatIndex, terrain));
         }
 
         return state;

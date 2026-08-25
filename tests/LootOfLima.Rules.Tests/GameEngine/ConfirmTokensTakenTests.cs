@@ -19,9 +19,11 @@ public class ConfirmTokensTakenTests
     }
 
     [Fact]
-    public void Should_start_play_when_the_last_human_confirms_and_there_is_no_passing()
+    public void Should_start_play_when_the_deal_settles_the_passing_and_the_announcements_itself()
     {
         // Arrange
+        // A scenario deal has no passing and carries the book's printed "fewest terrain" letters,
+        // so both setup phases resolve without anybody being asked anything.
         GameState state = TestGame.Dealing(5, humans: 2, kind: DealSourceKind.Scenario);
         state = TestGame.Unwrap(Sut.ConfirmTokensTaken(state, 0));
 
@@ -32,6 +34,7 @@ public class ConfirmTokensTakenTests
         Assert.Equal(GamePhase.InProgress, playing.Phase);
         Assert.Equal(1, playing.TurnNumber);
         Assert.Equal(0, playing.ActiveSeat);
+        Assert.All(playing.Seats, seat => Assert.NotNull(seat.FewestTerrain));
     }
 
     [Theory]

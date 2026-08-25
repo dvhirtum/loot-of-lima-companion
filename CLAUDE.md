@@ -15,7 +15,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | Milestone | State |
 |---|---|
 | M1 — pure rules engine + scenario oracle | **Done.** 1246 tests green |
-| M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1452 tests green |
+| M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1475 tests green |
 | M3 — minimal API + SignalR server | Next |
 | M4-M6 — Angular client, then polish | Not started |
 
@@ -29,7 +29,7 @@ before touching the importer or `BoardLayout`.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1452 passing
+dotnet test       # expect 1475 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
@@ -55,6 +55,11 @@ web/loot-of-lima-web/       (M4) Angular workspace.
 `Projection` exists because the projection has nowhere else to live: `Rules` references nothing and
 `Contracts` must not reference `Rules`. Giving it an assembly of its own means the whole
 hidden-information boundary is one function in one project.
+
+Phases: `Lobby → Dealing → [Passing] → Announcing → InProgress → Finished`. `Passing` is skipped
+when the deal settles it (three players, or a scenario); `Announcing` always happens but resolves
+itself when the deal prescribes the answers. There is no `SeatClaim` phase — nothing could move a
+game into it, so it would be a state no game is ever observed in. Seats are claimed during `Lobby`.
 
 ## Invariants — do not break these
 
@@ -90,6 +95,11 @@ hidden-information boundary is one function in one project.
   | 4 | 5 | 2 | pass one recorded token across the table (`+2` seats) |
   | 5 | 4 | 2 | pass one right, then one left |
 
+- **Setup announcement, after passing and before play:** in turn order, each player announces the
+  terrain they hold fewest of. Holding *none* of a terrain makes it the fewest. **On a tie the
+  player chooses, and must not reveal that there was a tie** — so the engine only ever checks that
+  an announcement is truthful, and nothing downstream records how many terrains were eligible. This
+  is a general rule, not a solo/2-player one, and it applies at every table size.
 - Abilities, once each per game: **Barrel** (re-roll dice), **Shovel** (treat a die as another
   terrain), **Pistol** (secret question, free range, *never* terrain-restricted).
 - Accusation is legal at any time, even off-turn. Wrong accusation reveals **nothing** and
@@ -106,9 +116,14 @@ hidden-information boundary is one function in one project.
   puzzles where only the human asks.
 - **No auto-solving.** Show history, own hand, pass knowledge and ability status; the player deduces.
 - Official scenarios are five-player only, so 3- and 4-player games always use generated deals.
-- **A scenario deal never passes tokens**, even at five players. The books replace passing with the
-  "fewest terrain" hint, and their published answers describe the hands exactly as dealt, so passing
-  would contradict the book. `Passing.IsRequired` keys off `DealSourceKind`, not just seat count.
+- **A scenario deal never passes tokens**, even at five players. Their published answers describe
+  the hands exactly as dealt, so passing would contradict the book. `Passing.IsRequired` keys off
+  `DealSourceKind`, not just seat count.
+- **A scenario's printed "fewest terrain" letters *are* the setup announcements**, carried through
+  as `Deal.PrescribedFewestTerrain` so a scenario game announces exactly what the booklet prints.
+  They cannot be recomputed: **656 of the books' 1195 hands hold two terrains tied at the minimum**,
+  and on a tie the choice is the player's, so the book has already made it. Recomputing would
+  silently disagree with the booklet in the player's hands.
 
 ## The scenario data
 
