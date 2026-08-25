@@ -1,6 +1,8 @@
 using LootOfLima.Rules;
+using Library = LootOfLima.Scenarios.ScenarioLibrary;
+using Sut = LootOfLima.Scenarios.Scenario;
 
-namespace LootOfLima.Scenarios.Tests;
+namespace LootOfLima.Scenarios.Tests.Scenario;
 
 public class HandsTests
 {
@@ -9,7 +11,7 @@ public class HandsTests
     public void Should_partition_all_24_locations_when_the_deal_is_reassembled(string id)
     {
         // Arrange
-        Scenario scenario = ScenarioLibrary.Get(id);
+        Sut scenario = Library.Get(id);
 
         // Act
         List<LocationId> everything =

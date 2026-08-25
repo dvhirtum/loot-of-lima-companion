@@ -1,4 +1,11 @@
-namespace LootOfLima.Rules.Tests;
+// The folder namespace shadows the production type it is named after, so the types this file needs
+// are aliased back in. A top-level alias only wins the name lookup if its own name is not also a
+// folder namespace, hence Sut and the short collaborator names.
+using Board = LootOfLima.Rules.BoardLayout;
+using Location = LootOfLima.Rules.LocationId;
+using Sut = LootOfLima.Rules.Engine;
+
+namespace LootOfLima.Rules.Tests.Engine;
 
 public class CountInRangeTests
 {
@@ -6,7 +13,7 @@ public class CountInRangeTests
     /// Book 1, Scenario 1, Player 3, decoded from the official scenario book and cross-checked
     /// against that same book's published answers.
     /// </summary>
-    private static readonly LocationId[] Book1Scenario1Player3 =
+    private static readonly Location[] Book1Scenario1Player3 =
     [
         new(Terrain.Mountain, 1),
         new(Terrain.Mountain, 2),
@@ -27,11 +34,11 @@ public class CountInRangeTests
         int expected)
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Board layout = Board.Default;
         QueryRange range = new(start, end, Terrain.Mountain);
 
         // Act
-        int actual = Engine.CountInRange(Book1Scenario1Player3, range, layout);
+        int actual = Sut.CountInRange(Book1Scenario1Player3, range, layout);
 
         // Assert
         Assert.Equal(expected, actual);
@@ -49,11 +56,11 @@ public class CountInRangeTests
         int expected)
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Board layout = Board.Default;
         QueryRange range = new(start, end, Terrain.Beach);
 
         // Act
-        int actual = Engine.CountInRange(Book1Scenario1Player3, range, layout);
+        int actual = Sut.CountInRange(Book1Scenario1Player3, range, layout);
 
         // Assert
         Assert.Equal(expected, actual);
@@ -63,7 +70,7 @@ public class CountInRangeTests
     public void Should_return_zero_when_the_hand_holds_no_token_of_the_asked_terrain()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Board layout = Board.Default;
 
         foreach (Direction start in Directions.All)
         {
@@ -72,7 +79,7 @@ public class CountInRangeTests
                 QueryRange range = new(start, end, Terrain.Forest);
 
                 // Act
-                int actual = Engine.CountInRange(Book1Scenario1Player3, range, layout);
+                int actual = Sut.CountInRange(Book1Scenario1Player3, range, layout);
 
                 // Assert
                 Assert.Equal(0, actual);
@@ -84,16 +91,16 @@ public class CountInRangeTests
     public void Should_equal_the_sum_of_the_three_terrain_answers_when_no_terrain_filter_is_set()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Board layout = Board.Default;
 
         foreach (Direction start in Directions.All)
         {
             foreach (Direction end in Directions.All)
             {
                 // Act
-                int unfiltered = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(start, end), layout);
+                int unfiltered = Sut.CountInRange(Book1Scenario1Player3, new QueryRange(start, end), layout);
                 int summed = Terrains.All.Sum(terrain =>
-                    Engine.CountInRange(Book1Scenario1Player3, new QueryRange(start, end, terrain), layout));
+                    Sut.CountInRange(Book1Scenario1Player3, new QueryRange(start, end, terrain), layout));
 
                 // Assert
                 Assert.Equal(unfiltered, summed);
@@ -105,14 +112,14 @@ public class CountInRangeTests
     public void Should_return_the_whole_hand_when_both_arrows_point_the_same_way()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Board layout = Board.Default;
 
         foreach (Direction direction in Directions.All)
         {
             QueryRange range = new(direction, direction);
 
             // Act
-            int actual = Engine.CountInRange(Book1Scenario1Player3, range, layout);
+            int actual = Sut.CountInRange(Book1Scenario1Player3, range, layout);
 
             // Assert
             Assert.Equal(Book1Scenario1Player3.Length, actual);
@@ -123,7 +130,7 @@ public class CountInRangeTests
     public void Should_partition_the_hand_when_an_arc_and_its_reverse_are_counted()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Board layout = Board.Default;
 
         foreach (Direction a in Directions.All)
         {
@@ -135,8 +142,8 @@ public class CountInRangeTests
                 }
 
                 // Act
-                int forward = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(a, b), layout);
-                int backward = Engine.CountInRange(Book1Scenario1Player3, new QueryRange(b, a), layout);
+                int forward = Sut.CountInRange(Book1Scenario1Player3, new QueryRange(a, b), layout);
+                int backward = Sut.CountInRange(Book1Scenario1Player3, new QueryRange(b, a), layout);
 
                 // Assert
                 Assert.Equal(Book1Scenario1Player3.Length, forward + backward);
@@ -148,11 +155,11 @@ public class CountInRangeTests
     public void Should_return_zero_when_the_hand_is_empty()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Board layout = Board.Default;
         QueryRange range = new(Direction.N, Direction.S);
 
         // Act
-        int actual = Engine.CountInRange([], range, layout);
+        int actual = Sut.CountInRange([], range, layout);
 
         // Assert
         Assert.Equal(0, actual);

@@ -16,7 +16,9 @@ public class AssemblyPurityTests
     public void Should_reference_only_the_base_class_library_when_the_rules_assembly_is_inspected()
     {
         // Arrange
-        Assembly rules = typeof(BoardLayout).Assembly;
+        // QueryRange is just a handle on the assembly — it is the one public Rules type whose name
+        // no test folder shadows, so it needs no alias here at the root namespace.
+        Assembly rules = typeof(QueryRange).Assembly;
 
         // Act
         string[] referenced = rules

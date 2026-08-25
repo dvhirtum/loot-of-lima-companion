@@ -1,4 +1,6 @@
-namespace LootOfLima.Scenarios.Tests;
+using Sut = LootOfLima.Scenarios.ScenarioLibrary;
+
+namespace LootOfLima.Scenarios.Tests.ScenarioLibrary;
 
 public class AllTests
 {
@@ -10,7 +12,7 @@ public class AllTests
         const int printedMinusTheBrokenOne = 239;
 
         // Act
-        int actual = ScenarioLibrary.All.Count;
+        int actual = Sut.All.Count;
 
         // Assert
         Assert.Equal(printedMinusTheBrokenOne, actual);
@@ -23,7 +25,7 @@ public class AllTests
         int[] expected = [.. Enumerable.Range(1, 20)];
 
         // Act
-        int[] actual = ScenarioLibrary.All.Select(s => s.Book).Distinct().Order().ToArray();
+        int[] actual = Sut.All.Select(s => s.Book).Distinct().Order().ToArray();
 
         // Assert
         Assert.Equal(expected, actual);

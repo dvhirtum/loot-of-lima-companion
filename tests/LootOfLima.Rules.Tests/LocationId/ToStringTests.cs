@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.LocationId;
+
+namespace LootOfLima.Rules.Tests.LocationId;
 
 public class ToStringTests
 {
@@ -6,7 +8,7 @@ public class ToStringTests
     public void Should_return_the_canonical_notation_when_a_location_is_formatted()
     {
         // Arrange
-        LocationId location = new(Terrain.Mountain, 3);
+        Sut location = new(Terrain.Mountain, 3);
 
         // Act
         string actual = location.ToString();

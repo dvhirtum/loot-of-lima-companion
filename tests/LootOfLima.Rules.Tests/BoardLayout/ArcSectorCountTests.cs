@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.BoardLayout;
+
+namespace LootOfLima.Rules.Tests.BoardLayout;
 
 public class ArcSectorCountTests
 {
@@ -6,7 +8,7 @@ public class ArcSectorCountTests
     public void Should_count_all_eight_sectors_when_both_arrows_point_the_same_way()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         foreach (Direction direction in Directions.All)
         {
@@ -22,7 +24,7 @@ public class ArcSectorCountTests
     public void Should_count_only_the_start_sector_when_the_arrows_are_adjacent()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         foreach (Direction direction in Directions.All)
         {
@@ -38,7 +40,7 @@ public class ArcSectorCountTests
     public void Should_count_three_sectors_when_the_arc_wraps_past_north()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         // Act
         int actual = layout.ArcSectorCount(Direction.W, Direction.NE);

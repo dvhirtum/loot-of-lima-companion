@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.LocationId;
+
+namespace LootOfLima.Rules.Tests.LocationId;
 
 public class TryParseTests
 {
@@ -15,7 +17,7 @@ public class TryParseTests
         // (the malformed input is supplied by the theory data)
 
         // Act
-        bool actual = LocationId.TryParse(text, out _);
+        bool actual = Sut.TryParse(text, out _);
 
         // Assert
         Assert.False(actual);

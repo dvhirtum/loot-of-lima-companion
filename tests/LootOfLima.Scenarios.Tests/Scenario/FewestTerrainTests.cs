@@ -1,6 +1,8 @@
 using LootOfLima.Rules;
+using Library = LootOfLima.Scenarios.ScenarioLibrary;
+using Sut = LootOfLima.Scenarios.Scenario;
 
-namespace LootOfLima.Scenarios.Tests;
+namespace LootOfLima.Scenarios.Tests.Scenario;
 
 public class FewestTerrainTests
 {
@@ -9,7 +11,7 @@ public class FewestTerrainTests
     public void Should_name_a_real_minimum_when_a_seat_has_a_printed_fewest_terrain(string id)
     {
         // Arrange
-        Scenario scenario = ScenarioLibrary.Get(id);
+        Sut scenario = Library.Get(id);
 
         for (int seat = 0; seat < scenario.Hands.Count; seat++)
         {

@@ -234,11 +234,12 @@ dotnet_naming_rule.parameters_and_locals_are_camel_case.severity = warning
 # ---------------------------------------------------------------------------
 [tests/**/*.cs]
 
-# Test folders are named for the type under test — Engine/, BoardLayout/, LocationId/ — so
-# matching namespaces to folders would put a namespace and a production type in scope under the
-# same name (CS0118: the namespace shadows the class). Test namespaces stay flat at the project
-# root instead.
-dotnet_style_namespace_match_folder = false
+# Test namespaces follow the folders — Engine/, BoardLayout/, LocationId/ — so the test explorer
+# mirrors the shape of the application. The cost is that each folder namespace shadows the
+# production type it is named after (CS0118: LootOfLima.Rules.Tests.Engine hides the Engine class),
+# so these files alias the shadowed types back in at the top: `using Sut = ...` for the type under
+# test, and a short distinct name for any collaborator. The alias name must NOT match a test folder
+# name, or the folder namespace wins the lookup and the alias is unreachable.
 
 # ---------------------------------------------------------------------------
 # Generated output is not ours to style.

@@ -1,6 +1,8 @@
 using LootOfLima.Rules;
+using Library = LootOfLima.Scenarios.ScenarioLibrary;
+using Sut = LootOfLima.Scenarios.Scenario;
 
-namespace LootOfLima.Scenarios.Tests;
+namespace LootOfLima.Scenarios.Tests.Scenario;
 
 public class TreasureTests
 {
@@ -9,7 +11,7 @@ public class TreasureTests
     public void Should_be_exactly_what_the_deal_leaves_over_when_the_hands_are_subtracted(string id)
     {
         // Arrange
-        Scenario scenario = ScenarioLibrary.Get(id);
+        Sut scenario = Library.Get(id);
         IEnumerable<LocationId> dealt = scenario.Hands.SelectMany(hand => hand).Concat(scenario.PublicReveal);
 
         // Act

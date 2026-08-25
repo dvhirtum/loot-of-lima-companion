@@ -111,7 +111,12 @@ reads them, and its output is committed, so build and test never need them.
 - Unit-test each piece as it is built. The rules engine is pure, so there is no excuse not to.
 - **Code style lives in `.editorconfig` and is enforced, not suggested.**
 - **Test layout and naming:** one folder per type under test, one test class per method
-  (`Engine/CountInRangeTests.cs`), mirroring the production layout. Name tests
-  `Should_<expected>_when_<condition>` in snake_case, and write the `// Arrange`, `// Act` and
-  `// Assert` comments out explicitly. Test namespaces stay flat at the project root — a folder
-  named for the SUT would otherwise shadow the production type (CS0118).
+  (`Engine/CountInRangeTests.cs`), mirroring the production layout, with namespaces following the
+  folders so the test explorer mirrors the app. Name tests `Should_<expected>_when_<condition>` in
+  snake_case, and write the `// Arrange`, `// Act` and `// Assert` comments out explicitly.
+- **Each folder namespace shadows the production type it is named after** —
+  `LootOfLima.Rules.Tests.Engine` hides the `Engine` class, so bare `Engine.CountInRange` is
+  CS0118. Test files alias it back in at the top: `using Sut = LootOfLima.Rules.Engine;` for the
+  type under test, plus a short distinct alias per collaborator (`Board`, `Location`, `Library`).
+  **The alias name must not match any test folder name**, or the folder namespace wins the lookup
+  and the alias is unreachable.

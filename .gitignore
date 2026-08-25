@@ -161,6 +161,9 @@ _ReSharper*/
 *.[Rr]e[Ss]harper
 *.DotSettings.user
 
+# Rider / IntelliJ project metadata
+.idea/
+
 # TeamCity is a build add-in
 _TeamCity*
 

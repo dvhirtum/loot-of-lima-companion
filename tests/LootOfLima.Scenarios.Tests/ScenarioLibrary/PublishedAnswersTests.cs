@@ -1,4 +1,6 @@
-namespace LootOfLima.Scenarios.Tests;
+using Sut = LootOfLima.Scenarios.ScenarioLibrary;
+
+namespace LootOfLima.Scenarios.Tests.ScenarioLibrary;
 
 public class PublishedAnswersTests
 {
@@ -7,10 +9,10 @@ public class PublishedAnswersTests
     public void Should_return_a_full_answer_block_when_any_scenario_is_asked_for(string id)
     {
         // Arrange
-        int expected = ScenarioLibrary.AnswersPerScenario;
+        int expected = Sut.AnswersPerScenario;
 
         // Act
-        int actual = ScenarioLibrary.PublishedAnswers(id).Length;
+        int actual = Sut.PublishedAnswers(id).Length;
 
         // Assert
         Assert.Equal(expected, actual);

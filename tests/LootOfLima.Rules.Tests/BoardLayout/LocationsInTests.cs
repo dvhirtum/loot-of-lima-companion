@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.BoardLayout;
+
+namespace LootOfLima.Rules.Tests.BoardLayout;
 
 public class LocationsInTests
 {
@@ -6,7 +8,7 @@ public class LocationsInTests
     public void Should_return_one_location_of_each_terrain_when_any_sector_is_asked_for()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         foreach (Direction sector in Directions.All)
         {

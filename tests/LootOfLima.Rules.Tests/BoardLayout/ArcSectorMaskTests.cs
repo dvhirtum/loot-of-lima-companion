@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.BoardLayout;
+
+namespace LootOfLima.Rules.Tests.BoardLayout;
 
 public class ArcSectorMaskTests
 {
@@ -6,7 +8,7 @@ public class ArcSectorMaskTests
     public void Should_be_disjoint_and_cover_the_circle_when_an_arc_and_its_reverse_are_combined()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         foreach (Direction a in Directions.All)
         {

@@ -1,11 +1,14 @@
 using LootOfLima.Rules;
+using Deal = LootOfLima.Scenarios.Scenario;
+using Library = LootOfLima.Scenarios.ScenarioLibrary;
+using Sut = LootOfLima.Rules.Engine;
 
-namespace LootOfLima.Scenarios.Tests;
+namespace LootOfLima.Scenarios.Tests.Engine;
 
 /// <summary>
 /// The oracle. Every answer printed in the official scenario books must be reproduced exactly by
 /// the engine. One test simultaneously validates the board layout, the half-open arc semantics,
-/// <see cref="Engine.CountInRange"/> and the decoded seed data.
+/// <see cref="Sut.CountInRange"/> and the decoded seed data.
 /// </summary>
 public class CountInRangeOracleTests
 {
@@ -14,27 +17,27 @@ public class CountInRangeOracleTests
     public void Should_reproduce_every_published_answer_when_a_scenario_is_replayed(string id)
     {
         // Arrange
-        Scenario scenario = ScenarioLibrary.Get(id);
-        ReadOnlySpan<byte> published = ScenarioLibrary.PublishedAnswers(id).Span;
+        Deal scenario = Library.Get(id);
+        ReadOnlySpan<byte> published = Library.PublishedAnswers(id).Span;
         BoardLayout layout = BoardLayout.Default;
 
         foreach (Direction start in Directions.All)
         {
             foreach (Direction end in Directions.All)
             {
-                for (int terrainRow = 0; terrainRow < ScenarioLibrary.TerrainRows.Count; terrainRow++)
+                for (int terrainRow = 0; terrainRow < Library.TerrainRows.Count; terrainRow++)
                 {
-                    QueryRange range = new(start, end, ScenarioLibrary.TerrainRows[terrainRow]);
+                    QueryRange range = new(start, end, Library.TerrainRows[terrainRow]);
 
-                    for (int player = ScenarioLibrary.FirstAnsweringPlayer;
-                         player <= ScenarioLibrary.LastAnsweringPlayer;
+                    for (int player = Library.FirstAnsweringPlayer;
+                         player <= Library.LastAnsweringPlayer;
                          player++)
                     {
                         // Act
-                        int actual = Engine.CountInRange(scenario.Hands[player - 1], range, layout);
+                        int actual = Sut.CountInRange(scenario.Hands[player - 1], range, layout);
 
                         // Assert
-                        byte expected = published[ScenarioLibrary.AnswerIndex(start, end, terrainRow, player)];
+                        byte expected = published[Library.AnswerIndex(start, end, terrainRow, player)];
                         Assert.Equal(expected, actual);
                     }
                 }

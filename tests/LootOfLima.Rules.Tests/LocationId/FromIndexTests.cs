@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.LocationId;
+
+namespace LootOfLima.Rules.Tests.LocationId;
 
 public class FromIndexTests
 {
@@ -8,10 +10,10 @@ public class FromIndexTests
         // Arrange
         // (nothing to set up — LocationId.FromIndex is a pure static factory)
 
-        for (int index = 0; index < LocationId.TotalCount; index++)
+        for (int index = 0; index < Sut.TotalCount; index++)
         {
             // Act
-            int actual = LocationId.FromIndex(index).Index;
+            int actual = Sut.FromIndex(index).Index;
 
             // Assert
             Assert.Equal(index, actual);

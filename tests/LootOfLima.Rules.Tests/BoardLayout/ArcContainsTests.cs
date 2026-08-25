@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.BoardLayout;
+
+namespace LootOfLima.Rules.Tests.BoardLayout;
 
 public class ArcContainsTests
 {
@@ -6,7 +8,7 @@ public class ArcContainsTests
     public void Should_contain_the_start_sector_when_the_arrows_are_adjacent()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         foreach (Direction direction in Directions.All)
         {
@@ -22,7 +24,7 @@ public class ArcContainsTests
     public void Should_include_the_start_but_exclude_the_end_when_the_arc_is_tested()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         // Act
         bool start = layout.ArcContains(Direction.N, Direction.E, Direction.N);
@@ -39,7 +41,7 @@ public class ArcContainsTests
     public void Should_include_the_sectors_either_side_of_north_when_the_arc_wraps_past_it()
     {
         // Arrange
-        BoardLayout layout = BoardLayout.Default;
+        Sut layout = Sut.Default;
 
         // Act
         bool northWest = layout.ArcContains(Direction.W, Direction.NE, Direction.NW);

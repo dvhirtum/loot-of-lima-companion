@@ -1,4 +1,6 @@
-namespace LootOfLima.Rules.Tests;
+using Sut = LootOfLima.Rules.LocationId;
+
+namespace LootOfLima.Rules.Tests.LocationId;
 
 public class ParseTests
 {
@@ -11,10 +13,10 @@ public class ParseTests
     public void Should_return_the_location_when_either_notation_is_given(string text, Terrain terrain, int number)
     {
         // Arrange
-        LocationId expected = new(terrain, number);
+        Sut expected = new(terrain, number);
 
         // Act
-        LocationId actual = LocationId.Parse(text);
+        Sut actual = Sut.Parse(text);
 
         // Assert
         Assert.Equal(expected, actual);

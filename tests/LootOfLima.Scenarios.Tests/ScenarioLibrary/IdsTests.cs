@@ -1,4 +1,6 @@
-namespace LootOfLima.Scenarios.Tests;
+using Sut = LootOfLima.Scenarios.ScenarioLibrary;
+
+namespace LootOfLima.Scenarios.Tests.ScenarioLibrary;
 
 public class IdsTests
 {
@@ -6,7 +8,7 @@ public class IdsTests
     public void Should_be_distinct_when_the_ids_are_listed()
     {
         // Arrange
-        IReadOnlyList<string> ids = ScenarioLibrary.Ids;
+        IReadOnlyList<string> ids = Sut.Ids;
 
         // Act
         int distinct = ids.Distinct().Count();
@@ -24,7 +26,7 @@ public class IdsTests
         const string brokenInThePrintedBook = "b16s12";
 
         // Act
-        IReadOnlyList<string> actual = ScenarioLibrary.Ids;
+        IReadOnlyList<string> actual = Sut.Ids;
 
         // Assert
         Assert.DoesNotContain(brokenInThePrintedBook, actual);
