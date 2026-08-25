@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    The one place the rules engine and the client DTOs are allowed to meet.
+
+    LootOfLima.Rules cannot reference LootOfLima.Contracts (it references nothing), and
+    LootOfLima.Contracts must never reference LootOfLima.Rules (that is what keeps GameState,
+    Deal, Seat and SecretQuestionEntry unreachable from any hub signature). So the projection
+    needs a home of its own, and having one means the entire hidden-information boundary is a
+    single function in a single assembly.
+  -->
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LootOfLima.Contracts\LootOfLima.Contracts.csproj" />
+    <ProjectReference Include="..\LootOfLima.Rules\LootOfLima.Rules.csproj" />
+  </ItemGroup>
+
+</Project>

@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The M2 demo: replays scripted games through the headless engine and prints the projections. -->
+  <PropertyGroup>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\LootOfLima.Projection\LootOfLima.Projection.csproj" />
+    <ProjectReference Include="..\..\src\LootOfLima.Scenarios\LootOfLima.Scenarios.csproj" />
+  </ItemGroup>
+
+</Project>
