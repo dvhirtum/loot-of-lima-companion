@@ -14,7 +14,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 
 | Milestone | State |
 |---|---|
-| M1 — pure rules engine + scenario oracle | **Done.** 1238 tests green |
+| M1 — pure rules engine + scenario oracle | **Done.** 1246 tests green |
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | Next |
 | M3 — minimal API + SignalR server | Not started |
 | M4-M6 — Angular client, then polish | Not started |
@@ -26,7 +26,7 @@ repo). Read it before starting a milestone.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1238 passing
+dotnet test       # expect 1246 passing
 ```
 
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so

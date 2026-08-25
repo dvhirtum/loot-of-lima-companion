@@ -43,8 +43,11 @@ internal static partial class PdfText
         using Process process = Process.Start(startInfo)
             ?? throw new InvalidOperationException("Could not start pdftotext. Is poppler on PATH?");
 
+        // Both pipes must be drained concurrently. poppler is chatty with "Syntax Warning" lines on
+        // the books' PDFs, and reading stdout to the end first deadlocks once stderr fills its buffer.
+        Task<string> stderrTask = process.StandardError.ReadToEndAsync();
         string stdout = process.StandardOutput.ReadToEnd();
-        string stderr = process.StandardError.ReadToEnd();
+        string stderr = stderrTask.GetAwaiter().GetResult();
         process.WaitForExit();
 
         if (process.ExitCode != 0)

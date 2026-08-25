@@ -22,4 +22,19 @@ public class SectorOfTests
         Assert.Equal(24, Location.All.Count);
         Assert.All(perSector, count => Assert.Equal(3, count));
     }
+
+    [Fact]
+    public void Should_throw_when_the_location_is_the_struct_default()
+    {
+        // Arrange
+        Sut layout = Sut.Default;
+        Location location = default;
+
+        // Act
+        ArgumentOutOfRangeException exception =
+            Assert.Throws<ArgumentOutOfRangeException>(() => layout.SectorOf(location));
+
+        // Assert
+        Assert.Equal("location", exception.ParamName);
+    }
 }

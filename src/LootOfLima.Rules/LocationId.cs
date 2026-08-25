@@ -7,6 +7,17 @@ namespace LootOfLima.Rules;
 /// <param name="Number">1-based index within the terrain, 1..8.</param>
 public readonly record struct LocationId(Terrain Terrain, int Number) : IComparable<LocationId>
 {
+    /// <summary>1-based index within the terrain, 1..8.</summary>
+    public int Number { get; init; } = Number is >= 1 and <= PerTerrain
+        ? Number
+        : throw new ArgumentOutOfRangeException(nameof(Number), Number, "Location number must be 1..8.");
+
+    /// <summary>
+    /// False only for <c>default(LocationId)</c>, which no constructor can reject: it is
+    /// <c>(Beach, 0)</c>, so its <see cref="Index"/> is -1 and it indexes arrays out of range.
+    /// </summary>
+    public bool IsValid => Number is >= 1 and <= PerTerrain && Terrain is >= Terrain.Beach and <= Terrain.Mountain;
+
     /// <summary>Orders by <see cref="Index"/>, i.e. by terrain then number.</summary>
     public int CompareTo(LocationId other) => Index.CompareTo(other.Index);
 

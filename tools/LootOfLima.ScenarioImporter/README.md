@@ -68,6 +68,10 @@ for P1 and the reveal, with the 16 derived locations as a checksum.
 A scenario is emitted only if it passes **all** of these. The importer fails loudly and never
 emits an unverified scenario.
 
+It also never emits an **incomplete set**: any failure other than the known `b16s12` gap below
+leaves the seed data untouched and exits non-zero, so a run over a partial `--pdf-dir` cannot
+quietly replace the committed 239 scenarios with a handful.
+
 1. Each derived hand holds exactly 4 locations.
 2. Page 2's printed hands for P2-P5 match the derived hands.
 3. **The oracle**: all 1024 published answers are reproduced by `Engine.CountInRange`.

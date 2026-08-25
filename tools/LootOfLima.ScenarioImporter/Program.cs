@@ -96,6 +96,32 @@ for (int book = 1; book <= 20; book++)
     }
 }
 
+// Book 16 prints scenario 12's tokens as a duplicate of scenario 11's, contradicting its own
+// question table. That is an error in the printed book, so this gap is expected, not a failure.
+const int printedScenarioCount = 240;
+string[] knownGaps = ["b16s12"];
+
+List<string> blocking = failures
+    .Where(f => !knownGaps.Any(gap => f.StartsWith($"{gap}:", StringComparison.Ordinal)))
+    .ToList();
+
+// A partial run must never overwrite a complete seed set, and must never report success.
+if (blocking.Count > 0)
+{
+    Console.WriteLine();
+    Console.Error.WriteLine($"{blocking.Count} scenario(s) could NOT be verified:");
+    foreach (string failure in blocking)
+    {
+        Console.Error.WriteLine($"  {failure}");
+    }
+
+    Console.Error.WriteLine();
+    Console.Error.WriteLine(
+        $"Verified only {scenarios.Count} of {printedScenarioCount} scenarios, so nothing was written " +
+        $"and the seed data in '{outDir}' is untouched.");
+    return 1;
+}
+
 Directory.CreateDirectory(outDir);
 
 ScenarioFile document = new(
@@ -116,17 +142,17 @@ File.WriteAllText(Path.Combine(outDir, "scenarios.json"), JsonSerializer.Seriali
 File.WriteAllBytes(Path.Combine(outDir, "scenario-answers.bin"), [.. answerBlob]);
 
 Console.WriteLine();
-Console.WriteLine($"Verified and emitted {scenarios.Count} of 240 scenarios.");
+Console.WriteLine($"Verified and emitted {scenarios.Count} of {printedScenarioCount} scenarios.");
 Console.WriteLine($"  {Path.Combine(outDir, "scenarios.json")}");
 Console.WriteLine($"  {Path.Combine(outDir, "scenario-answers.bin")} ({answerBlob.Count} bytes)");
 
 if (failures.Count > 0)
 {
     Console.WriteLine();
-    Console.Error.WriteLine($"{failures.Count} scenario(s) could NOT be verified and were not emitted:");
+    Console.WriteLine($"{failures.Count} known gap(s), not emitted:");
     foreach (string failure in failures)
     {
-        Console.Error.WriteLine($"  {failure}");
+        Console.WriteLine($"  {failure}");
     }
 }
 

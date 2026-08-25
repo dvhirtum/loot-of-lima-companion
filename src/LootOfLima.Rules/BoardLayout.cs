@@ -32,7 +32,18 @@ public sealed class BoardLayout
     /// <summary>The shipped island layout.</summary>
     public static BoardLayout Default => LazyDefault.Value;
 
-    public Direction SectorOf(LocationId location) => (Direction)_sectorOfLocation[location.Index];
+    public Direction SectorOf(LocationId location)
+    {
+        // default(LocationId) has Index -1, which would read out of bounds. The constructor cannot
+        // reject it, so the guard has to live here, where the index is first used.
+        if (!location.IsValid)
+        {
+            throw new ArgumentOutOfRangeException(
+                nameof(location), location, "Location is not one of the 24 island locations.");
+        }
+
+        return (Direction)_sectorOfLocation[location.Index];
+    }
 
     /// <summary>The locations in a given sector, in index order.</summary>
     public IReadOnlyList<LocationId> LocationsIn(Direction sector) =>
