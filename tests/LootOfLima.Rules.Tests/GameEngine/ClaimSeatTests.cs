@@ -45,6 +45,51 @@ public class ClaimSeatTests
         Assert.Equal(GameErrorCode.SeatAlreadyClaimed, code);
     }
 
+    [Fact]
+    public void Should_reject_the_claim_when_the_player_already_holds_another_seat()
+    {
+        // Arrange
+        // Two seats for one identity would mean two full-hand views of the same game for one
+        // person, which is the hidden-information design undone by opening a second browser tab.
+        GameState state = TestGame.Lobby(5, humans: 0);
+        state = TestGame.Unwrap(Sut.ClaimSeat(state, 0, "player-abc", "Ada"));
+
+        // Act
+        GameErrorCode code = TestGame.Rejection(Sut.ClaimSeat(state, 1, "player-abc", "Ada again"));
+
+        // Assert
+        Assert.Equal(GameErrorCode.PlayerAlreadySeated, code);
+    }
+
+    [Fact]
+    public void Should_seat_the_player_when_they_released_the_seat_they_held()
+    {
+        // Arrange
+        // The guard is about seats held at once, not about a player ever having sat down.
+        GameState state = TestGame.Lobby(5, humans: 0);
+        state = TestGame.Unwrap(Sut.ClaimSeat(state, 0, "player-abc", "Ada"));
+        state = TestGame.Unwrap(Sut.ReleaseSeat(state, 0));
+
+        // Act
+        GameState claimed = TestGame.Unwrap(Sut.ClaimSeat(state, 1, "player-abc", "Ada"));
+
+        // Assert
+        Assert.Equal("player-abc", claimed.SeatAt(1).PlayerId);
+    }
+
+    [Theory]
+    [InlineData("")]
+    [InlineData("   ")]
+    public void Should_throw_when_the_player_id_is_not_a_real_identity(string playerId)
+    {
+        // Arrange
+        GameState state = TestGame.Lobby(5, humans: 0);
+
+        // Act
+        // Assert
+        Assert.Throws<ArgumentException>(() => Sut.ClaimSeat(state, 0, playerId, "Ada"));
+    }
+
     [Theory]
     [InlineData(-1)]
     [InlineData(5)]

@@ -58,25 +58,36 @@ internal static class TestGame
             prescribed);
     }
 
-    public static GameState Lobby(int playerCount, int humans = 1) =>
-        Unwrap(Play.CreateGame("game-1", "ROOM", Seats(playerCount, humans), DefaultSeed));
+    public static GameState Lobby(int playerCount, int humans = 1, int randomSeed = DefaultSeed) =>
+        Unwrap(Play.CreateGame("game-1", "ROOM", Seats(playerCount, humans), randomSeed));
 
     /// <summary>Dealt, waiting for every human to say they picked their tokens up.</summary>
+    /// <param name="seed">Seeds the deal and the passing shuffle.</param>
+    /// <param name="randomSeed">
+    /// Seeds the game itself, which is what breaks a bot's fewest-terrain tie. Defaults to
+    /// <paramref name="seed"/>, so asking for a different game changes everything about it. Pass
+    /// it on its own to hold the deal still and vary nothing but the tie-break.
+    /// </param>
     public static GameState Dealing(
         int playerCount,
         int humans = 1,
         DealSourceKind kind = DealSourceKind.Generated,
-        int seed = DefaultSeed) =>
-        Unwrap(Play.Start(Lobby(playerCount, humans), Deal(playerCount, kind, seed), Shuffle(seed)));
+        int seed = DefaultSeed,
+        int? randomSeed = null) =>
+        Unwrap(Play.Start(
+            Lobby(playerCount, humans, randomSeed ?? seed),
+            Deal(playerCount, kind, seed),
+            Shuffle(seed)));
 
-    /// <summary>Ready to play: dealt, tokens taken, and any passing done.</summary>
+    /// <summary>Ready to play: dealt, tokens taken, and any passing done. Seeded as Dealing is.</summary>
     public static GameState InProgress(
         int playerCount,
         int humans = 1,
         DealSourceKind kind = DealSourceKind.Generated,
-        int seed = DefaultSeed)
+        int seed = DefaultSeed,
+        int? randomSeed = null)
     {
-        GameState state = Dealing(playerCount, humans, kind, seed);
+        GameState state = Dealing(playerCount, humans, kind, seed, randomSeed);
 
         foreach (Seat seat in state.HumanSeats.ToList())
         {

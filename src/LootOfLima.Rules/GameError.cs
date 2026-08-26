@@ -7,6 +7,7 @@ public enum GameErrorCode
     SeatOutOfRange,
     WrongPhase,
     SeatAlreadyClaimed,
+    PlayerAlreadySeated,
     SeatNotClaimed,
     NoHumanSeats,
     DealDoesNotFitGame,

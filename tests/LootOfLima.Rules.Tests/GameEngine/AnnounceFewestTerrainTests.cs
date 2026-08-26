@@ -162,21 +162,29 @@ public class AnnounceFewestTerrainTests
         // Arrange
         // A fixed tie-break would leak: announcing "the first tied terrain in declaration order"
         // tells everybody the terrains before it are strictly more common, which is more than the
-        // rule reveals. Across many seeds, a bot's tied choice must land on both terrains.
+        // rule reveals. So hold one tied hand perfectly still and vary nothing but the game seed.
+        // Any choice that is a function of the hand alone answers identically every time, so
+        // landing on both of that one hand's tied terrains is exactly what no fixed order can do.
+        Seat[] tiedBots =
+        [
+            .. TestGame.InProgress(5, humans: 1).Seats
+                .Where(seat => !seat.IsHuman && Rule.Minima(seat.Hand).Count > 1),
+        ];
+        Assert.True(tiedBots.Length > 0, "The default deal no longer ties a bot; pick another deal seed.");
+
+        Seat tied = tiedBots[0];
+        IReadOnlyList<Terrain> candidates = Rule.Minima(tied.Hand);
         HashSet<Terrain> chosen = [];
 
-        for (int seed = 1; seed <= 60; seed++)
+        // Act
+        for (int randomSeed = 1; randomSeed <= 60; randomSeed++)
         {
-            GameState state = TestGame.InProgress(5, humans: 1, seed: seed);
-            foreach (Seat seat in state.Seats.Where(s => !s.IsHuman && Rule.Minima(s.Hand).Count > 1))
-            {
-                // Act
-                chosen.Add(seat.FewestTerrain!.Value);
-            }
+            GameState state = TestGame.InProgress(5, humans: 1, randomSeed: randomSeed);
+            chosen.Add(state.SeatAt(tied.Index).FewestTerrain!.Value);
         }
 
         // Assert
-        Assert.True(chosen.Count > 1, $"Bots only ever announced {string.Join(", ", chosen)} on a tie.");
+        Assert.Equal(candidates.Order(), chosen.Order());
     }
 
     [Fact]

@@ -24,14 +24,8 @@ public class AssemblyPurityTests
     public void Should_declare_no_dependency_at_all_when_the_rules_project_is_read()
     {
         // Arrange
-        XDocument project = LoadProject("src/LootOfLima.Rules/LootOfLima.Rules.csproj");
-
         // Act
-        string[] dependencies =
-        [
-            .. project.Descendants("PackageReference").Concat(project.Descendants("ProjectReference"))
-                .Select(reference => reference.Attribute("Include")?.Value ?? "(unnamed)"),
-        ];
+        string[] dependencies = [.. DependenciesReaching("src/LootOfLima.Rules/LootOfLima.Rules.csproj")];
 
         // Assert
         Assert.Empty(dependencies);
@@ -46,13 +40,10 @@ public class AssemblyPurityTests
     public void Should_declare_no_reference_to_the_rules_engine_when_the_contracts_project_is_read()
     {
         // Arrange
-        XDocument project = LoadProject("src/LootOfLima.Contracts/LootOfLima.Contracts.csproj");
-
         // Act
         string[] references =
         [
-            .. project.Descendants("ProjectReference")
-                .Select(reference => reference.Attribute("Include")?.Value ?? string.Empty)
+            .. DependenciesReaching("src/LootOfLima.Contracts/LootOfLima.Contracts.csproj")
                 .Where(include => include.Contains("LootOfLima.Rules", StringComparison.Ordinal)),
         ];
 
@@ -71,13 +62,40 @@ public class AssemblyPurityTests
         DirectoryInfo root = RepositoryRoot();
 
         // Act
-        bool rules = File.Exists(Path.Combine(root.FullName, "src/LootOfLima.Rules/LootOfLima.Rules.csproj"));
-        bool contracts = File.Exists(Path.Combine(root.FullName, "src/LootOfLima.Contracts/LootOfLima.Contracts.csproj"));
+        string[] missing =
+        [
+            .. new[] { "src/LootOfLima.Rules/LootOfLima.Rules.csproj", "src/LootOfLima.Contracts/LootOfLima.Contracts.csproj" }
+                .Concat(RepositoryWide)
+                .Where(path => !File.Exists(Path.Combine(root.FullName, path))),
+        ];
 
         // Assert
-        Assert.True(rules);
-        Assert.True(contracts);
+        Assert.Empty(missing);
     }
+
+    /// <summary>
+    /// The files that apply to every project in the repository, so a dependency declared in one of
+    /// them reaches an assembly without ever appearing in its csproj. Reading only the csproj would
+    /// leave that perfectly green, which is the same false negative these checks exist to rule out.
+    /// </summary>
+    private static readonly string[] RepositoryWide = ["Directory.Build.props", "Directory.Packages.props"];
+
+    /// <summary>Everything one project depends on, wherever it was declared.</summary>
+    private static IEnumerable<string> DependenciesReaching(string projectPath) =>
+        new[] { projectPath }.Concat(RepositoryWide).Select(LoadProject).SelectMany(Dependencies);
+
+    /// <summary>
+    /// Every shape a dependency takes: <c>Include=</c> adds one, <c>Update=</c> reconfigures one
+    /// that is already there (ordinary under central package management), <c>GlobalPackageReference</c>
+    /// adds one to every project at once, and <c>Reference</c> points straight at an assembly.
+    /// </summary>
+    private static IEnumerable<string> Dependencies(XDocument project) =>
+        project.Descendants()
+            .Where(element => element.Name.LocalName
+                is "PackageReference" or "ProjectReference" or "GlobalPackageReference" or "Reference")
+            .Select(element => element.Attribute("Include")?.Value
+                ?? element.Attribute("Update")?.Value
+                ?? "(unnamed)");
 
     private static XDocument LoadProject(string relativePath) =>
         XDocument.Load(Path.Combine(RepositoryRoot().FullName, relativePath));

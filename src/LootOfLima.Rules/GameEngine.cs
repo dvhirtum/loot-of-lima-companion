@@ -45,6 +45,8 @@ public static class GameEngine
     public static Result<GameState> ClaimSeat(GameState state, int seatIndex, string playerId, string displayName)
     {
         ArgumentNullException.ThrowIfNull(state);
+        ArgumentException.ThrowIfNullOrWhiteSpace(playerId);
+        ArgumentException.ThrowIfNullOrWhiteSpace(displayName);
 
         if ((Reject(state, GamePhase.Lobby) ?? RejectSeat(state, seatIndex)) is { } error)
         {
@@ -56,6 +58,17 @@ public static class GameEngine
         {
             return new GameError(
                 GameErrorCode.SeatAlreadyClaimed, $"Seat {seatIndex} is already taken by {seat.DisplayName}.");
+        }
+
+        // One identity, one hand. Without this a single player could hold two seats and the
+        // projector would build a full-hand view of each for them, which is the whole
+        // hidden-information design undone by opening a second browser tab.
+        Seat? held = state.HumanSeats.FirstOrDefault(
+            other => string.Equals(other.PlayerId, playerId, StringComparison.Ordinal));
+        if (held is not null)
+        {
+            return new GameError(
+                GameErrorCode.PlayerAlreadySeated, $"{playerId} already holds seat {held.Index}.");
         }
 
         return Result<GameState>.Success(WithSeat(
