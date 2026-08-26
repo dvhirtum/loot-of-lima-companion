@@ -45,44 +45,7 @@ longer overwrite the committed seed data, which was the damaging half of this.
 
 **Fix:** treat a present-but-valueless flag as a usage error.
 
-## 3. `AssemblyPurityTests` does not enforce the purity invariant
-
-`tests/LootOfLima.Rules.Tests/AssemblyPurityTests.cs`.
-
-The test reads `Assembly.GetReferencedAssemblies()`, which reports only the references Roslyn
-actually emitted — and Roslyn omits any reference whose types are never used. Adding a
-`PackageReference` to `LootOfLima.Rules.csproj`, or a `ProjectReference` to `LootOfLima.Contracts`,
-therefore leaves this test green until someone happens to use a type from it, even though the
-dependency is in the build graph and ships at runtime.
-
-CLAUDE.md invariant 1 claims `AssemblyPurityTests` enforces it. It does not, quite. Invariant 2
-(Contracts must never reference Rules) has no test at all.
-
-**Why it can wait:** the invariant currently holds, and a violation would be visible in the csproj
-diff of whatever PR introduced it.
-
-**Fix:** assert on the csproj instead — no `PackageReference` or `ProjectReference` items in
-`LootOfLima.Rules.csproj`, and no reference to Rules from `LootOfLima.Contracts.csproj`. That is
-what the invariant actually says.
-
-## 4. `sectorOrder` in `board-layout.json` is read by nobody
-
-`src/LootOfLima.Rules/BoardLayout.cs`, `Load`.
-
-`Load` validates `arcSemantics` and `sectors` but never touches the `sectorOrder` array. The real
-clockwise ordering is the declaration order of the `Direction` enum, and `BuildArcMasks()` is
-computed entirely independently of the loaded file.
-
-The trap is CLAUDE.md invariant 5, "board geometry and scenario data are data, not logic": someone
-editing the layout will reorder `sectorOrder` expecting the arcs to follow. Nothing changes, and
-nothing complains.
-
-**Why it can wait:** the field is inert, so it cannot produce a wrong answer — only wasted time.
-
-**Fix:** either validate `sectorOrder` against `Directions.All` on load, or drop the field from the
-schema so the enum is visibly the single source of truth.
-
-## 5. Unguarded `int.Parse` in the `--debug-page` path
+## 3. Unguarded `int.Parse` in the `--debug-page` path
 
 `tools/LootOfLima.ScenarioImporter/Program.cs`.
 

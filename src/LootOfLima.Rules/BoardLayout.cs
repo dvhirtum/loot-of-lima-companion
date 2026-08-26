@@ -82,6 +82,25 @@ public sealed class BoardLayout
             semantics.GetProperty("startEqualsEndMeansFullCircle").GetBoolean(),
             "startEqualsEndMeansFullCircle must be true.");
 
+        // sectorOrder builds nothing. The clockwise ring is the declaration order of the Direction
+        // enum, which is what BuildArcMasks walks, so the file only restates it. It is validated
+        // rather than read precisely because of that: an editor who reorders this array expecting
+        // the arcs to follow gets a loud failure here instead of a file that quietly disagrees with
+        // the enum while every answer stays right.
+        JsonElement sectorOrder = root.GetProperty("sectorOrder");
+        Require(
+            sectorOrder.GetArrayLength() == Directions.Count,
+            $"sectorOrder lists {sectorOrder.GetArrayLength()} directions, not {Directions.Count}.");
+
+        for (int index = 0; index < Directions.Count; index++)
+        {
+            Direction listed = Directions.Parse(sectorOrder[index].GetString() ?? string.Empty);
+            Require(
+                listed == Directions.All[index],
+                $"sectorOrder[{index}] is {listed} but the clockwise ring has {Directions.All[index]} there. "
+                + "The ring is the Direction enum's declaration order; reordering this array cannot change it.");
+        }
+
         byte[] sectorOfLocation = new byte[LocationId.TotalCount];
         bool[] assigned = new bool[LocationId.TotalCount];
 

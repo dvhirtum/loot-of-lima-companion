@@ -1,14 +1,17 @@
 <Solution>
   <Folder Name="/src/">
     <Project Path="src/LootOfLima.Contracts/LootOfLima.Contracts.csproj" />
+    <Project Path="src/LootOfLima.Projection/LootOfLima.Projection.csproj" />
     <Project Path="src/LootOfLima.Rules/LootOfLima.Rules.csproj" />
     <Project Path="src/LootOfLima.Scenarios/LootOfLima.Scenarios.csproj" />
   </Folder>
   <Folder Name="/tests/">
+    <Project Path="tests/LootOfLima.Projection.Tests/LootOfLima.Projection.Tests.csproj" />
     <Project Path="tests/LootOfLima.Rules.Tests/LootOfLima.Rules.Tests.csproj" />
     <Project Path="tests/LootOfLima.Scenarios.Tests/LootOfLima.Scenarios.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
+    <Project Path="tools/LootOfLima.Harness/LootOfLima.Harness.csproj" />
     <Project Path="tools/LootOfLima.ScenarioImporter/LootOfLima.ScenarioImporter.csproj" />
   </Folder>
 </Solution>
