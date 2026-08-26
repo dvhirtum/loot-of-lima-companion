@@ -89,6 +89,77 @@ public class BroadcastTests
         Assert.Equal("b", Assert.Single(hub.Delivered).ConnectionId);
     }
 
+    [Fact]
+    public async Task Should_send_each_connection_its_state_before_its_event_when_both_go_out()
+    {
+        // Arrange
+        // One walk of the connections rather than two. Two walks read the list twice, and a
+        // connection attaching in the gap would be told what happened without having been sent the
+        // state it happened to -- the one order these two must never arrive in.
+        RecordingHub hub = new();
+        Registry connections = new();
+        Stored game = Seated();
+
+        foreach (string id in (string[])["a", "b"])
+        {
+            connections.Attach(new Connected(id, game.State.GameId, Player: null));
+        }
+
+        Sut broadcaster = new(hub, connections, NullLogger<Sut>.Instance);
+
+        // Act
+        await broadcaster.BroadcastAsync(game, new GameEventDto(GameEventDto.SeatClaimed, 0));
+
+        // Assert
+        // Per connection, because that is where the order matters: each client sees State then Event.
+        foreach (string id in (string[])["a", "b"])
+        {
+            Assert.Equal(
+                ["State", "Event"],
+                hub.Delivered.Where(sent => sent.ConnectionId == id).Select(sent => sent.Method));
+        }
+    }
+
+    [Fact]
+    public async Task Should_send_no_event_to_a_latecomer_when_it_attaches_mid_broadcast()
+    {
+        // Arrange
+        // The double-walk bug, made certain rather than waited for. Two walks read the connection
+        // list twice, and anything that attached in the gap appears only in the second one — so it
+        // is told what happened without ever having been sent the state it happened to. One walk
+        // cannot produce that: a latecomer is either in the list when it is read or it is not, and
+        // either way it gets both or neither.
+        //
+        // A static list hides this completely. Walked twice, "State a, State b, Event a, Event b"
+        // is still State-before-Event for every connection, which is why this arranges for the list
+        // to change underneath the walk.
+        RecordingHub hub = new();
+        Registry connections = new();
+        Stored game = Seated();
+
+        connections.Attach(new Connected("early", game.State.GameId, Player: null));
+
+        Latecomer registry = new(connections)
+        {
+            OnSecondRead = () => connections.Attach(
+                new Connected("late", game.State.GameId, Player: null)),
+        };
+
+        Sut broadcaster = new(hub, registry, NullLogger<Sut>.Instance);
+
+        // Act
+        await broadcaster.BroadcastAsync(game, new GameEventDto(GameEventDto.SeatClaimed, 0));
+
+        // Assert
+        // Nobody was told what happened without being shown what it happened to.
+        foreach (string id in hub.Delivered.Select(sent => sent.ConnectionId).Distinct())
+        {
+            Assert.Equal(
+                "State",
+                hub.Delivered.First(sent => sent.ConnectionId == id).Method);
+        }
+    }
+
     private static Stored Seated() => new(TestGames.Lobby(), Version: 1);
 }
 
@@ -148,5 +219,36 @@ internal sealed class RecordingHub : IHubContext<LootOfLima.Server.Hubs.GameHub>
             owner.Delivered.Add((connectionId, method, arguments[0]!));
             return Task.CompletedTask;
         }
+    }
+}
+
+/// <summary>
+/// A registry that lets somebody arrive between one read of the connection list and the next.
+/// </summary>
+/// <remarks>
+/// Everything is delegated untouched; this only decides <em>when</em> the latecomer attaches, which
+/// is the one thing a test otherwise has no way to pin down. A broadcast that reads the list once
+/// never sees the difference, which is the point.
+/// </remarks>
+internal sealed class Latecomer(IConnectionRegistry inner) : IConnectionRegistry
+{
+    private int _reads;
+
+    public Action? OnSecondRead { get; set; }
+
+    public void Attach(Connection connection) => inner.Attach(connection);
+
+    public void Detach(string connectionId) => inner.Detach(connectionId);
+
+    public Connection? Find(string connectionId) => inner.Find(connectionId);
+
+    public IReadOnlyList<Connection> InGame(string gameId)
+    {
+        if (++_reads == 2)
+        {
+            OnSecondRead?.Invoke();
+        }
+
+        return inner.InGame(gameId);
     }
 }

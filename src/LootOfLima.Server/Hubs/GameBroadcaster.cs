@@ -39,29 +39,43 @@ internal sealed class GameBroadcaster(
     internal const string EventMethod = "Event";
 
     /// <summary>Sends the game to everybody watching it, each seeing only their own view.</summary>
-    public async Task BroadcastAsync(StoredGame game)
+    public Task BroadcastAsync(StoredGame game)
     {
         ArgumentNullException.ThrowIfNull(game);
 
-        foreach (Connection connection in connections.InGame(game.State.GameId))
-        {
-            await SendAsync(game, connection).ConfigureAwait(false);
-        }
+        return SendToEachAsync(game, happened: null);
     }
 
     /// <summary>
     /// Sends the game and a nudge saying what changed. The state still goes per connection; the
     /// event carries no game detail, so the same one is safe for everybody.
     /// </summary>
-    public async Task BroadcastAsync(StoredGame game, GameEventDto happened)
+    public Task BroadcastAsync(StoredGame game, GameEventDto happened)
     {
         ArgumentNullException.ThrowIfNull(game);
+        ArgumentNullException.ThrowIfNull(happened);
 
-        await BroadcastAsync(game).ConfigureAwait(false);
+        return SendToEachAsync(game, happened);
+    }
 
+    /// <summary>
+    /// One walk of the connections, sending each its own state and then the nudge.
+    /// </summary>
+    /// <remarks>
+    /// One walk rather than two, because the list can change between them: a connection attaching
+    /// in the gap would be told what happened without having been sent the state it happened to,
+    /// which is the one order these two must never arrive in.
+    /// </remarks>
+    private async Task SendToEachAsync(StoredGame game, GameEventDto? happened)
+    {
         foreach (Connection connection in connections.InGame(game.State.GameId))
         {
-            await DeliverAsync(connection, EventMethod, happened).ConfigureAwait(false);
+            await SendAsync(game, connection).ConfigureAwait(false);
+
+            if (happened is not null)
+            {
+                await DeliverAsync(connection, EventMethod, happened).ConfigureAwait(false);
+            }
         }
     }
 

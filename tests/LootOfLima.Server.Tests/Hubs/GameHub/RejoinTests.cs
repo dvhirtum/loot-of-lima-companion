@@ -118,4 +118,24 @@ public class RejoinTests
         // Assert
         Assert.Equal((await harness.StoredAsync()).Version, late.View.Version);
     }
+
+    [Fact]
+    public async Task Should_send_nothing_to_a_connection_that_never_said_which_game_it_wants()
+    {
+        // Arrange
+        // A connected client that has not rejoined is on no game's list. It is owed nothing when
+        // anybody acts, and the harness has to know that: waiting for a frame the server will
+        // never send is ten seconds of hanging and then a message blaming the server for it.
+        await using HubHarness harness = new();
+        await harness.SeedLobbyAsync();
+        TestClient player = await harness.JoinAsync(harness.IssueToken("Ada"));
+        TestClient stranger = await harness.ConnectAsync();
+
+        // Act
+        await harness.ActAsync(player, "ClaimSeat", 0);
+
+        // Assert
+        Assert.Empty(stranger.StateFrames);
+        Assert.NotEmpty(player.StateFrames);
+    }
 }

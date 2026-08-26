@@ -42,6 +42,11 @@ internal sealed class GameHub(
     /// </summary>
     public async Task Rejoin(string roomCode, string? playerToken)
     {
+        if (await MissingAsync(roomCode).ConfigureAwait(false))
+        {
+            return;
+        }
+
         StoredGame? game = await games.FindByRoomCodeAsync(roomCode, Context.ConnectionAborted).ConfigureAwait(false);
         if (game is null)
         {
@@ -90,12 +95,12 @@ internal sealed class GameHub(
     public Task ClaimSeat(int seatIndex) =>
         WithPlayerAsync(
             (player, state) => GameEngine.ClaimSeat(state, seatIndex, player.PlayerId, player.DisplayName),
-            new GameEventDto("SeatClaimed", seatIndex));
+            new GameEventDto(GameEventDto.SeatClaimed, seatIndex));
 
     public Task ReleaseSeat() =>
         WithSeatAsync(
             (seat, state) => GameEngine.ReleaseSeat(state, seat),
-            seat => new GameEventDto("SeatReleased", seat));
+            seat => new GameEventDto(GameEventDto.SeatReleased, seat));
 
     /// <summary>
     /// Deals and begins. Any seated player may start; the app always owns the deal.
@@ -106,7 +111,10 @@ internal sealed class GameHub(
     /// </remarks>
     public async Task StartGame(StartGameRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        if (await MissingAsync(request).ConfigureAwait(false))
+        {
+            return;
+        }
 
         string? scenario = null;
         if (request.ScenarioId is { } asked)
@@ -132,7 +140,7 @@ internal sealed class GameHub(
                     ? ScenarioLibrary.Get(scenario).ToDeal()
                     : Dealer.Create(state.PlayerCount, state.RandomSeed),
                 new DeterministicShuffleSource(state.RandomSeed)),
-            _ => new GameEventDto("GameStarted")).ConfigureAwait(false);
+            _ => new GameEventDto(GameEventDto.GameStarted)).ConfigureAwait(false);
     }
 
     public Task ConfirmTokensTaken() =>
@@ -151,7 +159,7 @@ internal sealed class GameHub(
 
         await WithSeatAsync(
             (seat, state) => GameEngine.AnnounceFewestTerrain(state, seat, announced),
-            seat => new GameEventDto("FewestTerrainAnnounced", seat)).ConfigureAwait(false);
+            seat => new GameEventDto(GameEventDto.FewestTerrainAnnounced, seat)).ConfigureAwait(false);
     }
 
     public async Task SpendAbility(string ability)
@@ -164,12 +172,15 @@ internal sealed class GameHub(
 
         await WithSeatAsync(
             (seat, state) => GameEngine.SpendAbility(state, seat, spent),
-            seat => new GameEventDto("AbilitySpent", seat)).ConfigureAwait(false);
+            seat => new GameEventDto(GameEventDto.AbilitySpent, seat)).ConfigureAwait(false);
     }
 
     public async Task AskQuestion(AskQuestionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        if (await MissingAsync(request).ConfigureAwait(false))
+        {
+            return;
+        }
 
         if (!TryReadRange(request.Start, request.End, request.Terrain, out QueryRange range, out string? complaint))
         {
@@ -179,7 +190,7 @@ internal sealed class GameHub(
 
         await WithSeatAsync(
             (seat, state) => GameEngine.AskQuestion(state, seat, request.TargetSeat, range, BoardLayout.Default),
-            seat => new GameEventDto("QuestionAsked", seat)).ConfigureAwait(false);
+            seat => new GameEventDto(GameEventDto.QuestionAsked, seat)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -189,7 +200,10 @@ internal sealed class GameHub(
     /// </summary>
     public async Task AskSecretQuestion(AskSecretQuestionRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        if (await MissingAsync(request).ConfigureAwait(false))
+        {
+            return;
+        }
 
         if (!TryReadRange(request.Start, request.End, null, out QueryRange range, out string? complaint))
         {
@@ -199,12 +213,15 @@ internal sealed class GameHub(
 
         await WithSeatAsync(
             (seat, state) => GameEngine.AskSecretQuestion(state, seat, request.TargetSeat, range, BoardLayout.Default),
-            seat => new GameEventDto("QuestionAsked", seat)).ConfigureAwait(false);
+            seat => new GameEventDto(GameEventDto.QuestionAsked, seat)).ConfigureAwait(false);
     }
 
     public async Task Accuse(AccuseRequest request)
     {
-        ArgumentNullException.ThrowIfNull(request);
+        if (await MissingAsync(request).ConfigureAwait(false))
+        {
+            return;
+        }
 
         if (!TryReadLocation(request.First, out LocationId first, out string? complaint)
             || !TryReadLocation(request.Second, out LocationId second, out complaint))
@@ -215,7 +232,7 @@ internal sealed class GameHub(
 
         await WithSeatAsync(
             (seat, state) => GameEngine.Accuse(state, seat, first, second),
-            seat => new GameEventDto("AccusationMade", seat)).ConfigureAwait(false);
+            seat => new GameEventDto(GameEventDto.AccusationMade, seat)).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -371,6 +388,29 @@ internal sealed class GameHub(
         {
             await broadcaster.BroadcastAsync(result.Value).ConfigureAwait(false);
         }
+    }
+
+    /// <summary>
+    /// Answers a caller that left out an argument, and says whether it did.
+    /// </summary>
+    /// <remarks>
+    /// Everything here arrives from a client, so a missing argument is a bad request rather than a
+    /// bug in this server. Throwing would reach the caller as a HubException reading "An unexpected
+    /// error occurred", which is both untrue and no use to whoever has to fix their client, and it
+    /// would be the one input in the whole hub that does not come back shaped like every other
+    /// refusal.
+    /// </remarks>
+    private async Task<bool> MissingAsync(object? argument)
+    {
+        if (argument is not null)
+        {
+            return false;
+        }
+
+        await FailAsync("BadRequest", "That command arrived with a missing argument.")
+            .ConfigureAwait(false);
+
+        return true;
     }
 
     /// <summary>Answers the one caller. Errors are addressed, never broadcast.</summary>

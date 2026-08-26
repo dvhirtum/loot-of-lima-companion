@@ -313,4 +313,43 @@ public class AuthorizationTests
         Assert.Empty(player.Errors);
         Assert.Equal(DealSourceKind.Scenario, (await harness.CurrentAsync()).Deal!.Source.Kind);
     }
+
+    [Theory]
+    [InlineData("StartGame")]
+    [InlineData("AskQuestion")]
+    [InlineData("AskSecretQuestion")]
+    [InlineData("Accuse")]
+    public async Task Should_refuse_the_command_when_its_request_is_missing(string method)
+    {
+        // Arrange
+        // Every one of these arrives from a client, so a missing body is a bad request rather than
+        // a bug in the server. Thrown, it would reach the caller as a HubException reading "An
+        // unexpected error occurred" — untrue, no use to whoever has to fix their client, and the
+        // one input in the whole hub that does not come back shaped like every other refusal.
+        await using HubHarness harness = new();
+        await harness.SeedLobbyAsync();
+        IReadOnlyList<TestClient> players = await HubGame.PlayToInProgressAsync(harness);
+
+        // Act
+        await players[0].InvokeAsync(method, [null]);
+
+        // Assert
+        Assert.Equal("BadRequest", Assert.Single(players[0].Errors).Code);
+    }
+
+    [Fact]
+    public async Task Should_refuse_the_rejoin_when_the_room_code_is_missing()
+    {
+        // Arrange
+        // A null code reaches a dictionary lookup, which throws on a null key rather than missing.
+        await using HubHarness harness = new();
+        await harness.SeedLobbyAsync();
+        TestClient stranger = await harness.ConnectAsync();
+
+        // Act
+        await stranger.InvokeAsync("Rejoin", null, null);
+
+        // Assert
+        Assert.Equal("BadRequest", Assert.Single(stranger.Errors).Code);
+    }
 }

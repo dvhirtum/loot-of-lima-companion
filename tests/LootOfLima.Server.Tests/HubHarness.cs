@@ -103,8 +103,13 @@ internal sealed class HubHarness : IAsyncDisposable
     /// </remarks>
     public async Task ActAsync(TestClient actor, string method, params object?[] arguments)
     {
+        // Only the clients that are in the game. A client from ConnectAsync has never said which
+        // game it is watching, so the server has nothing to send it and never will: waiting for it
+        // is a ten-second hang ending in a message that blames the server for the test's mistake.
+        TestClient[] watching = [.. _clients.Where(client => client.HasJoined)];
+
         int errorsBefore = actor.ErrorCount;
-        Dictionary<TestClient, int> before = _clients.ToDictionary(client => client, client => client.FrameCount);
+        Dictionary<TestClient, int> before = watching.ToDictionary(client => client, client => client.FrameCount);
 
         await actor.InvokeAsync(method, arguments);
 
@@ -114,7 +119,7 @@ internal sealed class HubHarness : IAsyncDisposable
             return;
         }
 
-        foreach (TestClient client in _clients)
+        foreach (TestClient client in watching)
         {
             await client.WaitForFramesAsync(before[client] + 1);
         }
@@ -131,6 +136,7 @@ internal sealed class HubHarness : IAsyncDisposable
     {
         TestClient joining = await ConnectAsync(playerToken);
         await joining.InvokeAsync("Rejoin", RoomCode, playerToken);
+        joining.HasJoined = joining.ErrorCount == 0;
         return joining;
     }
 
@@ -164,6 +170,16 @@ internal sealed class TestClient(HubConnection connection, string? playerToken) 
     private readonly SemaphoreSlim _delivered = new(0);
 
     public string? PlayerToken { get; } = playerToken;
+
+    /// <summary>
+    /// Whether this client has told the server which game it is watching.
+    /// </summary>
+    /// <remarks>
+    /// A connected client that has not rejoined is on no game's list, so it is sent nothing when
+    /// anybody acts. Waiting for a frame it was never owed is the difference between a test that
+    /// fails in milliseconds and one that hangs for ten seconds and then blames the server.
+    /// </remarks>
+    public bool HasJoined { get; set; }
 
     /// <summary>Every <c>State</c> payload as raw JSON, oldest first.</summary>
     public IReadOnlyList<string> StateFrames => _stateFrames.Snapshot();
