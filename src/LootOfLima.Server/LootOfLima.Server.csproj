@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk.Web">
+
+  <PropertyGroup>
+    <IsPackable>false</IsPackable>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\LootOfLima.Projection\LootOfLima.Projection.csproj" />
+    <ProjectReference Include="..\LootOfLima.Scenarios\LootOfLima.Scenarios.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <InternalsVisibleTo Include="LootOfLima.Server.Tests" />
+  </ItemGroup>
+
+</Project>

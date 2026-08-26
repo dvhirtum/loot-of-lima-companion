@@ -16,7 +16,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 |---|---|
 | M1 — pure rules engine + scenario oracle | **Done.** 1246 tests green |
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1486 tests green |
-| M3 — minimal API + SignalR server | Next |
+| M3 — minimal API + SignalR server | **In progress.** Hub, projection choke point and store done |
 | M4-M6 — Angular client, then polish | Not started |
 
 **The full plan lives at `C:\Users\Dick\.claude\plans\nested-hatching-petal.md`** (outside the
@@ -29,7 +29,7 @@ before touching the importer or `BoardLayout`.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1486 passing
+dotnet test       # expect 1522 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
@@ -107,6 +107,10 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
 
 ## Settled product decisions
 
+- **Client DTOs name directions, terrains and locations as strings**, and the server parses
+  them. `Contracts` cannot reference `Rules`, so `Direction`, `Terrain` and `LocationId` are
+  unreachable from any hub signature by design. If typed fields are ever wanted on the wire,
+  **duplicate the enums into `Contracts`** - never reference `Rules` to get them.
 - **The app does not model the roll.** So Barrel and Shovel have no in-app mechanics — they are
   only marked as spent. The die faces are recorded in `docs/dice.md` for reference; no code reads
   them.

@@ -4,11 +4,13 @@
     <Project Path="src/LootOfLima.Projection/LootOfLima.Projection.csproj" />
     <Project Path="src/LootOfLima.Rules/LootOfLima.Rules.csproj" />
     <Project Path="src/LootOfLima.Scenarios/LootOfLima.Scenarios.csproj" />
+    <Project Path="src/LootOfLima.Server/LootOfLima.Server.csproj" />
   </Folder>
   <Folder Name="/tests/">
     <Project Path="tests/LootOfLima.Projection.Tests/LootOfLima.Projection.Tests.csproj" />
     <Project Path="tests/LootOfLima.Rules.Tests/LootOfLima.Rules.Tests.csproj" />
     <Project Path="tests/LootOfLima.Scenarios.Tests/LootOfLima.Scenarios.Tests.csproj" />
+    <Project Path="tests/LootOfLima.Server.Tests/LootOfLima.Server.Tests.csproj" />
   </Folder>
   <Folder Name="/tools/">
     <Project Path="tools/LootOfLima.Harness/LootOfLima.Harness.csproj" />
