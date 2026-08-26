@@ -93,17 +93,17 @@ internal static class GameEndpoints
         IGameStore games,
         CancellationToken cancellationToken)
     {
-        GameState? game = await games.FindByRoomCodeAsync(roomCode, cancellationToken).ConfigureAwait(false);
+        StoredGame? game = await games.FindByRoomCodeAsync(roomCode, cancellationToken).ConfigureAwait(false);
         if (game is null)
         {
             return TypedResults.NotFound();
         }
 
         return TypedResults.Ok(new LobbySummary(
-            game.RoomCode,
-            game.Phase.ToString(),
-            game.PlayerCount,
-            [.. game.Seats.Select(seat => new LobbySeat(seat.Index, seat.DisplayName, seat.IsHuman))]));
+            game.State.RoomCode,
+            game.State.Phase.ToString(),
+            game.State.PlayerCount,
+            [.. game.State.Seats.Select(seat => new LobbySeat(seat.Index, seat.DisplayName, seat.IsHuman))]));
     }
 
     private static async Task<Results<Ok<JoinResponse>, NotFound, BadRequest<ErrorDto>>> JoinAsync(
@@ -118,7 +118,7 @@ internal static class GameEndpoints
             return TypedResults.BadRequest(new ErrorDto("BadRequest", "A player needs a name."));
         }
 
-        GameState? game = await games.FindByRoomCodeAsync(roomCode, cancellationToken).ConfigureAwait(false);
+        StoredGame? game = await games.FindByRoomCodeAsync(roomCode, cancellationToken).ConfigureAwait(false);
         if (game is null)
         {
             return TypedResults.NotFound();
@@ -126,7 +126,7 @@ internal static class GameEndpoints
 
         // Joining issues an identity but claims no seat: which seat is the player's own choice, and
         // it is made over the hub where the whole table can watch the lobby fill up.
-        PlayerIdentity identity = tokens.Issue(game.GameId, request.DisplayName.Trim(), out string token);
+        PlayerIdentity identity = tokens.Issue(game.State.GameId, request.DisplayName.Trim(), out string token);
         return TypedResults.Ok(new JoinResponse(token, identity.PlayerId));
     }
 
@@ -136,7 +136,7 @@ internal static class GameEndpoints
         IGameStore games,
         CancellationToken cancellationToken)
     {
-        GameState? game = await games.FindByRoomCodeAsync(roomCode, cancellationToken).ConfigureAwait(false);
+        StoredGame? game = await games.FindByRoomCodeAsync(roomCode, cancellationToken).ConfigureAwait(false);
         if (game is null)
         {
             return TypedResults.NotFound();
@@ -144,7 +144,7 @@ internal static class GameEndpoints
 
         using QRCodeGenerator generator = new();
         using QRCodeData data = generator.CreateQrCode(
-            JoinUrl(http, game.RoomCode), QRCodeGenerator.ECCLevel.Q);
+            JoinUrl(http, game.State.RoomCode), QRCodeGenerator.ECCLevel.Q);
 
         // Rendered server-side so the host's screen needs nothing but an img tag, and so the URL
         // in the code is the one the server believes in rather than one a page assembled.

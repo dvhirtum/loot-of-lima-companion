@@ -48,11 +48,14 @@ internal sealed class HubHarness : IAsyncDisposable
     }
 
     /// <summary>The game as the server now holds it, for asserting on what the engine actually did.</summary>
-    public async Task<GameState> CurrentAsync()
+    public async Task<GameState> CurrentAsync() => (await StoredAsync()).State;
+
+    /// <summary>The same game with the store's revision of it, for asserting on the version stamp.</summary>
+    public async Task<StoredGame> StoredAsync()
     {
         IGameStore store = _factory.Services.GetRequiredService<IGameStore>();
-        GameState? state = await store.FindAsync(GameId, TestContext.Current.CancellationToken);
-        return state ?? throw new InvalidOperationException("The seeded game is gone.");
+        StoredGame? stored = await store.FindAsync(GameId, TestContext.Current.CancellationToken);
+        return stored ?? throw new InvalidOperationException("The seeded game is gone.");
     }
 
     /// <summary>Issues a token the way joining will, without needing the REST endpoint to exist yet.</summary>
@@ -117,32 +120,17 @@ internal sealed class HubHarness : IAsyncDisposable
         }
     }
 
-    /// <summary>
-    /// Connects a client and rejoins it to the seeded game in one step, then lets everybody catch
-    /// up.
-    /// </summary>
+    /// <summary>Connects a client and rejoins it to the seeded game in one step.</summary>
     /// <remarks>
-    /// Somebody arriving is a change to the game like any other, so every existing client is sent a
-    /// frame too. Waiting for those matters more than it looks: without it the next
-    /// <see cref="ActAsync"/> would take its baseline while this arrival was still in flight, and
-    /// then mistake that frame for the answer to the command it had just sent.
+    /// Nobody else is waited for, because nobody else is sent anything: an arrival changes no seat,
+    /// no hand and no history, so the server answers the joiner alone. This used to wait for the
+    /// whole table, and the frame it waited for was the one a later <see cref="ActAsync"/> would
+    /// then mistake for the answer to its own command.
     /// </remarks>
     public async Task<TestClient> JoinAsync(string? playerToken = null)
     {
-        Dictionary<TestClient, int> before = _clients.ToDictionary(
-            client => client, client => client.StateFrames.Count);
-
         TestClient joining = await ConnectAsync(playerToken);
         await joining.InvokeAsync("Rejoin", RoomCode, playerToken);
-
-        if (joining.Errors.Count == 0)
-        {
-            foreach ((TestClient client, int frames) in before)
-            {
-                await client.WaitForFramesAsync(frames + 1);
-            }
-        }
-
         return joining;
     }
 

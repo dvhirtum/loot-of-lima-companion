@@ -17,6 +17,13 @@ namespace LootOfLima.Contracts;
 /// hidden-information design exists to protect.
 /// </param>
 /// <param name="EndReason">One of CorrectAccusation, LastPlayerStanding, AllPlayersEliminated.</param>
+/// <param name="Version">
+/// Which revision of the game this view was built from. It rises by one per command applied, so
+/// a client that keeps the highest it has seen can drop a frame that arrives after a later one:
+/// commands are ordered, but the sends that follow them are not, and a frame can overtake its
+/// successor on the way out. Zero on a view nothing stamped, which is every view built outside a
+/// running server.
+/// </param>
 public sealed record PlayerView(
     string GameId,
     string RoomCode,
@@ -30,4 +37,5 @@ public sealed record PlayerView(
     IReadOnlyList<string>? Treasure,
     IReadOnlyList<HistoryEntryView> History,
     int? WinnerSeat,
-    string? EndReason);
+    string? EndReason,
+    long Version = 0);

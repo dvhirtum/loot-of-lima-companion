@@ -1,4 +1,5 @@
 using LootOfLima.Rules;
+using Stored = LootOfLima.Server.Games.StoredGame;
 using Sut = LootOfLima.Server.Games.InMemoryGameStore;
 
 namespace LootOfLima.Server.Tests.Games.InMemoryGameStore;
@@ -17,10 +18,10 @@ public class FindByRoomCodeTests
         await store.TryAddAsync(TestGames.Lobby("game-1", "ABCD"), TestContext.Current.CancellationToken);
 
         // Act
-        GameState? found = await store.FindByRoomCodeAsync(typed, TestContext.Current.CancellationToken);
+        Stored? found = await store.FindByRoomCodeAsync(typed, TestContext.Current.CancellationToken);
 
         // Assert
-        Assert.Equal("game-1", found?.GameId);
+        Assert.Equal("game-1", found?.State.GameId);
     }
 
     [Fact]
@@ -31,7 +32,7 @@ public class FindByRoomCodeTests
         await store.TryAddAsync(TestGames.Lobby("game-1", "ABCD"), TestContext.Current.CancellationToken);
 
         // Act
-        GameState? found = await store.FindByRoomCodeAsync("WXYZ", TestContext.Current.CancellationToken);
+        Stored? found = await store.FindByRoomCodeAsync("WXYZ", TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Null(found);

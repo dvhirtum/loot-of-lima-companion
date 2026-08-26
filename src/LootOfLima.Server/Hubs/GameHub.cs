@@ -42,7 +42,7 @@ internal sealed class GameHub(
     /// </summary>
     public async Task Rejoin(string roomCode, string? playerToken)
     {
-        GameState? game = await games.FindByRoomCodeAsync(roomCode, Context.ConnectionAborted).ConfigureAwait(false);
+        StoredGame? game = await games.FindByRoomCodeAsync(roomCode, Context.ConnectionAborted).ConfigureAwait(false);
         if (game is null)
         {
             await FailAsync("NoSuchGame", $"No live game has the code {roomCode}.").ConfigureAwait(false);
@@ -51,7 +51,7 @@ internal sealed class GameHub(
 
         PlayerIdentity? identity = tokens.Resolve(playerToken);
         if (playerToken is not null
-            && !string.Equals(identity?.GameId, game.GameId, StringComparison.Ordinal))
+            && !string.Equals(identity?.GameId, game.State.GameId, StringComparison.Ordinal))
         {
             // A token from another table is not a spectator pass. Silently downgrading it would
             // leave a player staring at a hand-less view with nothing to explain why.
@@ -59,8 +59,12 @@ internal sealed class GameHub(
             return;
         }
 
-        connections.Attach(new Connection(Context.ConnectionId, game.GameId, identity));
-        await broadcaster.BroadcastAsync(game, Context.ConnectionAborted).ConfigureAwait(false);
+        connections.Attach(new Connection(Context.ConnectionId, game.State.GameId, identity));
+
+        // To the arriving connection alone. Nobody else's view of the game has changed, and the
+        // snapshot above was read outside the store's gate, so sending it to the table would let a
+        // reconnect that landed mid-command undo that command on every other screen.
+        await broadcaster.SendCurrentAsync(game, Context.ConnectionId).ConfigureAwait(false);
     }
 
     /// <summary>
@@ -327,7 +331,7 @@ internal sealed class GameHub(
             return;
         }
 
-        Result<GameState>? outcome = await games
+        Result<StoredGame>? outcome = await games
             .MutateAsync(connection.GameId, command, Context.ConnectionAborted)
             .ConfigureAwait(false);
 
@@ -345,11 +349,11 @@ internal sealed class GameHub(
 
         if (happened() is { } nudge)
         {
-            await broadcaster.BroadcastAsync(result.Value, nudge, Context.ConnectionAborted).ConfigureAwait(false);
+            await broadcaster.BroadcastAsync(result.Value, nudge).ConfigureAwait(false);
         }
         else
         {
-            await broadcaster.BroadcastAsync(result.Value, Context.ConnectionAborted).ConfigureAwait(false);
+            await broadcaster.BroadcastAsync(result.Value).ConfigureAwait(false);
         }
     }
 

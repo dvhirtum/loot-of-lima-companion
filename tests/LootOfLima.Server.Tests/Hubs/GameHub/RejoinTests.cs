@@ -75,4 +75,47 @@ public class RejoinTests
         Assert.Equal(2, laptop.View.ViewerSeat);
         Assert.Equal(2, phone.View.ViewerSeat);
     }
+
+    [Fact]
+    public async Task Should_tell_nobody_else_when_a_client_arrives()
+    {
+        // Arrange
+        // An arrival changes no seat, no hand and no history, so the table has nothing to redraw.
+        // It also read the game outside the store's gate, which is the part that could do harm: a
+        // reconnect landing mid-command would push that older snapshot over everybody's view.
+        //
+        // A frame that was never sent and a frame that has not arrived yet look identical, so this
+        // does not count frames straight after the arrival. It acts afterwards and waits for the
+        // frame that action owes, which SignalR delivers in order down the same connection: had
+        // the arrival sent one too, it would already be sitting in front of this one.
+        await using HubHarness harness = new();
+        await harness.SeedLobbyAsync();
+        TestClient sitting = await harness.JoinAsync(harness.IssueToken("Ada"));
+        int framesBefore = sitting.StateFrames.Count;
+
+        // Act
+        await harness.JoinAsync();
+
+        // Assert
+        await harness.ActAsync(sitting, "ClaimSeat", 0);
+        Assert.Equal(framesBefore + 1, sitting.StateFrames.Count);
+    }
+
+    [Fact]
+    public async Task Should_send_the_version_the_game_is_at_when_a_client_arrives()
+    {
+        // Arrange
+        // Arriving late still has to place the frame in the sequence, or the first thing a client
+        // does with a later frame is decide it is older than what it already has.
+        await using HubHarness harness = new();
+        await harness.SeedLobbyAsync();
+        TestClient first = await harness.JoinAsync(harness.IssueToken("Ada"));
+        await harness.ActAsync(first, "ClaimSeat", 0);
+
+        // Act
+        TestClient late = await harness.JoinAsync();
+
+        // Assert
+        Assert.Equal((await harness.StoredAsync()).Version, late.View.Version);
+    }
 }

@@ -17,20 +17,22 @@ internal interface IGameStore
     /// <summary>Files a newly created game. False if its room code is already live.</summary>
     Task<bool> TryAddAsync(GameState state, CancellationToken cancellationToken = default);
 
-    Task<GameState?> FindAsync(string gameId, CancellationToken cancellationToken = default);
+    Task<StoredGame?> FindAsync(string gameId, CancellationToken cancellationToken = default);
 
-    Task<GameState?> FindByRoomCodeAsync(string roomCode, CancellationToken cancellationToken = default);
+    Task<StoredGame?> FindByRoomCodeAsync(string roomCode, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Applies one engine command to a game, atomically. The new state is stored only when the
     /// command succeeds, so a rejected command cannot leave a half-applied game behind.
     /// </summary>
     /// <returns>
-    /// What the command returned, or null when there is no such game. A missing game is not a
+    /// What the command returned, stamped with the version it was stored at, or null when there is
+    /// no such game. The version comes back with the state rather than being read afterwards,
+    /// because reading it afterwards is the race this is meant to close. A missing game is not a
     /// <see cref="GameError"/>: the rules engine has no concept of a game it cannot find, and
     /// inventing a rule error for a lookup failure would put a server concern into the rulebook.
     /// </returns>
-    Task<Result<GameState>?> MutateAsync(
+    Task<Result<StoredGame>?> MutateAsync(
         string gameId,
         Func<GameState, Result<GameState>> command,
         CancellationToken cancellationToken = default);

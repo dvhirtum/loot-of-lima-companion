@@ -1,6 +1,7 @@
 using LootOfLima.Contracts;
 using LootOfLima.Projection;
 using LootOfLima.Rules;
+using LootOfLima.Server.Games;
 using Microsoft.AspNetCore.SignalR;
 
 namespace LootOfLima.Server.Hubs;
@@ -19,24 +20,32 @@ namespace LootOfLima.Server.Hubs;
 /// Having exactly one method that can send state is the point: a leak has one place to hide, and a
 /// test can read this file and check it.
 /// </para>
+/// <para>
+/// Nothing here takes a cancellation token. A broadcast is owed to the table rather than to
+/// whoever caused it, and the obvious token to hand it — the acting connection's
+/// <c>ConnectionAborted</c> — belongs to one player: a phone that locks its screen as its owner's
+/// question commits would have cancelled everybody else's frame. Delivery to one connection is
+/// likewise isolated from delivery to the next, so a connection that has gone away takes its own
+/// frame down and nobody else's.
+/// </para>
 /// </remarks>
-internal sealed class GameBroadcaster(IHubContext<GameHub> hub, IConnectionRegistry connections)
+internal sealed class GameBroadcaster(
+    IHubContext<GameHub> hub,
+    IConnectionRegistry connections,
+    ILogger<GameBroadcaster> logger)
 {
     internal const string StateMethod = "State";
 
     internal const string EventMethod = "Event";
 
     /// <summary>Sends the game to everybody watching it, each seeing only their own view.</summary>
-    public async Task BroadcastAsync(GameState state, CancellationToken cancellationToken = default)
+    public async Task BroadcastAsync(StoredGame game)
     {
-        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(game);
 
-        foreach (Connection connection in connections.InGame(state.GameId))
+        foreach (Connection connection in connections.InGame(game.State.GameId))
         {
-            PlayerView view = Projector.Project(state, ViewerSeat(state, connection.Player?.PlayerId));
-            await hub.Clients.Client(connection.ConnectionId)
-                .SendAsync(StateMethod, view, cancellationToken)
-                .ConfigureAwait(false);
+            await SendAsync(game, connection).ConfigureAwait(false);
         }
     }
 
@@ -44,20 +53,65 @@ internal sealed class GameBroadcaster(IHubContext<GameHub> hub, IConnectionRegis
     /// Sends the game and a nudge saying what changed. The state still goes per connection; the
     /// event carries no game detail, so the same one is safe for everybody.
     /// </summary>
-    public async Task BroadcastAsync(
-        GameState state,
-        GameEventDto happened,
-        CancellationToken cancellationToken = default)
+    public async Task BroadcastAsync(StoredGame game, GameEventDto happened)
     {
-        ArgumentNullException.ThrowIfNull(state);
+        ArgumentNullException.ThrowIfNull(game);
 
-        await BroadcastAsync(state, cancellationToken).ConfigureAwait(false);
+        await BroadcastAsync(game).ConfigureAwait(false);
 
-        foreach (Connection connection in connections.InGame(state.GameId))
+        foreach (Connection connection in connections.InGame(game.State.GameId))
+        {
+            await DeliverAsync(connection, EventMethod, happened).ConfigureAwait(false);
+        }
+    }
+
+    /// <summary>
+    /// Sends the game to one connection, for a client that has just arrived and has nothing yet.
+    /// </summary>
+    /// <remarks>
+    /// Somebody connecting changes no seat, no hand and no history, so there is nothing in it for
+    /// anybody else to be told. Pushing the arrival to the whole table would also mean pushing a
+    /// state that was read outside the store's gate, which a reconnect landing mid-command could
+    /// use to rewrite every client's view back to before that command.
+    /// </remarks>
+    public async Task SendCurrentAsync(StoredGame game, string connectionId)
+    {
+        ArgumentNullException.ThrowIfNull(game);
+
+        if (connections.Find(connectionId) is { } connection)
+        {
+            await SendAsync(game, connection).ConfigureAwait(false);
+        }
+    }
+
+    private Task SendAsync(StoredGame game, Connection connection)
+    {
+        PlayerView view = Projector.Project(game.State, ViewerSeat(game.State, connection.Player?.PlayerId));
+        return DeliverAsync(connection, StateMethod, view with { Version = game.Version });
+    }
+
+    /// <summary>
+    /// One send, and one connection's problems kept to itself.
+    /// </summary>
+    /// <remarks>
+    /// A send fails when the connection has gone — a closed tab, a phone off the network — which
+    /// is ordinary and is not the table's business. Letting it out would abandon the rest of the
+    /// loop and leave the players after it in the list looking at a stale board because somebody
+    /// else's browser closed.
+    /// </remarks>
+    private async Task DeliverAsync(Connection connection, string method, object payload)
+    {
+        try
         {
             await hub.Clients.Client(connection.ConnectionId)
-                .SendAsync(EventMethod, happened, cancellationToken)
+                .SendAsync(method, payload, CancellationToken.None)
                 .ConfigureAwait(false);
+        }
+        catch (Exception exception)
+        {
+            logger.LogDebug(
+                exception, "Could not send {Method} to connection {ConnectionId}.",
+                method, connection.ConnectionId);
         }
     }
 

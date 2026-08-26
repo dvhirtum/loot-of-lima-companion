@@ -1,4 +1,5 @@
 using LootOfLima.Rules;
+using Stored = LootOfLima.Server.Games.StoredGame;
 using Sut = LootOfLima.Server.Games.InMemoryGameStore;
 
 namespace LootOfLima.Server.Tests.Games.InMemoryGameStore;
@@ -13,14 +14,14 @@ public class MutateTests
         await store.TryAddAsync(TestGames.Lobby(), TestContext.Current.CancellationToken);
 
         // Act
-        Result<GameState>? outcome = await store.MutateAsync(
+        Result<Stored>? outcome = await store.MutateAsync(
             "game-1",
             state => GameEngine.ClaimSeat(state, 1, "player-2", "Grace"),
             TestContext.Current.CancellationToken);
 
         // Assert
         Assert.True(outcome is { Error: null });
-        GameState stored = (await store.FindAsync("game-1", TestContext.Current.CancellationToken))!;
+        GameState stored = (await store.FindAsync("game-1", TestContext.Current.CancellationToken))!.State;
         Assert.Equal("player-2", stored.SeatAt(1).PlayerId);
     }
 
@@ -34,14 +35,14 @@ public class MutateTests
         await store.TryAddAsync(TestGames.Lobby(), TestContext.Current.CancellationToken);
 
         // Act
-        Result<GameState>? outcome = await store.MutateAsync(
+        Result<Stored>? outcome = await store.MutateAsync(
             "game-1",
             state => GameEngine.ClaimSeat(state, 0, "player-2", "Grace"),
             TestContext.Current.CancellationToken);
 
         // Assert
         Assert.Equal(GameErrorCode.SeatAlreadyClaimed, outcome?.Error?.Code);
-        GameState stored = (await store.FindAsync("game-1", TestContext.Current.CancellationToken))!;
+        GameState stored = (await store.FindAsync("game-1", TestContext.Current.CancellationToken))!.State;
         Assert.Equal("player-1", stored.SeatAt(0).PlayerId);
     }
 
@@ -54,7 +55,7 @@ public class MutateTests
         Sut store = new();
 
         // Act
-        Result<GameState>? outcome = await store.MutateAsync(
+        Result<Stored>? outcome = await store.MutateAsync(
             "game-missing", Result<GameState>.Success, TestContext.Current.CancellationToken);
 
         // Assert
@@ -87,7 +88,7 @@ public class MutateTests
             TestContext.Current.CancellationToken)));
 
         // Assert
-        GameState stored = (await store.FindAsync("game-1", TestContext.Current.CancellationToken))!;
+        GameState stored = (await store.FindAsync("game-1", TestContext.Current.CancellationToken))!.State;
         Assert.Equal(5, stored.HumanSeats.Count());
     }
 }

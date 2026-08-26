@@ -39,15 +39,15 @@ internal sealed class InMemoryGameStore : IGameStore
         return Task.FromResult(true);
     }
 
-    public Task<GameState?> FindAsync(string gameId, CancellationToken cancellationToken = default) =>
-        Task.FromResult(_byGameId.TryGetValue(gameId, out Entry? entry) ? entry.State : null);
+    public Task<StoredGame?> FindAsync(string gameId, CancellationToken cancellationToken = default) =>
+        Task.FromResult(_byGameId.TryGetValue(gameId, out Entry? entry) ? entry.Game : null);
 
-    public Task<GameState?> FindByRoomCodeAsync(string roomCode, CancellationToken cancellationToken = default) =>
+    public Task<StoredGame?> FindByRoomCodeAsync(string roomCode, CancellationToken cancellationToken = default) =>
         _gameIdByRoomCode.TryGetValue(roomCode, out string? gameId)
             ? FindAsync(gameId, cancellationToken)
-            : Task.FromResult<GameState?>(null);
+            : Task.FromResult<StoredGame?>(null);
 
-    public async Task<Result<GameState>?> MutateAsync(
+    public async Task<Result<StoredGame>?> MutateAsync(
         string gameId,
         Func<GameState, Result<GameState>> command,
         CancellationToken cancellationToken = default)
@@ -62,13 +62,17 @@ internal sealed class InMemoryGameStore : IGameStore
         await entry.Gate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
-            Result<GameState> result = command(entry.State);
-            if (result.Error is null)
+            Result<GameState> result = command(entry.Game.State);
+            if (result.Error is { } error)
             {
-                entry.State = result.Value;
+                return Result<StoredGame>.Failure(error);
             }
 
-            return result;
+            // Stored and numbered in one step, still holding the gate. The caller is handed the
+            // version its own command produced rather than whatever the store is at by the time it
+            // asks, which would already be a later command's answer.
+            entry.Game = new StoredGame(result.Value, entry.Game.Version + 1);
+            return Result<StoredGame>.Success(entry.Game);
         }
         finally
         {
@@ -85,6 +89,6 @@ internal sealed class InMemoryGameStore : IGameStore
         public SemaphoreSlim Gate { get; } = new(1, 1);
 
         /// <summary>Only ever written while <see cref="Gate"/> is held.</summary>
-        public GameState State { get; set; } = state;
+        public StoredGame Game { get; set; } = new(state, Version: 0);
     }
 }
