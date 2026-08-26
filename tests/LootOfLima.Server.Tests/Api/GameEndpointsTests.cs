@@ -35,12 +35,17 @@ public class GameEndpointsTests
     }
 
     [Theory]
+    [InlineData(-1)]
+    [InlineData(0)]
+    [InlineData(1000000000)]
     [InlineData(2)]
     [InlineData(6)]
     public async Task Should_refuse_the_table_when_the_game_is_for_the_wrong_number_of_players(int playerCount)
     {
         // Arrange
         // The engine decides this, not the endpoint: the box says three to five.
+        // A count the engine would refuse must not be turned into a seat list first: a negative one
+        // throws before the check is reached, and a billion allocates for a long time before it.
         await using WebApplicationFactory<Program> app = new();
         HttpClient client = app.CreateClient();
 

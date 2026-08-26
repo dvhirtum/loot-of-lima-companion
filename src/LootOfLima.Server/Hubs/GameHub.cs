@@ -77,25 +77,42 @@ internal sealed class GameHub(
             (seat, state) => GameEngine.ReleaseSeat(state, seat),
             seat => new GameEventDto("SeatReleased", seat));
 
-    /// <summary>Deals and begins. Any seated player may start; the app always owns the deal.</summary>
+    /// <summary>
+    /// Deals and begins. Any seated player may start; the app always owns the deal.
+    /// </summary>
+    /// <remarks>
+    /// Seated, and not merely present: a spectator is the host's screen or somebody watching over a
+    /// shoulder, and dealing the game and choosing the scenario belong to the people playing it.
+    /// </remarks>
     public async Task StartGame(StartGameRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
-        if (request.ScenarioId is { } id && !ScenarioLibrary.Ids.Contains(id, StringComparer.OrdinalIgnoreCase))
+        string? scenario = null;
+        if (request.ScenarioId is { } asked)
         {
-            await FailAsync("NoSuchScenario", $"There is no scenario '{id}'.").ConfigureAwait(false);
-            return;
+            // Matched without regard to case, then carried on as the library spells it. The library
+            // looks up ordinally, so an id accepted by a lenient check and passed on as the client
+            // wrote it would throw from the lookup instead of coming back as an error a client
+            // can read.
+            scenario = ScenarioLibrary.Ids.FirstOrDefault(
+                known => string.Equals(known, asked, StringComparison.OrdinalIgnoreCase));
+
+            if (scenario is null)
+            {
+                await FailAsync("NoSuchScenario", $"There is no scenario '{asked}'.").ConfigureAwait(false);
+                return;
+            }
         }
 
-        await ApplyAsync(
-            state => GameEngine.Start(
+        await WithSeatAsync(
+            (_, state) => GameEngine.Start(
                 state,
-                request.ScenarioId is { } scenarioId
-                    ? ScenarioLibrary.Get(scenarioId).ToDeal()
+                scenario is not null
+                    ? ScenarioLibrary.Get(scenario).ToDeal()
                     : Dealer.Create(state.PlayerCount, state.RandomSeed),
                 new DeterministicShuffleSource(state.RandomSeed)),
-            new GameEventDto("GameStarted")).ConfigureAwait(false);
+            _ => new GameEventDto("GameStarted")).ConfigureAwait(false);
     }
 
     public Task ConfirmTokensTaken() =>
@@ -106,7 +123,7 @@ internal sealed class GameHub(
 
     public async Task AnnounceFewestTerrain(string terrain)
     {
-        if (!Enum.TryParse(terrain, ignoreCase: true, out Terrain announced))
+        if (!TryReadEnum(terrain, out Terrain announced))
         {
             await FailAsync("BadRequest", $"'{terrain}' is not a terrain.").ConfigureAwait(false);
             return;
@@ -119,7 +136,7 @@ internal sealed class GameHub(
 
     public async Task SpendAbility(string ability)
     {
-        if (!Enum.TryParse(ability, ignoreCase: true, out AbilityType spent))
+        if (!TryReadEnum(ability, out AbilityType spent))
         {
             await FailAsync("BadRequest", $"'{ability}' is not an ability.").ConfigureAwait(false);
             return;
@@ -181,6 +198,27 @@ internal sealed class GameHub(
             seat => new GameEventDto("AccusationMade", seat)).ConfigureAwait(false);
     }
 
+    /// <summary>
+    /// Reads an enum the client named. Names only, and only names this build knows.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Enum.TryParse{TEnum}(string, bool, out TEnum)"/> alone is not enough twice over.
+    /// It accepts the underlying number whether or not any member has it, so <c>"8"</c> would arrive
+    /// as a ninth compass direction and index off the end of the arc table; and it accepts the
+    /// number of a member that does exist, so <c>"0"</c> would be a second spelling of North on a
+    /// wire whose contract is names. Checking that the text is the member's own name closes both:
+    /// nothing numeric can round-trip through <see cref="Enum.GetName{TEnum}(TEnum)"/>.
+    /// </remarks>
+    private static bool TryReadEnum<TEnum>(string? text, out TEnum value)
+        where TEnum : struct, Enum
+    {
+        value = default;
+        return text is not null
+            && Enum.TryParse(text, ignoreCase: true, out value)
+            && Enum.IsDefined(value)
+            && string.Equals(Enum.GetName(value), text.Trim(), StringComparison.OrdinalIgnoreCase);
+    }
+
     private static bool TryReadRange(
         string start,
         string end,
@@ -191,13 +229,13 @@ internal sealed class GameHub(
         range = default;
         complaint = null;
 
-        if (!Enum.TryParse(start, ignoreCase: true, out Direction from))
+        if (!TryReadEnum(start, out Direction from))
         {
             complaint = $"'{start}' is not a compass direction.";
             return false;
         }
 
-        if (!Enum.TryParse(end, ignoreCase: true, out Direction to))
+        if (!TryReadEnum(end, out Direction to))
         {
             complaint = $"'{end}' is not a compass direction.";
             return false;
@@ -206,7 +244,7 @@ internal sealed class GameHub(
         Terrain? filter = null;
         if (terrain is not null)
         {
-            if (!Enum.TryParse(terrain, ignoreCase: true, out Terrain parsed))
+            if (!TryReadEnum(terrain, out Terrain parsed))
             {
                 complaint = $"'{terrain}' is not a terrain.";
                 return false;

@@ -44,6 +44,19 @@ internal static class GameEndpoints
         IGameStore games,
         CancellationToken cancellationToken)
     {
+        // Asked before the seats are built rather than after. The engine still owns the rule — this
+        // is its own predicate, not a second copy of the numbers — but CreateGame learns the count
+        // from the list it is handed, and a list is the one thing that cannot be built first: a
+        // negative count throws out of Enumerable.Range, and a huge one allocates for a long time
+        // before being told it was never a table.
+        if (!DealTable.IsSupportedPlayerCount(request.PlayerCount))
+        {
+            return TypedResults.BadRequest(new ErrorDto(
+                GameErrorCode.UnsupportedPlayerCount.ToString(),
+                $"Loot of Lima is for {DealTable.MinPlayers}-{DealTable.MaxPlayers} players, "
+                + $"not {request.PlayerCount}."));
+        }
+
         // Every seat starts as a bot, and players turn them human by claiming them. A table is
         // therefore playable the moment it exists, which is what lets one person start a scenario.
         IReadOnlyList<SeatSpec> seats =
