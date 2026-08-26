@@ -17,7 +17,9 @@ namespace LootOfLima.Server.Serialization;
 /// <para>
 /// It is a resolver rather than a converter because a converter has to be asked for by a type that
 /// is already being serialized. Sitting at the front of the resolver chain means nothing gets
-/// contract metadata without passing here first.
+/// contract metadata without passing here first — which is a claim about wiring rather than about
+/// this file, so <c>WiringTests</c> asserts it of the built application, at both exits: the hub's
+/// JSON protocol and the minimal API's serializer.
 /// </para>
 /// </remarks>
 internal sealed class HiddenStateGuard : IJsonTypeInfoResolver
