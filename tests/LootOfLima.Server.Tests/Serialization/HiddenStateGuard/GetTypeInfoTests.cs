@@ -12,7 +12,6 @@ public class GetTypeInfoTests
     [InlineData(typeof(GameState))]
     [InlineData(typeof(Deal))]
     [InlineData(typeof(Seat))]
-    [InlineData(typeof(SecretQuestionEntry))]
     public void Should_refuse_the_type_when_it_carries_hidden_state(Type forbidden)
     {
         // Arrange
@@ -42,6 +41,49 @@ public class GetTypeInfoTests
 
         // Act
         JsonTypeInfo? resolved = guard.GetTypeInfo(allowed, JsonSerializerOptions.Default);
+
+        // Assert
+        Assert.Null(resolved);
+    }
+
+    [Theory]
+    [InlineData(typeof(HistoryEntry))]
+    [InlineData(typeof(SecretQuestionEntry))]
+    [InlineData(typeof(TokenPassEntry))]
+    [InlineData(typeof(AccusationEntry))]
+    [InlineData(typeof(PublicQuestionEntry))]
+    [InlineData(typeof(AbilityUsedEntry))]
+    [InlineData(typeof(GameEndedEntry))]
+    [InlineData(typeof(FewestTerrainAnnouncedEntry))]
+    public void Should_refuse_the_entry_when_it_is_any_kind_of_engine_history(Type entry)
+    {
+        // Arrange
+        // Every subtype, not only the three that are private in part. History reaches a viewer as
+        // HistoryEntryView, redacted by type; an engine entry arriving at the serializer is a
+        // mistake whatever it happens to contain, and listing only the secret ones would leave the
+        // next private entry somebody adds to the engine silently uncovered.
+        Sut guard = new();
+
+        // Act
+        // Assert
+        Assert.Throws<InvalidOperationException>(
+            () => guard.GetTypeInfo(entry, JsonSerializerOptions.Default));
+    }
+
+    [Theory]
+    [InlineData(typeof(HistoryEntryView))]
+    [InlineData(typeof(SecretQuestionOccurredView))]
+    [InlineData(typeof(TokenPassOccurredView))]
+    [InlineData(typeof(AccusationOccurredView))]
+    public void Should_stand_aside_when_the_entry_is_the_projected_one(Type view)
+    {
+        // Arrange
+        // The shapes a client is actually owed share a name with what they redact, so barring
+        // history at the base has to leave these alone or the whole history stops reaching anybody.
+        Sut guard = new();
+
+        // Act
+        JsonTypeInfo? resolved = guard.GetTypeInfo(view, JsonSerializerOptions.Default);
 
         // Assert
         Assert.Null(resolved);

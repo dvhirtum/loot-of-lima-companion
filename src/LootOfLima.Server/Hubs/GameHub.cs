@@ -59,12 +59,28 @@ internal sealed class GameHub(
             return;
         }
 
+        // Attached before the state to send is read, and deliberately in that order. A command
+        // committing in between broadcasts to the connections it can see, so anything that commits
+        // before this line is missed by this connection and anything after it is delivered to it.
+        // Reading afterwards closes the gap: whatever was missed is already in what is read here.
         connections.Attach(new Connection(Context.ConnectionId, game.State.GameId, identity));
 
-        // To the arriving connection alone. Nobody else's view of the game has changed, and the
-        // snapshot above was read outside the store's gate, so sending it to the table would let a
-        // reconnect that landed mid-command undo that command on every other screen.
-        await broadcaster.SendCurrentAsync(game, Context.ConnectionId).ConfigureAwait(false);
+        StoredGame? current = await games
+            .FindAsync(game.State.GameId, Context.ConnectionAborted)
+            .ConfigureAwait(false);
+
+        if (current is null)
+        {
+            // Torn down between the two reads. Nothing to send, and nothing to be attached to.
+            connections.Detach(Context.ConnectionId);
+            await FailAsync("NoSuchGame", $"No live game has the code {roomCode}.").ConfigureAwait(false);
+            return;
+        }
+
+        // To the arriving connection alone. Nobody else's view of the game has changed, and telling
+        // the table would mean pushing a state this connection read for itself over everybody
+        // else's. A frame this send crosses with is sorted out by the version each carries.
+        await broadcaster.SendCurrentAsync(current, Context.ConnectionId).ConfigureAwait(false);
     }
 
     /// <summary>

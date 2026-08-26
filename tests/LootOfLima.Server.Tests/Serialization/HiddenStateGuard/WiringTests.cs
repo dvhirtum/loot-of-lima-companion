@@ -33,6 +33,8 @@ public class WiringTests
     [InlineData(typeof(Deal))]
     [InlineData(typeof(Seat))]
     [InlineData(typeof(SecretQuestionEntry))]
+    [InlineData(typeof(TokenPassEntry))]
+    [InlineData(typeof(AccusationEntry))]
     public async Task Should_refuse_hidden_state_when_the_rest_serializer_is_asked(Type forbidden)
     {
         // Arrange
@@ -51,6 +53,8 @@ public class WiringTests
     [InlineData(typeof(Deal))]
     [InlineData(typeof(Seat))]
     [InlineData(typeof(SecretQuestionEntry))]
+    [InlineData(typeof(TokenPassEntry))]
+    [InlineData(typeof(AccusationEntry))]
     public async Task Should_refuse_hidden_state_when_the_hub_serializer_is_asked(Type forbidden)
     {
         // Arrange

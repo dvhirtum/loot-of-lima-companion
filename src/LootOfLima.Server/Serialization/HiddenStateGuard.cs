@@ -27,14 +27,25 @@ internal sealed class HiddenStateGuard : IJsonTypeInfoResolver
     /// <summary>
     /// The types that carry hidden information. <see cref="GameState"/> holds everything;
     /// <see cref="Deal"/> holds the treasure; <see cref="Seat"/> holds a hand; and
-    /// <see cref="SecretQuestionEntry"/> holds a range and an answer only two players may see.
+    /// <see cref="HistoryEntry"/> holds whatever its subtype holds.
     /// </summary>
+    /// <remarks>
+    /// History is barred at the base rather than entry by entry. Three of the subtypes are private
+    /// in part — a secret question keeps its range and answer, a token pass keeps the location that
+    /// moved, and a failed accusation keeps the pair it named — and listing those three would leave
+    /// the guard restating a rule that lives somewhere else, so that adding a fourth private entry
+    /// to the engine would silently not be covered here. The rest of the subtypes are public in
+    /// content, but none of them is the shape a client is owed: history reaches a viewer as
+    /// <c>HistoryEntryView</c>, redacted by type, and an engine entry arriving at the serializer is
+    /// a mistake whatever it happens to contain. Nothing in <c>Contracts</c> derives from this, so
+    /// barring the base costs nothing a client was entitled to.
+    /// </remarks>
     private static readonly Type[] Forbidden =
     [
         typeof(GameState),
         typeof(Deal),
         typeof(Seat),
-        typeof(SecretQuestionEntry),
+        typeof(HistoryEntry),
     ];
 
     public JsonTypeInfo? GetTypeInfo(Type type, JsonSerializerOptions options)
