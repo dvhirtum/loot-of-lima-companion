@@ -45,24 +45,7 @@ longer overwrite the committed seed data, which was the damaging half of this.
 
 **Fix:** treat a present-but-valueless flag as a usage error.
 
-## 3. `sectorOrder` in `board-layout.json` is read by nobody
-
-`src/LootOfLima.Rules/BoardLayout.cs`, `Load`.
-
-`Load` validates `arcSemantics` and `sectors` but never touches the `sectorOrder` array. The real
-clockwise ordering is the declaration order of the `Direction` enum, and `BuildArcMasks()` is
-computed entirely independently of the loaded file.
-
-The trap is CLAUDE.md invariant 5, "board geometry and scenario data are data, not logic": someone
-editing the layout will reorder `sectorOrder` expecting the arcs to follow. Nothing changes, and
-nothing complains.
-
-**Why it can wait:** the field is inert, so it cannot produce a wrong answer — only wasted time.
-
-**Fix:** either validate `sectorOrder` against `Directions.All` on load, or drop the field from the
-schema so the enum is visibly the single source of truth.
-
-## 4. Unguarded `int.Parse` in the `--debug-page` path
+## 3. Unguarded `int.Parse` in the `--debug-page` path
 
 `tools/LootOfLima.ScenarioImporter/Program.cs`.
 
