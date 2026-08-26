@@ -124,20 +124,23 @@ public static class GameEngine
             return new GameError(GameErrorCode.NoHumanSeats, "A game needs at least one human seat to be played.");
         }
 
-        // Bots have no screen to confirm on, so they are finished before they begin.
+        bool passing = Passing.IsRequired(state.PlayerCount, deal.Source.Kind);
+
+        // Bots have no screen to confirm on, so they are finished before they begin — and so is
+        // everybody at a table that does no passing. Leaving a human unconfirmed in a game that
+        // never reaches Passing would leave the client unable to tell "still owes a token" from
+        // "nothing to hand over", because the flag could no longer be flipped by anything.
         IReadOnlyList<Seat> seats =
         [
             .. state.Seats.Select(seat => seat with
             {
                 Hand = deal.Hands[seat.Index],
                 TokensConfirmed = !seat.IsHuman,
-                PassConfirmed = !seat.IsHuman,
+                PassConfirmed = !seat.IsHuman || !passing,
             }),
         ];
 
-        IReadOnlyList<PassRecord> passes = Passing.IsRequired(state.PlayerCount, deal.Source.Kind)
-            ? Passing.Plan(deal.Hands, shuffle)
-            : [];
+        IReadOnlyList<PassRecord> passes = passing ? Passing.Plan(deal.Hands, shuffle) : [];
 
         return Result<GameState>.Success(state with
         {

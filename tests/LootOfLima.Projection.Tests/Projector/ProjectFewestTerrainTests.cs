@@ -60,13 +60,32 @@ public class ProjectFewestTerrainTests
         GameState state = TestGame.InProgress();
         Seat tied = state.Seats.First(seat => FewestTerrainRule.Minima(seat.Hand).Count > 1);
 
+        // Look through the eyes of somebody who handed this seat a token at setup, so the check
+        // below has something to be exact about instead of comparing two empty collections.
+        int viewer = state.PassRecords.First(pass => pass.ReceiverSeat == tied.Index).GiverSeat;
+
         // Act
-        PlayerView view = Sut.Project(state, viewerSeat: tied.Index == 0 ? 1 : 0);
+        PlayerView view = Sut.Project(state, viewerSeat: viewer);
         SeatView seen = view.Seats[tied.Index];
 
         // Assert
+        // The hand the choice was made from must stay exactly as knowable as it was before the
+        // announcement: what setup passing taught this viewer, and not one location more. Asserting
+        // the viewer knows *nothing* would be the wrong test — it would pass for the wrong reason
+        // whenever the seed happens not to pass a token this way.
         Assert.Equal(tied.FewestTerrain!.Value.ToString(), seen.FewestTerrain);
-        Assert.Empty(seen.KnownHand.Except(view.PublicReveal));
+        Assert.NotEmpty(seen.KnownHand);
+        Assert.Equal(PassedTo(state, viewer, tied.Index), seen.KnownHand);
         Assert.False(seen.HandIsComplete);
     }
+
+    /// <summary>The locations <paramref name="viewer"/> handed to a seat, as the view names them.</summary>
+    private static IReadOnlyList<string> PassedTo(GameState state, int viewer, int seatIndex) =>
+    [
+        .. state.PassRecords
+            .Where(pass => pass.GiverSeat == viewer && pass.ReceiverSeat == seatIndex)
+            .Select(pass => pass.Location)
+            .Order()
+            .Select(location => location.ToString()),
+    ];
 }

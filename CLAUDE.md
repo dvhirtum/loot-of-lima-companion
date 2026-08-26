@@ -15,7 +15,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | Milestone | State |
 |---|---|
 | M1 — pure rules engine + scenario oracle | **Done.** 1246 tests green |
-| M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1475 tests green |
+| M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1483 tests green |
 | M3 — minimal API + SignalR server | Next |
 | M4-M6 — Angular client, then polish | Not started |
 
@@ -29,7 +29,7 @@ before touching the importer or `BoardLayout`.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1475 passing
+dotnet test       # expect 1483 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness

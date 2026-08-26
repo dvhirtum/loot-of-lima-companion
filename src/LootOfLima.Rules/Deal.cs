@@ -127,6 +127,18 @@ public sealed record Deal
 
         if (prescribedFewestTerrain is not null)
         {
+            // Checked before truthfulness, because on a generated deal truthfulness now is no
+            // evidence of truthfulness later: those hands still pass tokens before anybody
+            // announces, so an announcement fixed at deal time could be a lie by the time it is
+            // made. Only the books, which never pass, can settle an announcement this early.
+            if (source.Kind != DealSourceKind.Scenario)
+            {
+                throw new ArgumentException(
+                    "Only a scenario deal prescribes the setup announcements; "
+                    + $"this deal is {source.Kind}.",
+                    nameof(prescribedFewestTerrain));
+            }
+
             if (prescribedFewestTerrain.Count != playerCount)
             {
                 throw new ArgumentException(

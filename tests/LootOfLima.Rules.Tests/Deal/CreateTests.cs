@@ -1,4 +1,5 @@
 using Deals = LootOfLima.Rules.Dealer;
+using FewestRule = LootOfLima.Rules.FewestTerrainRule;
 using Location = LootOfLima.Rules.LocationId;
 using Sut = LootOfLima.Rules.Deal;
 
@@ -19,6 +20,24 @@ public class CreateTests
 
         // Assert
         Assert.All(deal.Hands, hand => Assert.Equal(hand.Order(), hand));
+    }
+
+    [Fact]
+    public void Should_throw_when_a_generated_deal_prescribes_the_announcements()
+    {
+        // Arrange
+        // A generated deal still passes tokens before anybody announces, so an announcement fixed
+        // at deal time could be a lie by the time it is made. Truthful right now is no defence.
+        Sut source = Deals.Create(5, TestGame.DefaultSeed);
+        IReadOnlyList<Terrain?> truthful =
+            [.. source.Hands.Select(hand => (Terrain?)FewestRule.Minima(hand)[0])];
+
+        // Act
+        ArgumentException exception = Assert.Throws<ArgumentException>(
+            () => Sut.Create(source.Hands, source.PublicReveal, source.Treasure, source.Source, truthful));
+
+        // Assert
+        Assert.Contains("Only a scenario deal", exception.Message, StringComparison.Ordinal);
     }
 
     [Fact]

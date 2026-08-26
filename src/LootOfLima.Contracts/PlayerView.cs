@@ -9,7 +9,7 @@ namespace LootOfLima.Contracts;
 /// because this assembly deliberately cannot reference the rules engine. The happy side effect is
 /// that a leak test can search raw frames for a location by substring.
 /// </remarks>
-/// <param name="Phase">One of Lobby, Dealing, Passing, InProgress, Finished.</param>
+/// <param name="Phase">One of Lobby, Dealing, Passing, Announcing, InProgress, Finished.</param>
 /// <param name="ViewerSeat">The seat this view was built for, or null for a spectator.</param>
 /// <param name="PublicReveal">The face-up locations. Public from the deal onwards.</param>
 /// <param name="Treasure">

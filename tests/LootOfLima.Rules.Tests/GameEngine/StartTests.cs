@@ -23,6 +23,40 @@ public class StartTests
         Assert.All(state.Seats, seat => Assert.Equal(deal.Hands[seat.Index], seat.Hand));
     }
 
+    [Theory]
+    [InlineData(3, DealSourceKind.Generated)]
+    [InlineData(5, DealSourceKind.Scenario)]
+    public void Should_confirm_the_pass_for_everybody_when_the_table_does_no_passing(
+        int playerCount, DealSourceKind kind)
+    {
+        // Arrange
+        // Nothing can flip PassConfirmed outside the Passing phase, and these tables never reach
+        // it. Left false, the flag would read as "still owes a token" for the rest of the game.
+        GameState lobby = TestGame.Lobby(playerCount);
+        Setup deal = TestGame.Deal(playerCount, kind);
+
+        // Act
+        GameState state = TestGame.Unwrap(Sut.Start(lobby, deal, TestGame.Shuffle()));
+
+        // Assert
+        Assert.All(state.Seats, seat => Assert.True(seat.PassConfirmed));
+        Assert.Empty(state.PendingPasses);
+    }
+
+    [Fact]
+    public void Should_wait_for_the_humans_to_pass_when_the_table_does_pass()
+    {
+        // Arrange
+        GameState lobby = TestGame.Lobby(5, humans: 2);
+
+        // Act
+        GameState state = TestGame.Unwrap(Sut.Start(lobby, TestGame.Deal(5), TestGame.Shuffle()));
+
+        // Assert
+        Assert.All(state.HumanSeats, seat => Assert.False(seat.PassConfirmed));
+        Assert.NotEmpty(state.PendingPasses);
+    }
+
     [Fact]
     public void Should_confirm_the_bots_when_the_game_starts()
     {
