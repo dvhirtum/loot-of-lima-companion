@@ -1,4 +1,5 @@
 using System.Text.Json.Serialization.Metadata;
+using LootOfLima.Server.Api;
 using LootOfLima.Server.Games;
 using LootOfLima.Server.Hubs;
 using LootOfLima.Server.Serialization;
@@ -24,6 +25,7 @@ builder.Services
 WebApplication app = builder.Build();
 
 app.MapGet("/health", () => TypedResults.Ok(new { status = "ok" }));
+app.MapGameEndpoints();
 app.MapHub<GameHub>("/hub/game");
 
 await app.RunAsync();

@@ -10,6 +10,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <PackageReference Include="QRCoder" />
+  </ItemGroup>
+
+  <ItemGroup>
     <InternalsVisibleTo Include="LootOfLima.Server.Tests" />
   </ItemGroup>
 

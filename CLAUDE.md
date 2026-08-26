@@ -16,8 +16,9 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 |---|---|
 | M1 — pure rules engine + scenario oracle | **Done.** 1246 tests green |
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1486 tests green |
-| M3 — minimal API + SignalR server | **In progress.** Hub, projection choke point and store done |
-| M4-M6 — Angular client, then polish | Not started |
+| M3 — minimal API + SignalR server | **Done.** 1558 tests green, leak tests included |
+| M4 — Angular skeleton, first playable loop | Next |
+| M5-M6 — feature complete, then polish | Not started |
 
 **The full plan lives at `C:\Users\Dick\.claude\plans\nested-hatching-petal.md`** (outside the
 repo). Read it before starting a milestone.
@@ -29,10 +30,13 @@ before touching the importer or `BoardLayout`.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1541 passing
+dotnet test       # expect 1558 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
+
+# The server. Swagger-less by design; the integration tests are the API contract.
+dotnet run --project src/LootOfLima.Server
 ```
 
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so
@@ -45,10 +49,10 @@ src/LootOfLima.Rules/       Pure engine. Zero dependencies.
 src/LootOfLima.Contracts/   Client DTOs. Must NOT reference Rules.
 src/LootOfLima.Projection/  Project(). The ONLY place Rules and Contracts meet.
 src/LootOfLima.Scenarios/   Embedded seed data for the 239 official scenarios.
-src/LootOfLima.Server/      (M3) minimal API + SignalR.
+src/LootOfLima.Server/      Minimal API + SignalR hub.
 tools/LootOfLima.Harness/            Headless demo. Replays scripted games.
 tools/LootOfLima.ScenarioImporter/   Offline PDF -> seed data. See its README.
-tests/                      Rules.Tests, Projection.Tests, Scenarios.Tests, (M3) Server.Tests.
+tests/                      Rules.Tests, Projection.Tests, Scenarios.Tests, Server.Tests.
 web/loot-of-lima-web/       (M4) Angular workspace.
 ```
 
