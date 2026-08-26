@@ -103,12 +103,12 @@ internal sealed class HubHarness : IAsyncDisposable
     /// </remarks>
     public async Task ActAsync(TestClient actor, string method, params object?[] arguments)
     {
-        int errorsBefore = actor.Errors.Count;
-        Dictionary<TestClient, int> before = _clients.ToDictionary(client => client, client => client.StateFrames.Count);
+        int errorsBefore = actor.ErrorCount;
+        Dictionary<TestClient, int> before = _clients.ToDictionary(client => client, client => client.FrameCount);
 
         await actor.InvokeAsync(method, arguments);
 
-        if (actor.Errors.Count > errorsBefore)
+        if (actor.ErrorCount > errorsBefore)
         {
             // A rejected command is answered to the caller alone, so nobody else has anything coming.
             return;
@@ -146,26 +146,43 @@ internal sealed class HubHarness : IAsyncDisposable
 
 }
 
-/// <summary>One connected client, and everything the server has sent it.</summary>
+/// <summary>
+/// One connected client, and everything the server has sent it.
+/// </summary>
+/// <remarks>
+/// Everything arrives on a SignalR dispatch thread while the test thread reads it, so all three
+/// collections are written and read under one lock and every reader is handed a copy. A list is
+/// not safe to add to while somebody else is counting it: growing one puts a new array behind the
+/// count, and an assertion that enumerated at the wrong moment could see a torn list or throw for
+/// reasons that have nothing to do with the server it was meant to be testing.
+/// </remarks>
 internal sealed class TestClient(HubConnection connection, string? playerToken) : IAsyncDisposable
 {
-    private readonly List<string> _stateFrames = [];
-    private readonly List<ErrorDto> _errors = [];
-    private readonly List<GameEventDto> _events = [];
+    private readonly Received<string> _stateFrames = new();
+    private readonly Received<ErrorDto> _errors = new();
+    private readonly Received<GameEventDto> _events = new();
     private readonly SemaphoreSlim _delivered = new(0);
 
     public string? PlayerToken { get; } = playerToken;
 
     /// <summary>Every <c>State</c> payload as raw JSON, oldest first.</summary>
-    public IReadOnlyList<string> StateFrames => _stateFrames;
+    public IReadOnlyList<string> StateFrames => _stateFrames.Snapshot();
 
-    public IReadOnlyList<ErrorDto> Errors => _errors;
+    public IReadOnlyList<ErrorDto> Errors => _errors.Snapshot();
 
-    public IReadOnlyList<GameEventDto> Events => _events;
+    /// <summary>The nudges saying what changed, which carry no game detail of their own.</summary>
+    public IReadOnlyList<GameEventDto> Events => _events.Snapshot();
+
+    /// <summary>How many state frames have arrived, without copying them all to find out.</summary>
+    public int FrameCount => _stateFrames.Count;
+
+    public int ErrorCount => _errors.Count;
+
+    public int EventCount => _events.Count;
 
     /// <summary>The most recent view, parsed. Throws if nothing has arrived, which is itself a result.</summary>
     public PlayerView View => JsonSerializer.Deserialize<PlayerView>(
-        _stateFrames.Count > 0 ? _stateFrames[^1] : throw new InvalidOperationException("No state has arrived."),
+        _stateFrames.Last() ?? throw new InvalidOperationException("No state has arrived."),
         Json)!;
 
     private static readonly JsonSerializerOptions Json = new(JsonSerializerDefaults.Web);
@@ -184,6 +201,9 @@ internal sealed class TestClient(HubConnection connection, string? playerToken) 
             _delivered.Release();
         });
 
+        // Deliberately no release. An event accompanies a state frame rather than answering a
+        // command by itself, so counting it as an answer would leave InvokeAsync a frame ahead of
+        // what actually arrived. Waiting for events has its own method.
         connection.On<GameEventDto>("Event", happened => _events.Add(happened));
     }
 
@@ -213,12 +233,23 @@ internal sealed class TestClient(HubConnection connection, string? playerToken) 
     }
 
     /// <summary>Waits until at least <paramref name="frames"/> state frames have arrived.</summary>
-    public async Task WaitForFramesAsync(int frames)
+    public Task WaitForFramesAsync(int frames) =>
+        WaitForAsync(() => FrameCount, frames, "state frames");
+
+    /// <summary>Waits until at least <paramref name="events"/> nudges have arrived.</summary>
+    /// <remarks>
+    /// Events ride alongside state rather than in place of it, so they are not what
+    /// <see cref="InvokeAsync"/> waits for, and a test that wants one has to say so.
+    /// </remarks>
+    public Task WaitForEventsAsync(int events) =>
+        WaitForAsync(() => EventCount, events, "events");
+
+    private static async Task WaitForAsync(Func<int> arrived, int wanted, string what)
     {
         DateTime deadline = DateTime.UtcNow.AddSeconds(10);
-        while (_stateFrames.Count < frames)
+        while (arrived() < wanted)
         {
-            Assert.True(DateTime.UtcNow < deadline, $"Only {_stateFrames.Count} of {frames} frames arrived.");
+            Assert.True(DateTime.UtcNow < deadline, $"Only {arrived()} of {wanted} {what} arrived.");
             await Task.Delay(TimeSpan.FromMilliseconds(5), TestContext.Current.CancellationToken);
         }
     }
