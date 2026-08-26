@@ -87,12 +87,63 @@ internal sealed class HubHarness : IAsyncDisposable
         return client;
     }
 
-    /// <summary>Connects a client and rejoins it to the seeded game in one step.</summary>
+    /// <summary>
+    /// Has one client act, then waits until every other connected client has received the frame it
+    /// caused.
+    /// </summary>
+    /// <remarks>
+    /// Every client watching a game is sent a frame whenever anybody acts, but they are sent
+    /// independently and arrive independently. The acting client waits for its own reply inside
+    /// <see cref="TestClient.InvokeAsync"/>; without this, a test that then read somebody else's
+    /// view would be reading whatever had happened to arrive by then, and would pass or fail on
+    /// timing rather than on the server being right.
+    /// </remarks>
+    public async Task ActAsync(TestClient actor, string method, params object?[] arguments)
+    {
+        int errorsBefore = actor.Errors.Count;
+        Dictionary<TestClient, int> before = _clients.ToDictionary(client => client, client => client.StateFrames.Count);
+
+        await actor.InvokeAsync(method, arguments);
+
+        if (actor.Errors.Count > errorsBefore)
+        {
+            // A rejected command is answered to the caller alone, so nobody else has anything coming.
+            return;
+        }
+
+        foreach (TestClient client in _clients)
+        {
+            await client.WaitForFramesAsync(before[client] + 1);
+        }
+    }
+
+    /// <summary>
+    /// Connects a client and rejoins it to the seeded game in one step, then lets everybody catch
+    /// up.
+    /// </summary>
+    /// <remarks>
+    /// Somebody arriving is a change to the game like any other, so every existing client is sent a
+    /// frame too. Waiting for those matters more than it looks: without it the next
+    /// <see cref="ActAsync"/> would take its baseline while this arrival was still in flight, and
+    /// then mistake that frame for the answer to the command it had just sent.
+    /// </remarks>
     public async Task<TestClient> JoinAsync(string? playerToken = null)
     {
-        TestClient client = await ConnectAsync(playerToken);
-        await client.InvokeAsync("Rejoin", RoomCode, playerToken);
-        return client;
+        Dictionary<TestClient, int> before = _clients.ToDictionary(
+            client => client, client => client.StateFrames.Count);
+
+        TestClient joining = await ConnectAsync(playerToken);
+        await joining.InvokeAsync("Rejoin", RoomCode, playerToken);
+
+        if (joining.Errors.Count == 0)
+        {
+            foreach ((TestClient client, int frames) in before)
+            {
+                await client.WaitForFramesAsync(frames + 1);
+            }
+        }
+
+        return joining;
     }
 
     public async ValueTask DisposeAsync()
@@ -152,17 +203,36 @@ internal sealed class TestClient(HubConnection connection, string? playerToken) 
     /// Calls a hub method and waits for the reply it causes, so a test never races the push.
     /// </summary>
     /// <remarks>
-    /// A command produces either a state push or an error, never neither: that is what makes
-    /// waiting for one frame correct rather than merely convenient.
+    /// The backlog is drained first. Every client watching a game is sent a frame whenever anybody
+    /// acts, so without draining, this would be satisfied by a frame caused by somebody else's
+    /// last command and return before this one had been answered at all. A command produces either
+    /// a state push or an error and never neither, which is what makes waiting for exactly one
+    /// frame correct rather than merely convenient.
     /// </remarks>
     public async Task InvokeAsync(string method, params object?[] arguments)
     {
+        while (_delivered.CurrentCount > 0)
+        {
+            await _delivered.WaitAsync(TestContext.Current.CancellationToken);
+        }
+
         await connection.InvokeCoreAsync(method, arguments, TestContext.Current.CancellationToken);
 
         bool answered = await _delivered.WaitAsync(
             TimeSpan.FromSeconds(10), TestContext.Current.CancellationToken);
 
         Assert.True(answered, $"The server never answered {method}.");
+    }
+
+    /// <summary>Waits until at least <paramref name="frames"/> state frames have arrived.</summary>
+    public async Task WaitForFramesAsync(int frames)
+    {
+        DateTime deadline = DateTime.UtcNow.AddSeconds(10);
+        while (_stateFrames.Count < frames)
+        {
+            Assert.True(DateTime.UtcNow < deadline, $"Only {_stateFrames.Count} of {frames} frames arrived.");
+            await Task.Delay(TimeSpan.FromMilliseconds(5), TestContext.Current.CancellationToken);
+        }
     }
 
     public async ValueTask DisposeAsync() => await connection.DisposeAsync();

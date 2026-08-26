@@ -29,7 +29,7 @@ before touching the importer or `BoardLayout`.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1522 passing
+dotnet test       # expect 1541 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
