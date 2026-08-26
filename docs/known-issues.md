@@ -56,3 +56,28 @@ going wrong.
 **Why it can wait:** cosmetic, and only reachable through a typo.
 
 **Fix:** `int.TryParse` plus a usage message.
+
+Raised by the review of [PR #3](https://github.com/dvhirtum/loot-of-lima-companion/pull/3).
+
+## 4. Nothing is ever evicted, so room codes are never reclaimed
+
+`src/LootOfLima.Server/Games/InMemoryGameStore.cs` and `InMemoryPlayerTokenStore.cs`.
+
+`IGameStore` has no delete. A finished game keeps its entry, its room code stays claimed in
+`_gameIdByRoomCode`, and every token ever issued stays in `_byToken`. Both grow for the life of the
+process and nothing shrinks them.
+
+The visible failure is `POST /api/games` starting to answer `NoRoomCodeAvailable` on a server that
+looks idle: `CreateGameAsync` tries `RoomCodeAttempts` (8) random codes, and once enough of the
+24^4 = 331,776 codes are held, eight draws can all collide.
+
+**Why it can wait:** the arithmetic is not close. Collisions only become likely in the tens of
+thousands of live games, and this is a companion for a table of three to five people that is
+expected to be restarted between sessions — everything is in memory and dies with the process
+anyway. Fixing it properly means deciding when a game is over for good, which is a question about
+the product rather than about this code: a table sitting in `Finished` may still be being read by
+players arguing about the last accusation.
+
+**Fix:** an eviction policy — likely "idle for N hours" — plus `IGameStore.Remove` releasing the
+room code and the tokens issued for that game. Best done alongside the persistence M6 already
+anticipates, since the same question decides what gets written down.
