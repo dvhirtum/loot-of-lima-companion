@@ -19,7 +19,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
-| M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 81 web + 34 e2e green |
+| M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 34 e2e green |
 | M6 — polish | Next |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
@@ -56,7 +56,7 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 81 passing
+npm test          # Vitest; expect 84 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
@@ -258,6 +258,17 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   only marked as spent. The die faces are recorded in `docs/dice.md` for reference; no code reads
   them.
 - **The app always owns the deal.** Nobody types a hand in.
+- **The physical tokens are counters, and every player takes any handful face down.** They do *not*
+  correspond to the hand the app dealt, and the app tells players so at setup. Having each player
+  pick up the tokens the app named would lose the game before the first question: 22 of the 24 are
+  dealt into hands or turned face up and exactly 2 are the treasure, so once every hand has left the
+  table the 2 remaining **are** the treasure — at three, four and five players alike, since the
+  arithmetic is 24 − 22 and has nothing to do with the table size. Watching who picks up what leaks
+  the hands on the way there as well. Nothing physical is read by the app, so the counters cost
+  nothing and keep the boards looking right.
+- **Setup passing moves no physical token either.** Every seat gives one and receives one, so the
+  counts never change, and there is no named token in front of anybody to hand over. The panel reads
+  as a statement of what the app moved rather than as an instruction.
 - **The app auto-answers for humans too**, from the hand it dealt.
 - **Bots never take turns**, they only answer — faithful to the scenario books, which are pure
   puzzles where only the human asks.
@@ -341,12 +352,13 @@ reads them, and its output is committed, so build and test never need them.
   matches exactly, and matches for the wrong reason otherwise. Use the `field()` helper. And
   `hasText` tests raw `textContent` while `allInnerTexts` returns it collapsed, so a string read out
   of an element will not match an anchored pattern put back into it; anchor as `^\s*`.
-- **Text matching is substring by default, and this app's headings overlap.** `getByRole`'s `name`
-  and CSS `:has-text()` both match case-insensitive substrings, so "Your tokens" also finds the
-  Dealing panel's "Take your tokens" — and both panels are on screen together in that phase. Use
-  `exact: true` and `:text-is()`. This one only showed up against Docker, where the phase changes
-  fast enough to still be showing when the read happens: a locator ambiguity is a flake whose
-  probability depends on how quick the server is.
+- **Text matching is substring by default, and panels share the screen.** `getByRole`'s `name` and
+  CSS `:has-text()` both match case-insensitive substrings. The case that taught this was "Your
+  tokens" also matching the Dealing panel, then headed "Take your tokens", with both panels up at
+  once; that heading has since been renamed and the collision with it, but the reads stay `exact:
+  true` and `:text-is()` because the next overlap will not announce itself. It only showed up
+  against Docker, where the phase changes fast enough to still be showing when the read happens: a
+  locator ambiguity is a flake whose probability depends on how quick the server is.
 - **`count()`, `allInnerTexts()` and friends are one-shots with no auto-waiting.** Reading one
   before the first frame has rendered is a race that passes locally and fails under load. Do the
   waiting with a locator assertion first, then read.

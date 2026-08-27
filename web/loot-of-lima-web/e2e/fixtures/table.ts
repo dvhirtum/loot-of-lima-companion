@@ -92,7 +92,7 @@ export async function deal(page: Page, scenario: { book: number; number: number 
   }
 
   await page.getByRole('button', { name: 'Deal and begin' }).click();
-  await expect(page.getByText('Take your tokens')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set up behind your screen' })).toBeVisible();
 }
 
 /**
@@ -100,10 +100,14 @@ export async function deal(page: Page, scenario: { book: number; number: number 
  *
  * Bots need no confirming -- the engine only waits on human seats -- so this is exactly the list of
  * people at the table.
+ *
+ * Named for the rulebook step rather than for what a player physically does, which is now to take
+ * any handful of counters: the tokens on the boards are props, and the hand this confirms lives
+ * only in the app.
  */
 export async function takeTokens(players: readonly Player[]): Promise<void> {
   for (const player of players) {
-    await player.page.getByRole('button', { name: 'I have them' }).click();
+    await player.page.getByRole('button', { name: 'Ready' }).click();
   }
 }
 
@@ -124,10 +128,11 @@ export function seatCard(page: Page, seatIndex: number): ReturnType<Page['locato
  * result to prove something is absent elsewhere passes for free if the read came back early.
  *
  * Matched exactly, and that is not fussiness. `getByRole`'s `name` and CSS `:has-text` are both
- * case-insensitive *substring* matches, so "Your tokens" also finds the Dealing panel's "Take your
- * tokens" -- and both panels are on screen together in that phase, so the wait resolved to two
- * elements and failed on strict mode. It only surfaced under Docker, where the phase changes fast
- * enough to still be showing when the read happens.
+ * case-insensitive *substring* matches. This once resolved to two elements and failed on strict
+ * mode, because the Dealing panel was then headed "Take your tokens" and both panels are on screen
+ * together in that phase. That heading has since been renamed, so the collision is gone -- but the
+ * exact match stays, because the next overlap will not announce itself either. It only surfaced
+ * under Docker, where the phase changes fast enough to still be showing when the read happens.
  */
 export async function ownHand(page: Page): Promise<string[]> {
   await expect(page.getByRole('heading', { name: 'Your tokens', exact: true })).toBeVisible();
@@ -272,10 +277,7 @@ export async function spendAbility(page: Page, ability: 'Barrel' | 'Shovel' | 'P
 }
 
 /** Asks the secret question the Pistol unlocked, and waits for it to reach the asker's own log. */
-export async function askSecretly(
-  page: Page,
-  question: { of: string; from: string; upTo: string },
-): Promise<void> {
+export async function askSecretly(page: Page, question: { of: string; from: string; upTo: string }): Promise<void> {
   await field(page, 'Ask').selectOption({ label: question.of });
   await field(page, 'From').selectOption(question.from);
   await field(page, 'Up to').selectOption(question.upTo);

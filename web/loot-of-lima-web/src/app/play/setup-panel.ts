@@ -12,11 +12,17 @@ interface TerrainChoice {
 }
 
 /**
- * The three gates between the deal and the first question: take your tokens, pass one, announce
- * the terrain you hold fewest of.
+ * The three gates between the deal and the first question: set up your board, pass a token,
+ * announce the terrain you hold fewest of.
  *
  * They share a panel because they share a shape -- each is one thing this seat owes the table
  * before play can start -- and because only one of them is ever on screen at a time.
+ *
+ * All three are careful about the same thing, which is that the physical tokens carry no
+ * information. The counters a player stands on their board are taken at random and mean nothing;
+ * the hand lives in the app and nowhere else. Anything here that reads like an instruction to move
+ * a *named* token would undo that, so the first panel says which handful to take without saying
+ * which, and the second reports what the app moved rather than telling anybody to move anything.
  */
 @Component({
   selector: 'app-setup-panel',
@@ -25,32 +31,52 @@ interface TerrainChoice {
     <section class="card stack">
       @switch (store.phase()) {
         @case ('Dealing') {
-          <h3>Take your tokens</h3>
+          <h3>Set up behind your screen</h3>
           <p class="small muted">
-            Find these on the table and put them behind your screen. The app dealt them, so nobody has to type a hand
-            in.
+            Take <strong>any {{ handSize() }}</strong> tokens, without looking, and stand them face down on your board.
+            They are counters, not your hand — your locations are listed below and the app is the only thing that holds
+            them.
+          </p>
+          <!--
+            Said out loud because a helpful player will otherwise take the ones the app just named,
+            and that hands the game away. It is not a small leak: 22 of the 24 are dealt or turned
+            face up, so if every hand leaves the table the two nobody took are the treasure, at any
+            table size.
+          -->
+          <p class="small muted">
+            Do not hunt for the ones named below. If every player took their own, whatever was left on the table would
+            be the treasure.
           </p>
           <button type="button" class="button button--primary" [disabled]="waiting()" (click)="confirmTokens.emit()">
-            {{ waiting() ? 'Waiting for the others…' : 'I have them' }}
+            {{ waiting() ? 'Waiting for the others…' : 'Ready' }}
           </button>
         }
 
         @case ('Passing') {
           <h3>Pass a token</h3>
+          <!--
+            Read as fact, not as an instruction. The counters on the boards are random, so there is
+            no B1 in front of anybody to hand over — and nothing needs to move either way, since
+            every seat gives one and receives one and the counts come out where they started.
+          -->
           @for (pass of myPasses(); track pass.sequence) {
             @if (pass.giverSeat === mySeatIndex()) {
               <p class="row">
-                <span>Hand</span>
+                <span>You passed</span>
                 <app-location-token [location]="pass.location" />
-                <span>to {{ nameOf(pass.receiverSeat) }} ({{ pass.direction.toLowerCase() }}).</span>
+                <span>to {{ nameOf(pass.receiverSeat) }}, on your {{ pass.direction.toLowerCase() }}.</span>
               </p>
             } @else {
               <p class="row">
-                <span>{{ nameOf(pass.giverSeat) }} passes you</span>
+                <span>{{ nameOf(pass.giverSeat) }} passed you</span>
                 <app-location-token [location]="pass.location" />
               </p>
             }
           }
+          <p class="small muted">
+            Leave the counters where they are. Everyone gives one and receives one, so every board already holds the
+            right number.
+          </p>
           <button type="button" class="button button--primary" [disabled]="waiting()" (click)="confirmPass.emit()">
             {{ waiting() ? 'Waiting for the others…' : 'Done passing' }}
           </button>
@@ -105,6 +131,14 @@ export class SetupPanel {
   readonly announce = output<Terrain>();
 
   protected readonly mySeatIndex = computed(() => this.store.mySeat()?.index ?? null);
+
+  /**
+   * How many counters this seat takes: seven at three players, five at four, four at five.
+   *
+   * Read off the seat rather than worked out from the table size. Hand size is public by the rules
+   * -- tokens are counted openly and never change number -- so it is already in the view.
+   */
+  protected readonly handSize = computed(() => this.store.mySeat()?.handSize ?? 0);
 
   protected readonly myTurn = computed(() => this.store.activeSeat() === this.mySeatIndex());
 
