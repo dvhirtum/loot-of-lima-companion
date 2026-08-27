@@ -18,8 +18,22 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1486 tests green |
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 41 web tests green |
-| M5 — SVG island map, abilities, accusation, passing UI | Next |
+| M4.5 — Playwright e2e harness, first loop pinned | Next |
+| M5 — SVG island map, abilities, accusation, passing UI | Not started |
 | M6 — polish | Not started |
+
+**Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
+not done:
+
+1. `dotnet test` and `npm test` green, and from M4.5 onwards `npm run e2e` too.
+2. **`docker compose up --build` still stands the whole thing up, and both images still build.**
+   Adding a project, moving a file the server Dockerfile copies, changing a port or adding a route
+   nginx has to know about all change the composition whether or not anybody noticed. The failure
+   mode is quiet — everything works under `dotnet run` and `npm start` while the containers are
+   broken for weeks.
+3. Both swap modes still work: `compose stop web` with `npm start`, `compose stop api` with
+   `dotnet run`.
+4. This file reflects what is now true — status, test counts, and any new invariant.
 
 **The full plan lives at `C:\Users\Dick\.claude\plans\nested-hatching-petal.md`** (outside the
 repo). Read it before starting a milestone.
