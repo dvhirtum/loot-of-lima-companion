@@ -30,6 +30,29 @@ npm test     # Vitest
 npm run build
 ```
 
+## The e2e suite
+
+```
+npm run e2e         # boots `dotnet run` and `ng serve` itself, then drives Chromium
+npm run e2e:docker  # the same specs against `docker compose up -d`
+```
+
+`e2e/` is the only suite that drives a browser, and the only one that can see what a player
+actually sees. It asserts nothing a cheaper suite already covers — no arc arithmetic, no oracle, no
+frame-level redaction, since `tests/LootOfLima.Server.Tests` checks the raw bytes of every frame and
+is far harder to fool than the DOM.
+
+What it is for is the round trips nothing else reaches: reloading mid-game and getting the seat back
+out of `localStorage`, two browser contexts at one table proving that neither player's screen shows
+the other's hand, the book's own `F M F F M` on screen, and `/play/ABCD` served on a refresh rather
+than 404'd.
+
+Two things to know before adding a spec. Value assertions belong to five-player scenario games only,
+because a generated deal is seeded per run and nothing about it repeats — 3- and 4-player specs
+assert structure. And `e2e/fixtures/table.ts` holds the journey helpers; `field()` in particular
+exists because every `<select>` here sits inside its `<label>`, which makes its accessible name the
+caption plus every option and `getByLabel` useless.
+
 ## How it is put together
 
 - `core/contracts.ts` mirrors `LootOfLima.Contracts` by hand. It is the only place the client

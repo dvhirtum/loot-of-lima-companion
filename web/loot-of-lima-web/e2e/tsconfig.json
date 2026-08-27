@@ -1,0 +1,12 @@
+/* The e2e specs are compiled by Playwright, not by the Angular builder, so they are outside both
+   tsconfig.app.json (src only, no spec files) and tsconfig.spec.json (Vitest's glob under src).
+   Without a tsconfig of their own they would be type-checked by nothing and red in the editor. */
+{
+  "extends": "../tsconfig.json",
+  "compilerOptions": {
+    "module": "preserve",
+    "moduleResolution": "bundler",
+    "types": ["node"]
+  },
+  "include": ["**/*.ts", "../playwright.config.ts"]
+}
