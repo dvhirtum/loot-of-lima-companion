@@ -1,0 +1,40 @@
+/* To learn more about Typescript configuration file: https://www.typescriptlang.org/docs/handbook/tsconfig-json.html. */
+/* To learn more about Angular compiler options: https://angular.dev/reference/configs/angular-compiler-options. */
+{
+  "compileOnSave": false,
+  "compilerOptions": {
+    // Not a preference. `contracts.ts` mirrors LootOfLima.Contracts by hand, and the reason there
+    // is no generator is that a mismatch is supposed to be a compile error -- but strictTemplates
+    // can only make it one on top of strictNullChecks, which lives in here. Without this flag a
+    // renamed field reads `undefined` in a template and the @if guarding it simply never fires.
+    "strict": true,
+    "noImplicitOverride": true,
+    "noPropertyAccessFromIndexSignature": true,
+    "noImplicitReturns": true,
+    "noFallthroughCasesInSwitch": true,
+    "skipLibCheck": true,
+    "isolatedModules": true,
+    "experimentalDecorators": true,
+    "importHelpers": true,
+    "target": "ES2022",
+    "module": "preserve"
+  },
+  "angularCompilerOptions": {
+    "enableI18nLegacyMessageIdFormat": false,
+    "strictInjectionParameters": true,
+    "strictInputAccessModifiers": true,
+    // Templates are type-checked as strictly as the code around them. A template is where an
+    // optional field is most easily read as if it were always there, which is exactly the mistake
+    // the redacted history types exist to make impossible.
+    "strictTemplates": true
+  },
+  "files": [],
+  "references": [
+    {
+      "path": "./tsconfig.app.json"
+    },
+    {
+      "path": "./tsconfig.spec.json"
+    }
+  ]
+}

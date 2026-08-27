@@ -1,0 +1,22 @@
+{
+  "$comment": [
+    "The dev server fronts Kestrel so the browser sees one origin, which the hub needs: a",
+    "cross-origin websocket would need CORS on the server that production will not want.",
+    "",
+    "changeOrigin is false on purpose. The server builds the join URL the QR code encodes from the",
+    "Host header of the request, because it is the only thing that knows an address a phone can",
+    "actually reach. Rewriting the header to localhost would put localhost in the QR code, and the",
+    "phone scanning it would be pointed at itself."
+  ],
+  "/api": {
+    "target": "http://localhost:5000",
+    "secure": false,
+    "changeOrigin": false
+  },
+  "/hub": {
+    "target": "http://localhost:5000",
+    "secure": false,
+    "changeOrigin": false,
+    "ws": true
+  }
+}

@@ -1,0 +1,54 @@
+<section class="card stack">
+  <h3>Ask a question</h3>
+
+  <div class="builder">
+    <label class="field">
+      <span>Ask</span>
+      <select [value]="targetSeat() ?? ''" (change)="chooseTarget($any($event.target).value)">
+        <option value="">Choose a player…</option>
+        @for (seat of targets(); track seat.index) {
+          <option [value]="seat.index">{{ seat.displayName }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span>From</span>
+      <select [value]="start()" (change)="start.set($any($event.target).value)">
+        @for (direction of directions; track direction) {
+          <option [value]="direction">{{ direction }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Up to</span>
+      <select [value]="end()" (change)="end.set($any($event.target).value)">
+        @for (direction of directions; track direction) {
+          <option [value]="direction">{{ direction }}</option>
+        }
+      </select>
+    </label>
+
+    <label class="field">
+      <span>Terrain</span>
+      <select [value]="terrain() ?? ''" (change)="chooseTerrain($any($event.target).value)">
+        <option value="">Any</option>
+        @for (option of terrains; track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </select>
+    </label>
+  </div>
+
+  <p class="reading">{{ reading() }}</p>
+
+  <div class="row">
+    <button type="button" class="button button--primary" [disabled]="!canAsk()" (click)="submit()">Ask</button>
+    <!--
+      Said out loud rather than left implicit, because a player expecting the app to check their
+      roll would read its silence as approval.
+    -->
+    <span class="small muted">The app never asks what you rolled — check the dice yourself.</span>
+  </div>
+</section>

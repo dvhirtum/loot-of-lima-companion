@@ -1,0 +1,121 @@
+<section class="card stack">
+  <h3>What has happened</h3>
+
+  @if (store.history().length === 0) {
+    <p class="muted small">Nothing yet.</p>
+  }
+
+  <!--
+    Three columns everywhere: the turn, what happened, and the answer if there was one. Entries
+    without an answer simply leave the last column empty, which keeps the numbers in a line down
+    the right-hand side where they can be read as a series rather than hunted for in prose.
+  -->
+  <ul class="log">
+    @for (entry of store.history(); track entry.sequence) {
+      @switch (entry.type) {
+        @case ('publicQuestion') {
+          <li class="entry">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">
+              {{ nameOf(entry.askerSeat) }} asked {{ nameOf(entry.targetSeat) }}:
+              {{ phrase(entry.start, entry.end, entry.terrain) }}
+            </span>
+            <span class="answer">{{ entry.answer }}</span>
+          </li>
+        }
+
+        @case ('secretQuestion') {
+          <li class="entry entry--secret">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">
+              Secretly, {{ nameOf(entry.askerSeat) }} asked {{ nameOf(entry.targetSeat) }}:
+              {{ phrase(entry.start, entry.end, null) }}
+            </span>
+            <span class="answer">{{ entry.answer }}</span>
+          </li>
+        }
+
+        @case ('secretQuestionOccurred') {
+          <li class="entry entry--quiet">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">
+              {{ nameOf(entry.askerSeat) }} asked {{ nameOf(entry.targetSeat) }} a secret question.
+            </span>
+          </li>
+        }
+
+        @case ('abilityUsed') {
+          <li class="entry entry--quiet">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">{{ nameOf(entry.seatIndex) }} spent the {{ entry.ability }}.</span>
+          </li>
+        }
+
+        @case ('tokenPass') {
+          <li class="entry entry--secret">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">
+              {{ nameOf(entry.giverSeat) }} passed
+              <app-location-token [location]="entry.location" />
+              to {{ nameOf(entry.receiverSeat) }}.
+            </span>
+          </li>
+        }
+
+        @case ('tokenPassOccurred') {
+          <li class="entry entry--quiet">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">
+              {{ nameOf(entry.giverSeat) }} passed a token to {{ nameOf(entry.receiverSeat) }}.
+            </span>
+          </li>
+        }
+
+        @case ('fewestTerrainAnnounced') {
+          <li class="entry entry--quiet">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body"> {{ nameOf(entry.seatIndex) }} holds fewest {{ entry.terrain.toLowerCase() }}. </span>
+          </li>
+        }
+
+        @case ('accusation') {
+          <li class="entry" [class.entry--end]="entry.correct">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">
+              {{ nameOf(entry.accuserSeat) }} named
+              @for (location of entry.named; track location) {
+                <app-location-token [location]="location" />
+              }
+              — {{ entry.correct ? 'the treasure.' : 'and was wrong.' }}
+            </span>
+          </li>
+        }
+
+        @case ('accusationOccurred') {
+          <!--
+            No pair, because there is no property for one. The rulebook says a wrong accusation
+            reveals nothing, and a ruled-out pair is a real deduction.
+          -->
+          <li class="entry entry--quiet">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body"> {{ nameOf(entry.accuserSeat) }} accused, and was wrong. Nothing was revealed. </span>
+          </li>
+        }
+
+        @case ('gameEnded') {
+          <li class="entry entry--end">
+            <span class="turn">t{{ entry.turnNumber }}</span>
+            <span class="body">
+              @if (entry.winnerSeat !== null) {
+                {{ nameOf(entry.winnerSeat) }} wins.
+              } @else {
+                Nobody wins.
+              }
+              ({{ entry.reason }})
+            </span>
+          </li>
+        }
+      }
+    }
+  </ul>
+</section>
