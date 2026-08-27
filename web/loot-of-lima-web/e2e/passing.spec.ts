@@ -108,3 +108,64 @@ test.describe('Passing at a five-player table', () => {
     await leave([ada, grace, alan]);
   });
 });
+
+/**
+ * The four-player pass, which is a different rule rather than a smaller version of the same one.
+ *
+ * One token goes straight across the table -- seat n to seat n + 2 -- so there are four passes
+ * rather than ten, each seat is party to two rather than four, and the word on screen is "across"
+ * rather than "right" or "left". The redaction is the same rule and worth asserting separately
+ * anyway: it is the smaller arithmetic, and a projection that leaked by, say, comparing the wrong
+ * seat index could be right about one table size and wrong about the other.
+ */
+test.describe('Passing at a four-player table', () => {
+  test('Should_name_the_token_only_to_the_two_seats_involved_when_four_are_playing', async ({ browser }) => {
+    // Arrange
+    // Three humans again, for the same reason: without somebody who has a screen and was not party
+    // to the pass, the redacted entry is never rendered and the assertion below is vacuous. With
+    // seats 0, 1 and 2 taken, Ada passes across to seat 2 and receives from it, while seats 1 and 3
+    // exchange a token she must not see.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 4);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+    const grace = await sitDown(browser, roomCode, 'Grace', 1);
+    const alan = await sitDown(browser, roomCode, 'Alan', 2);
+
+    await deal(ada.page, null);
+    await takeTokens([ada, grace, alan]);
+
+    const panel = ada.page.locator('.card').filter({ hasText: 'Pass a token' });
+    await expect(panel).toBeVisible();
+    await expect(panel.locator('p.row')).toHaveCount(2);
+    await expect(panel).toContainText('across');
+
+    // Act
+    for (const player of [ada, grace, alan]) {
+      await player.page.getByRole('button', { name: 'Done passing' }).click();
+    }
+
+    // Assert
+    await expect(ada.page.getByText('Announce your fewest terrain')).toBeVisible();
+
+    const passes = ada.page.locator('.log .entry').filter({ hasText: 'passed' });
+    const named = passes.filter({ has: ada.page.locator('.token') });
+    const redacted = passes.filter({ hasText: 'passed a token to' });
+
+    await expect(passes).toHaveCount(4);
+    await expect(named).toHaveCount(2);
+    await expect(redacted).toHaveCount(2);
+    await expect(redacted.locator('.token')).toHaveCount(0);
+
+    for (const entry of await named.allInnerTexts()) {
+      expect(entry).toMatch(/Ada/);
+    }
+
+    // Everybody gave one and received one, so five is still five.
+    expect(await ownHand(ada.page)).toHaveLength(5);
+    for (let seat = 0; seat < 4; seat += 1) {
+      expect(await statedHandSize(ada.page, seat)).toBe(5);
+    }
+
+    await leave([ada, grace, alan]);
+  });
+});
