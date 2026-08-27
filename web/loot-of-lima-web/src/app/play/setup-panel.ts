@@ -4,10 +4,11 @@ import { TERRAINS, Terrain, TokenPassView } from '../core/contracts';
 import { terrainOf } from '../core/locations';
 import { LocationToken } from './location-token';
 
-/** One terrain button, with how many of it the viewer holds. */
+/** One terrain button, with how many of it the viewer holds and whether announcing it would be true. */
 interface TerrainChoice {
   readonly terrain: Terrain;
   readonly held: number;
+  readonly truthful: boolean;
 }
 
 /**
@@ -58,13 +59,29 @@ interface TerrainChoice {
         @case ('Announcing') {
           <h3>Announce your fewest terrain</h3>
           @if (myTurn()) {
-            <p class="small muted">
-              Say aloud which terrain you hold fewest of. Holding none of one makes it the fewest, and if two are tied
-              the choice is yours — the table is not told there was a tie.
-            </p>
+            @if (forced()) {
+              <p class="small muted">Say this aloud, then confirm. Holding none of a terrain makes it the fewest.</p>
+            } @else {
+              <p class="small muted">
+                Say aloud which of these you hold fewest of. They are tied, so the choice is yours — and the table is
+                not told there was a tie.
+              </p>
+            }
             <div class="row">
               @for (choice of choices(); track choice.terrain) {
-                <button type="button" class="button" (click)="announce.emit(choice.terrain)">
+                <!--
+                  The untruthful ones are disabled rather than hidden. The count beside each is the
+                  viewer's own hand, which they are looking at anyway, so showing all three is what
+                  makes the offer checkable: a player can see *why* only one is open instead of
+                  taking the app's word for it.
+                -->
+                <button
+                  type="button"
+                  class="button"
+                  [disabled]="!choice.truthful"
+                  [attr.aria-disabled]="!choice.truthful"
+                  (click)="announce.emit(choice.terrain)"
+                >
                   {{ choice.terrain }} <span class="muted small">({{ choice.held }})</span>
                 </button>
               }
@@ -113,20 +130,41 @@ export class SetupPanel {
   );
 
   /**
-   * The three terrains with the viewer's own count beside each.
+   * The three terrains with the viewer's own count beside each, and whether each is truthful.
    *
    * A count of a hand the player is looking at anyway, so it gives nothing away and makes the tie
    * clause real: seeing two zeroes is what turns "announce your fewest" into the free choice the
    * rulebook says it is. Nothing about the count leaves this browser, and no other client is told
    * how many terrains were eligible.
+   *
+   * `truthful` is the one place this client does arithmetic the engine also does, and it is a
+   * deliberate, bounded exception to "the client holds no rules logic". It is derived from the
+   * viewer's own complete hand and from nothing else, so it cannot reach anything this client was
+   * not told; it decides only whether a button is pressable; and `FewestTerrainRule.IsTruthful`
+   * stays the authority, refusing an untruthful announcement however it arrives. Offering a button
+   * whose only outcome is a refusal is the same defect as the seat a spectator could not take.
    */
   protected readonly choices = computed<readonly TerrainChoice[]>(() => {
     const hand = this.store.myHand();
-    return TERRAINS.map((terrain) => ({
+    const held = TERRAINS.map((terrain) => ({
       terrain,
       held: hand.filter((location) => terrainOf(location) === terrain).length,
     }));
+
+    const fewest = Math.min(...held.map((choice) => choice.held));
+    return held.map((choice) => ({ ...choice, truthful: choice.held === fewest }));
   });
+
+  /**
+   * Whether the rule leaves this seat no choice at all.
+   *
+   * Only ever read to change the wording, never to skip the click. Announcing automatically when
+   * there is one legal answer would tell the whole table which seats were tied: every other seat
+   * resolves the instant the phase reaches it, so a seat that stops and waits for a human is a seat
+   * that had a tie. That is precisely what the rulebook forbids revealing, and it would be the
+   * plainest possible signal -- visible on every screen, in the "waiting for ..." line.
+   */
+  protected readonly forced = computed(() => this.choices().filter((choice) => choice.truthful).length === 1);
 
   protected nameOf(seatIndex: number | null): string {
     if (seatIndex === null) {

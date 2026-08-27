@@ -79,6 +79,55 @@ test.describe('A three-player table', () => {
     await leave([ada]);
   });
 
+  test('Should_offer_only_truthful_terrains_when_a_seat_is_asked_to_announce', async ({ browser }) => {
+    // Arrange
+    // Structure, not values: a shuffled deal is seeded from `Random.Shared.Next()`, so which terrain
+    // is fewest differs every run. What never differs is that the offer matches the hand — and that
+    // the seat is still asked, however little choice it has.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 3);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+    await deal(ada.page, null);
+    await takeTokens([ada]);
+
+    const panel = ada.page.locator('.card').filter({ hasText: 'Announce your fewest terrain' });
+    const buttons = panel.getByRole('button');
+    await expect(buttons.first()).toBeVisible();
+
+    // Act
+    // All three stay on screen with the viewer's own count on each, so a player can check the offer
+    // against their own hand rather than taking the app's word for it.
+    const captions = await buttons.allInnerTexts();
+    const held = captions.map((caption) => {
+      const [, terrain, count] = /^(\w+)\s*\((\d+)\)/.exec(caption.replace(/\s+/g, ' ').trim()) ?? [];
+      return { terrain: terrain ?? '', count: Number(count ?? Number.NaN) };
+    });
+
+    // Assert
+    expect(held).toHaveLength(3);
+
+    const fewest = held.reduce((best, next) => (next.count < best.count ? next : best)).count;
+    for (const [index, choice] of held.entries()) {
+      const truthful = choice.count === fewest;
+      const button = buttons.nth(index);
+
+      // The engine refuses an untruthful announcement, so an enabled button here would be a button
+      // whose only outcome is a refusal naming an internal seat index.
+      if (truthful) {
+        await expect(button, `${choice.terrain} is a minimum and should be offered`).toBeEnabled();
+      } else {
+        await expect(button, `${choice.terrain} is not a minimum and must not be offered`).toBeDisabled();
+      }
+    }
+
+    // Still asked, whatever the hand. Announcing a forced answer by itself would leave the tied
+    // seats as the only ones anybody waits for, which tells the table exactly what the rulebook
+    // says a tie must not.
+    await expect(ada.page.getByText('Announcing')).toBeVisible();
+
+    await leave([ada]);
+  });
+
   test('Should_not_offer_the_scenario_picker_when_fewer_than_five_are_playing', async ({ browser }) => {
     // Arrange
     // The books simulate a five-player game and nothing else, so a smaller table always plays a

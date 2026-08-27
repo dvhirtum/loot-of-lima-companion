@@ -19,7 +19,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
-| M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 75 web + 33 e2e green |
+| M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 81 web + 34 e2e green |
 | M6 — polish | Next |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
@@ -56,11 +56,11 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 75 passing
+npm test          # Vitest; expect 81 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 33 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 34 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
@@ -191,7 +191,11 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
    location id, and that only decides what colour a token is drawn. The island map adds one more
    reading of the same kind: where each location sits comes from `GET /api/board`, the JSON
    `BoardLayout.Load()` reads, so `map-geometry.ts` turns a *sector index the server gave it* into
-   a place to draw and never works out which sector anything is in.
+   a place to draw and never works out which sector anything is in. The second exception is the
+   setup announcement: `SetupPanel` takes the minimum of three counts of the viewer's *own* hand to
+   decide which terrain buttons are pressable. Both exceptions have the same shape and the same
+   bound — derived from what this viewer was already told in full, never authoritative, and with the
+   engine still refusing whatever arrives.
 7. **`GameStore.apply` drops any frame older than the highest `Version` it has seen.** Commands are
    ordered by the server's store; the sends that follow them are not, so a frame can overtake its
    successor. The comparison is strict — a repeated version is a rejoin projecting the same
@@ -263,6 +267,17 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   being built and an accusation half-named are wanted in two components each — the question builder
   chooses a range and the map draws it; the map is tapped and the accusation panel fills up — but
   they are not game state, and they must not survive the page. Nothing in it knows what an answer is.
+- **A forced setup announcement is still announced by a human.** When the hand leaves exactly one
+  truthful terrain the panel says so and opens one button, but it never sends by itself. Announcing
+  automatically would resolve every untied seat the instant the phase reached it, leaving the tied
+  seats as the only ones anybody waits for — so the pause would tell the whole table which players
+  had a tie, which is the one thing the rulebook says a tie must not reveal. The click is also the
+  beat where the player says it aloud, which is the physical act this app is a companion to.
+- **Untruthful terrains are disabled, not hidden.** The count beside each is the viewer's own hand,
+  so showing all three is what lets a player check the offer instead of taking the app's word for
+  it. Offering a button whose only outcome is a refusal is the same defect as the seat a spectator
+  could not take — the refusal was correct, and it named an internal seat index at somebody who had
+  done nothing but press what they were shown.
 - **The accusation is a panel, not a modal.** The two locations are named by tapping the island, and
   a modal would cover the thing being tapped. It stays folded behind one button instead, because an
   accusation cannot be taken back.
