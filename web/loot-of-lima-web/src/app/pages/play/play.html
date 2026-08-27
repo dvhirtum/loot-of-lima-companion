@@ -1,0 +1,75 @@
+<main class="page stack">
+  <header class="head">
+    <div>
+      <h1>Loot of Lima</h1>
+      <p class="muted small">
+        Table {{ roomCode() }}
+        @if (store.phase(); as phase) {
+          · {{ phase }}
+          @if (phase === 'InProgress') {
+            · turn {{ store.turnNumber() }}
+          }
+        }
+      </p>
+    </div>
+
+    @if (store.phase() === 'InProgress' && turnHolder(); as who) {
+      <p class="whose">
+        {{ store.isMyTurn() ? 'Your turn' : who + ' to act' }}
+      </p>
+    }
+  </header>
+
+  <app-connection-banner />
+
+  @if (store.view() === null) {
+    <p class="muted">Waiting for the table…</p>
+  } @else {
+    @if (store.phase() === 'Finished') {
+      <section class="banner banner--warn">
+        @if (winnerName(); as winner) {
+          <strong>{{ winner }} wins.</strong>
+        } @else {
+          <strong>Nobody wins.</strong>
+        }
+        <span class="muted small"> {{ store.view()!.endReason }}</span>
+      </section>
+    }
+
+    <app-seat-strip (claim)="claim($event)" (release)="release()" />
+
+    <div class="columns">
+      <div class="stack">
+        @switch (store.phase()) {
+          @case ('Lobby') {
+            <app-lobby-panel (start)="start($event)" />
+          }
+          @case ('Dealing') {
+            <app-setup-panel (confirmTokens)="confirmTokens()" />
+          }
+          @case ('Passing') {
+            <app-setup-panel (confirmPass)="confirmPass()" />
+          }
+          @case ('Announcing') {
+            <app-setup-panel (announce)="announce($event)" />
+          }
+          @case ('InProgress') {
+            @if (store.isMyTurn()) {
+              <app-question-builder (ask)="ask($event)" />
+            } @else if (store.isSpectator()) {
+              <p class="card muted">Watching. Take a seat to play.</p>
+            } @else {
+              <p class="card muted">
+                Waiting for {{ turnHolder() }}. Your answers are given for you, from the hand the app dealt you.
+              </p>
+            }
+          }
+        }
+
+        <app-my-hand-panel />
+      </div>
+
+      <app-history-panel />
+    </div>
+  }
+</main>

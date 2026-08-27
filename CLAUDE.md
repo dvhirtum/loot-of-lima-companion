@@ -17,8 +17,9 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M1 — pure rules engine + scenario oracle | **Done.** 1246 tests green |
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1486 tests green |
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
-| M4 — Angular skeleton, first playable loop | Next |
-| M5-M6 — feature complete, then polish | Not started |
+| M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 41 web tests green |
+| M5 — SVG island map, abilities, accusation, passing UI | Next |
+| M6 — polish | Not started |
 
 **The full plan lives at `C:\Users\Dick\.claude\plans\nested-hatching-petal.md`** (outside the
 repo). Read it before starting a milestone.
@@ -39,6 +40,17 @@ dotnet run --project tools/LootOfLima.Harness
 dotnet run --project src/LootOfLima.Server
 ```
 
+```
+cd web/loot-of-lima-web
+npm test          # Vitest; expect 41 passing
+npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
+npm run start:lan # the same, reachable from a phone on the table's wifi
+```
+
+Both halves have to be running: `npm start` serves the app and proxies to `dotnet run`. The proxy
+sets `changeOrigin: false` on purpose — the server builds the join URL the QR code encodes from the
+request's `Host` header, so rewriting it would put `localhost` in the code a phone scans.
+
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so
 without the pin everything silently targets the wrong SDK. Do not remove it.
 
@@ -53,12 +65,19 @@ src/LootOfLima.Server/      Minimal API + SignalR hub.
 tools/LootOfLima.Harness/            Headless demo. Replays scripted games.
 tools/LootOfLima.ScenarioImporter/   Offline PDF -> seed data. See its README.
 tests/                      Rules.Tests, Projection.Tests, Scenarios.Tests, Server.Tests.
-web/loot-of-lima-web/       (M4) Angular workspace.
+web/loot-of-lima-web/       Angular 22 workspace. Standalone, zoneless, signals, Vitest.
+  src/app/core/             contracts.ts, GameStore, GameConnection, ApiClient, identity.
+  src/app/pages/            One folder per route, all lazy.
+  src/app/play/             The pieces the game page is made of.
 ```
 
 `Projection` exists because the projection has nowhere else to live: `Rules` references nothing and
 `Contracts` must not reference `Rules`. Giving it an assembly of its own means the whole
 hidden-information boundary is one function in one project.
+
+`web/.../core/contracts.ts` mirrors `LootOfLima.Contracts` by hand and is the only place the client
+is allowed to describe the wire. There is no generator: the DTOs are small, and a mismatch shows up
+as a `strictTemplates` error rather than as a field that silently reads `undefined`.
 
 Phases: `Lobby → Dealing → [Passing] → Announcing → InProgress → Finished`. `Passing` is skipped
 when the deal settles it (three players, or a scenario); `Announcing` always happens but resolves
@@ -82,6 +101,16 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
    rulebook says it reveals nothing, and a ruled-out pair is a real deduction).
 5. **Board geometry and scenario data are data, not logic.** Editing
    `src/LootOfLima.Rules/Data/board-layout.json` incorrectly is caught immediately by the oracle.
+6. **The client holds no rules logic.** `GameStore` is a holder, not a reducer: it keeps the newest
+   `PlayerView` and slices it. Nothing on the client computes an answer, a legal move or a hand.
+   This is the fifth layer of the hidden-information design — a client that derives nothing cannot
+   derive what it was not told. The one thing it reads out of a string is the terrain letter of a
+   location id, and that only decides what colour a token is drawn.
+7. **`GameStore.apply` drops any frame older than the highest `Version` it has seen.** Commands are
+   ordered by the server's store; the sends that follow them are not, so a frame can overtake its
+   successor. The comparison is strict — a repeated version is a rejoin projecting the same
+   revision to a seat instead of to a spectator, and dropping it would leave a player who has just
+   sat down looking at somebody else's view.
 
 ## Domain facts worth not re-deriving
 
@@ -161,3 +190,10 @@ reads them, and its output is committed, so build and test never need them.
   type under test, plus a short distinct alias per collaborator (`Board`, `Location`, `Library`).
   **The alias name must not match any test folder name**, or the folder namespace wins the lookup
   and the alias is unreachable.
+- **The web tests follow the same layout and naming.** `core/game-store/apply.spec.ts` is a folder
+  named for the type under test, one file per method, `describe('GameStore.apply')`, tests named
+  `Should_<expected>_when_<condition>`, with the AAA comments written out. Spec files sit beside
+  the source rather than in a separate tree, which is the one thing that differs from the .NET
+  suites, because `tsconfig.spec.json` collects them by glob.
+- **A new guard is not finished until it has been seen to fail.** Break the thing it guards, watch
+  the test go red, then put it back. Two of the M3 leak tests passed with the bug still in place.
