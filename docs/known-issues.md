@@ -108,3 +108,64 @@ swap depends on the platform.
 **Fix:** `ASPNETCORE_URLS=http://0.0.0.0:5000 dotnet run --project src/LootOfLima.Server`, or add a
 `launchSettings.json` with that `applicationUrl` so the plain command in `CLAUDE.md` works
 everywhere. Worth doing when CI arrives, since a Linux runner is exactly where this bites.
+
+## 6. A spectator is offered a seat they cannot take
+
+`web/loot-of-lima-web/src/app/play/seat-strip.ts`.
+
+The "Sit here" button is shown for any seat still held by a bot, with no check on whether this
+browser holds a player token:
+
+```html
+@if (seat.isViewer) { ... } @else if (seat.kind === 'Bot') {
+  <button ... (click)="claim.emit(seat.index)">Sit here</button>
+}
+```
+
+A spectator reaches the game page through the host screen's own "Watch the table" link, so this is
+a normal route rather than a contrived one. Clicking it sends `ClaimSeat`, which
+`GameHub.WithPlayerAsync` refuses with `NotAPlayer` — "Join the game before taking a seat." — a
+step the page never offered, because joining happens at `/join/ABCD` behind the QR code.
+
+`LobbyPanel` gets the same case right on the same screen: it disables "Deal and begin" for a viewer
+with no seat and says why. So the two panels disagree about what a spectator may be shown, which is
+the part that will rot.
+
+**Why it can wait:** the refusal is correct and addressed only to the clicker — no state changes and
+nothing leaks. It is a dead end with a confusing message, not a broken game.
+
+**Fix:** gate the button on `store.isSpectator()` as well as `seat.kind`, and put a link to
+`/join/<code>` in its place. Belongs with M5's seat and passing UI, where this component is being
+worked on anyway; an e2e spec for it costs a file by then, since M4.5 will have built the harness.
+
+## 7. A rejected `Rejoin` after a reconnect leaves the client attached to nothing
+
+`web/loot-of-lima-web/src/app/core/game-connection.ts`, `onreconnected`.
+
+```ts
+connection.onreconnected(() => {
+  if (isCurrent()) {
+    void this.rejoin();
+  }
+});
+```
+
+`void` discards the promise, so a rejected `Rejoin` is swallowed. Two things then fail together.
+`rejoin` never reaches `setStatus('connected')`, so the banner stays on "reconnecting" — which is at
+least visible. The real damage is on the server: a reconnect is a new connection id, the old one was
+already dropped by `OnDisconnectedAsync` calling `connections.Detach`, and `Attach` only ever runs
+inside `Rejoin`. `BroadcastAsync` sends per connection out of `InGame(gameId)`, so a connection that
+never attached is never sent anything.
+
+The result is the worst shape a bug can have here: the websocket is open, the transport is healthy,
+commands appear to send, and the board simply stops changing. Nothing in the UI says the client has
+been orphaned.
+
+**Why it can wait:** it needs `Rejoin` to fail on a connection that has just succeeded in
+reconnecting, which in practice means the server restarting inside the reconnect window. Not
+observed in play.
+
+**Fix:** catch the rejection, and retry rather than merely report it — a client that has an open
+socket and no attachment can recover, so surfacing "disconnected" would be a lie. M6 lists
+"Reconnect UX", which is where this belongs, but note that this is a correctness bug underneath it
+rather than presentation: styling the banner would ship straight past it.
