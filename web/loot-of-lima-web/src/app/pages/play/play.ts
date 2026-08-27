@@ -43,9 +43,25 @@ export class Play {
   protected readonly winnerName = computed(() => this.nameOf(this.store.view()?.winnerSeat ?? null));
 
   constructor() {
+    // The table this page is currently attached to, which is not always the one it started on.
+    //
+    // /play/A to /play/B is one route with a changed parameter, so this component is reused rather
+    // than rebuilt and the teardown below never runs. Without clearing the store here, table A's
+    // seats, hand and history stay on screen under table B's heading until B's first frame lands
+    // -- and because a frame from a different game resets the high-water mark instead of being
+    // compared against it, a late arrival from A's still-closing socket would be taken as current.
+    let attached: string | null = null;
+
     effect(() => {
+      const room = this.roomCode();
       const token = this.identity()?.playerToken ?? null;
-      void this.connection.connect(this.roomCode(), token).catch(() => undefined);
+
+      if (attached !== null && attached !== room) {
+        this.store.reset();
+      }
+      attached = room;
+
+      void this.connection.connect(room, token).catch(() => undefined);
     });
 
     inject(DestroyRef).onDestroy(() => {

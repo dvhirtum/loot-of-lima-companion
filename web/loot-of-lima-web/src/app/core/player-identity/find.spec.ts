@@ -74,6 +74,24 @@ describe('PlayerIdentityStore.find', () => {
     expect(found).toBeNull();
   });
 
+  it('Should_find_the_identity_when_storage_throws_but_this_page_load_joined', () => {
+    // Arrange
+    // The case a private window actually produces: the join succeeded, the server holds the seat,
+    // and the only thing missing is somewhere to write the token down. Falling back to null here
+    // sent the player to their own table as a spectator with no hand.
+    const store = new PlayerIdentityStore();
+    store.remember('ABCD', { playerToken: 'token-1', playerId: 'player-1' }, 'Ada');
+    vi.spyOn(Storage.prototype, 'getItem').mockImplementation(() => {
+      throw new DOMException('blocked');
+    });
+
+    // Act
+    const found = store.find('abcd');
+
+    // Assert
+    expect(found).toEqual({ playerToken: 'token-1', playerId: 'player-1', displayName: 'Ada' });
+  });
+
   it('Should_find_nothing_when_storage_itself_throws', () => {
     // Arrange
     // A private window, or a browser set to block site data, does not merely return null --

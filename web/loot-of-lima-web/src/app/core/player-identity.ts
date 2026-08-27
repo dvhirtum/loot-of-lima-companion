@@ -23,22 +23,36 @@ const PREFIX = 'lol.player.';
  */
 @Injectable({ providedIn: 'root' })
 export class PlayerIdentityStore {
+  /**
+   * The identities handed out during this page load, whether or not storage kept them.
+   *
+   * Joining and playing are two routes, and the second one re-reads the identity rather than being
+   * handed it. With storage unavailable -- a private window, or site data blocked -- that read came
+   * back empty, so a player who had just joined successfully arrived at the table as a spectator
+   * with no hand and a "Sit here" button that could only answer NotAPlayer. Holding the identity
+   * here as well makes storage what it actually is: what survives a refresh, not what makes the
+   * seat work at all.
+   */
+  private readonly inMemory = new Map<string, PlayerIdentity>();
+
   find(roomCode: string): PlayerIdentity | null {
     const raw = PlayerIdentityStore.read(PREFIX + key(roomCode));
     if (raw === null) {
-      return null;
+      return this.inMemory.get(key(roomCode)) ?? null;
     }
 
     try {
       const parsed = JSON.parse(raw) as Partial<PlayerIdentity>;
-      return parsed.playerToken && parsed.playerId
-        ? { playerToken: parsed.playerToken, playerId: parsed.playerId, displayName: parsed.displayName ?? '' }
-        : null;
+      if (parsed.playerToken && parsed.playerId) {
+        return { playerToken: parsed.playerToken, playerId: parsed.playerId, displayName: parsed.displayName ?? '' };
+      }
     } catch {
       // Written by an older build, or half-written by a tab that died mid-set. Either way it is not
       // an identity, and throwing out of a getter would take the whole page down over a stale string.
-      return null;
     }
+
+    // Unreadable is the same as absent, and this page load may still know who this is.
+    return this.inMemory.get(key(roomCode)) ?? null;
   }
 
   remember(roomCode: string, joined: JoinResponse, displayName: string): PlayerIdentity {
@@ -48,11 +62,13 @@ export class PlayerIdentityStore {
       displayName,
     };
 
+    this.inMemory.set(key(roomCode), identity);
     PlayerIdentityStore.write(PREFIX + key(roomCode), JSON.stringify(identity));
     return identity;
   }
 
   forget(roomCode: string): void {
+    this.inMemory.delete(key(roomCode));
     PlayerIdentityStore.write(PREFIX + key(roomCode), null);
   }
 
@@ -81,8 +97,8 @@ export class PlayerIdentityStore {
         globalThis.localStorage?.setItem(name, value);
       }
     } catch {
-      // Out of quota, or storage disabled. The identity still works for this page load, which is
-      // enough to play; only the reconnect after a refresh is lost.
+      // Out of quota, or storage disabled. `remember` has already put the identity in `inMemory`,
+      // so the seat works for as long as the tab is open and only surviving a refresh is lost.
     }
   }
 }

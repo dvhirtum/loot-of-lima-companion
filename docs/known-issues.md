@@ -81,3 +81,30 @@ players arguing about the last accusation.
 **Fix:** an eviction policy — likely "idle for N hours" — plus `IGameStore.Remove` releasing the
 room code and the tokens issued for that game. Best done alongside the persistence M6 already
 anticipates, since the same question decides what gets written down.
+
+Raised by the review of [PR #4](https://github.com/dvhirtum/loot-of-lima-companion/pull/4).
+
+## 5. The `compose stop api` swap only works on Docker Desktop
+
+`compose.yaml`, and by extension the second swap mode `CLAUDE.md` lists as a milestone exit
+criterion.
+
+Stopping the `api` container and running `dotnet run --project src/LootOfLima.Server` in its place
+relies on nginx reaching the host through `host.docker.internal`. The `extra_hosts: host-gateway`
+entry makes that name resolve on Linux too, but resolving is not the problem. There is no
+`launchSettings.json` and nothing sets `ASPNETCORE_URLS`, so `dotnet run` takes the framework
+default of `http://localhost:5000` — loopback only — and a connection arriving from the bridge
+gateway address is refused. On Docker Desktop the traffic reaches the loopback listener anyway,
+through the VM's port forwarding, which is why the swap works on this machine and would not work on
+a Linux host.
+
+The failure is a plain 502 from nginx — indistinguishable from "the api is not running yet", which
+is a state the composition deliberately treats as ordinary. Nothing says the listener is the
+problem.
+
+**Why it can wait:** the only machine this runs on is Docker Desktop, and nothing else in either
+swap depends on the platform.
+
+**Fix:** `ASPNETCORE_URLS=http://0.0.0.0:5000 dotnet run --project src/LootOfLima.Server`, or add a
+`launchSettings.json` with that `applicationUrl` so the plain command in `CLAUDE.md` works
+everywhere. Worth doing when CI arrives, since a Linux runner is exactly where this bites.

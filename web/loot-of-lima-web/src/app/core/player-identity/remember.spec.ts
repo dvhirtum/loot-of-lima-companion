@@ -33,10 +33,12 @@ describe('PlayerIdentityStore.remember', () => {
     expect(store.find('ABCD')?.playerToken).toBe('token-2');
   });
 
-  it('Should_still_hand_back_the_identity_when_storage_refuses_to_keep_it', () => {
+  it('Should_still_find_the_identity_when_storage_refuses_to_keep_it', () => {
     // Arrange
-    // Out of quota, or storage disabled. This page load can still play; only the reconnect after
-    // a refresh is lost, and losing that is much better than failing to join at all.
+    // Out of quota, or storage disabled. Joining and playing are two routes and the second one
+    // re-reads the identity rather than being handed it, so a `remember` that only returned the
+    // identity would leave a player who had just joined arriving at the table as a spectator. What
+    // is lost without storage is surviving a refresh, not the seat.
     const store = new PlayerIdentityStore();
     vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
       throw new DOMException('quota');
@@ -47,6 +49,23 @@ describe('PlayerIdentityStore.remember', () => {
 
     // Assert
     expect(identity.playerToken).toBe('token-1');
+    expect(store.find('ABCD')?.playerToken).toBe('token-1');
+  });
+
+  it('Should_forget_the_identity_here_too_when_a_player_gives_up_a_table_storage_never_kept', () => {
+    // Arrange
+    // Leaving has to clear both places, or the seat this browser was told to give up comes back
+    // on the next navigation.
+    const store = new PlayerIdentityStore();
+    vi.spyOn(Storage.prototype, 'setItem').mockImplementation(() => {
+      throw new DOMException('quota');
+    });
+    store.remember('ABCD', { playerToken: 'token-1', playerId: 'player-1' }, 'Ada');
+
+    // Act
+    store.forget('abcd');
+
+    // Assert
     expect(store.find('ABCD')).toBeNull();
   });
 

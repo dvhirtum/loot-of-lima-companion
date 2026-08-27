@@ -17,7 +17,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M1 — pure rules engine + scenario oracle | **Done.** 1246 tests green |
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1486 tests green |
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
-| M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 41 web tests green |
+| M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | Next |
 | M5 — SVG island map, abilities, accusation, passing UI | Not started |
 | M6 — polish | Not started |
@@ -56,7 +56,7 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 41 passing
+npm test          # Vitest; expect 48 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 ```

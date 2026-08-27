@@ -3,6 +3,11 @@
 {
   "compileOnSave": false,
   "compilerOptions": {
+    // Not a preference. `contracts.ts` mirrors LootOfLima.Contracts by hand, and the reason there
+    // is no generator is that a mismatch is supposed to be a compile error -- but strictTemplates
+    // can only make it one on top of strictNullChecks, which lives in here. Without this flag a
+    // renamed field reads `undefined` in a template and the @if guarding it simply never fires.
+    "strict": true,
     "noImplicitOverride": true,
     "noPropertyAccessFromIndexSignature": true,
     "noImplicitReturns": true,

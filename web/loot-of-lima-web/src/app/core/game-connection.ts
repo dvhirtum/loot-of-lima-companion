@@ -67,6 +67,16 @@ export class GameConnection {
       .configureLogging(LogLevel.Warning)
       .build();
 
+    // Every handler below is gated on this connection still being the current one.
+    //
+    // `disconnect` stops a socket but cannot un-fire what is already in flight: a frame the server
+    // sent before the stop, and the `onclose` the stop itself causes, both arrive afterwards, and
+    // the store they would write to is a root singleton shared with whatever connection replaced
+    // this one. Leaving the store to a socket the app has finished with is how a live client ends
+    // up displaying "Disconnected" for good, and how a frame from the previous table lands in the
+    // new one.
+    const isCurrent = (): boolean => this.connection === connection;
+
     // Handlers before the connection opens, so nothing the server pushes can arrive unheard.
     //
     // Every one of them has a statement body and returns nothing on purpose. The server pushes
@@ -75,25 +85,43 @@ export class GameConnection {
     // and the connection logs "Result given for 'State' method but server is not expecting a
     // result" on every single frame.
     connection.on(STATE, (view: PlayerView) => {
-      this.store.apply(view);
+      if (isCurrent()) {
+        this.store.apply(view);
+      }
     });
 
     connection.on(EVENT, (happened: GameEventDto) => {
-      this._lastEvent.set(happened);
+      if (isCurrent()) {
+        this._lastEvent.set(happened);
+      }
     });
 
     connection.on(ERROR, (error: ErrorDto) => {
-      this.store.noteError(error);
+      if (isCurrent()) {
+        this.store.noteError(error);
+      }
     });
 
-    connection.onreconnecting(() => this.store.setStatus('reconnecting'));
+    connection.onreconnecting(() => {
+      if (isCurrent()) {
+        this.store.setStatus('reconnecting');
+      }
+    });
 
     // A reconnect is a new connection with a new id, and the server detached the old one when it
     // dropped. Without rejoining, this client would be connected to a hub that has no idea which
     // game it is watching, and would sit there looking healthy and receiving nothing.
-    connection.onreconnected(() => void this.rejoin());
+    connection.onreconnected(() => {
+      if (isCurrent()) {
+        void this.rejoin();
+      }
+    });
 
-    connection.onclose(() => this.store.setStatus('disconnected'));
+    connection.onclose(() => {
+      if (isCurrent()) {
+        this.store.setStatus('disconnected');
+      }
+    });
 
     this.connection = connection;
     this.store.setStatus('connecting');
@@ -102,11 +130,25 @@ export class GameConnection {
       await connection.start();
       await this.rejoin();
     } catch {
+      // The failed connection has to be let go of here, not just reported.
+      //
+      // `connect` returns early when it is already holding this room and token, so a connection
+      // left in place by a failure makes every retry a no-op that reports success while nothing is
+      // attached -- and the api container being down, which is a state the composition treats as
+      // ordinary, is precisely when a retry is what the caller will do.
+      await this.disconnect();
       this.store.setStatus('disconnected');
       throw new Error(`Could not connect to game ${roomCode}.`);
     }
   }
 
+  /**
+   * Lets go of the current connection, if there is one.
+   *
+   * The fields are cleared before the stop is awaited, deliberately: from this line on the
+   * connection is no longer current, so anything still arriving on it is ignored rather than
+   * racing whatever connects next.
+   */
   async disconnect(): Promise<void> {
     const connection = this.connection;
     this.connection = null;
