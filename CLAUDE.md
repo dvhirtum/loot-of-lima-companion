@@ -20,7 +20,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | Next |
+| M6 — polish | **In progress.** 1651 .NET + 94 web + 45 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -45,7 +45,7 @@ before touching the importer or `BoardLayout`.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1633 passing
+dotnet test       # expect 1651 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
@@ -56,11 +56,11 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 84 passing
+npm test          # Vitest; expect 94 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 37 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 45 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
@@ -242,6 +242,15 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   last-player-standing. Anything that has to observe play *continuing* after an elimination — the
   eliminated seat still answering, the turn passing on — needs a third human at the table. Bots do
   not count: they are never eliminated and never take turns.
+- **A wrong accusation at a table of *one* human eliminates nobody.** `GameState.IsSolo` is the
+  test, and `Accuse` returns before the elimination. The seat stays in, the phase stays
+  `InProgress`, the turn advances as it would after any other action taken on your own turn, and
+  the pair is ruled out — which is a real deduction and the accuser's own. See the settled decision
+  below for why this is not a house rule.
+- **`GameEndReason.AllPlayersEliminated` is now unreachable from `Accuse`.** A solo table returns
+  before the elimination, and at two or more humans the game ends the first time the active count
+  falls to one, so it can never fall to zero. It survives only as the fall-through of `AdvanceTurn`,
+  which has to return something. Do not write a test that claims to reach it.
 - **The compass letters belong on the eight lines, not in the middle of the sectors.** The dial's
   arrows point at the lines, the tokens sit in the gaps, and sector *k* is the gap *clockwise* from
   line *k* — so B1/F1/M1 are drawn between the N letter and the NE one. Putting a letter in the
@@ -301,6 +310,25 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
 - **The accusation is a panel, not a modal.** The two locations are named by tapping the island, and
   a modal would cover the thing being tapped. It stays folded behind one button instead, because an
   accusation cannot be taken back.
+- **A solo game does not end on a wrong accusation, and that follows from the projection rather
+  than from taste.** Eliminating the only player finishes the game, and `Finished` is the single
+  phase in which `Projector` fills in `Treasure` — so the penalty for guessing wrong would be being
+  handed the answer, and any "keep playing" offer made afterwards would sit next to it. The books
+  are puzzles, and finding out a pair is wrong is how a puzzle is solved. So the game carries on
+  and `GameEngine.GiveUp` becomes the only other way out.
+- **Giving up is refused until that seat has accused and been wrong at least once.** `GiveUp` is
+  the one command in this application whose entire purpose is to reveal the treasure, so it is not
+  available for the asking: a button sitting there from the first turn is one misclick from
+  spoiling a puzzle somebody was halfway through. Requiring a wrong accusation first means giving
+  up costs what giving up costs — you had to commit to a pair and find out it was not the pair.
+  The gate is in the engine, not in the panel; the panel not drawing the button is the same
+  courtesy as the disabled terrain buttons, never the enforcement.
+- **The way off the game page is a link on the header's own line**, not a nav row. A row of its own
+  would cost a phone the top of its screen for something pressed once a session, and the island has
+  just been given that space. Leaving needs no confirming and releases no seat: the seat is a token
+  in that browser's storage, so the same code sits back down. The finished banner is the one place
+  a fresh game is offered unprompted, because it is the one moment somebody is certainly looking
+  for one.
 - **A scenario deal never passes tokens**, even at five players. Their published answers describe
   the hands exactly as dealt, so passing would contradict the book. `Passing.IsRequired` keys off
   `DealSourceKind`, not just seat count.
@@ -371,3 +399,10 @@ reads them, and its output is committed, so build and test never need them.
 - **`count()`, `allInnerTexts()` and friends are one-shots with no auto-waiting.** Reading one
   before the first frame has rendered is a race that passes locally and fails under load. Do the
   waiting with a locator assertion first, then read.
+- **Wait for the thing you are about to assert, not for a proxy of it.** `HubConnection.State`
+  flips to `Disconnected` before the `Closed` handler has run, so `LastResortTests` waited on the
+  state and then asserted on the handler's list — which under enough parallel load came back empty
+  and reported "the collection was empty" about a guard that had worked perfectly. It surfaced as
+  one test occasionally reddening in the full suite and always passing alone, which is the least
+  useful shape a failure has. Adding tests to `Server.Tests` adds load, so it can resurface
+  anywhere the same shortcut is taken.

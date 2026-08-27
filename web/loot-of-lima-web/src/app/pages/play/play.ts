@@ -1,4 +1,5 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { AbilityType, Terrain } from '../../core/contracts';
 import { GameConnection } from '../../core/game-connection';
 import { GameStore } from '../../core/game-store';
@@ -35,6 +36,7 @@ import { TableUi } from '../../play/table-ui';
     LobbyPanel,
     MyHandPanel,
     QuestionBuilder,
+    RouterLink,
     SeatStrip,
     SetupPanel,
   ],
@@ -147,6 +149,10 @@ export class Play {
 
   protected accuse(named: NamedTreasure): void {
     void this.connection.accuse(named.first, named.second);
+  }
+
+  protected giveUp(): void {
+    void this.connection.giveUp();
   }
 
   private nameOf(seatIndex: number | null): string | null {

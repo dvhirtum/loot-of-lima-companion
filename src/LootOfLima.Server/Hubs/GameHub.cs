@@ -236,6 +236,19 @@ internal sealed class GameHub(
     }
 
     /// <summary>
+    /// Ends a solo game and reveals the treasure, on the request of the only player in it.
+    /// </summary>
+    /// <remarks>
+    /// No event accompanies it, for the same reason no other ending has one: the view arriving
+    /// alongside carries the phase and the treasure, and an event is a nudge to animate, never a
+    /// source of state. Every condition on it lives in the engine — that the table has one player,
+    /// and that the player has already accused and been wrong — so a client that never draws the
+    /// button is a convenience rather than the enforcement.
+    /// </remarks>
+    public Task GiveUp() =>
+        WithSeatAsync((seat, state) => GameEngine.GiveUp(state, seat), _ => null);
+
+    /// <summary>
     /// Reads an enum the client named. Names only, and only names this build knows.
     /// </summary>
     /// <remarks>

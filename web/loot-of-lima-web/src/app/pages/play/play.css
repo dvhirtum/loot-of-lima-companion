@@ -18,6 +18,15 @@
   color: var(--brass-bright);
 }
 
+/* A sentence and two links, so it wants far less air than a column of panels does. */
+.banner.stack {
+  gap: 0.6rem;
+}
+
+.ending {
+  margin: 0;
+}
+
 /*
  * Two columns on a laptop, one on a phone. Both are real layouts rather than a shrunken desktop:
  * the phone is where players actually sit, and the history is what they scroll while it is not

@@ -369,15 +369,25 @@ public static class GameEngine
             return Result<GameState>.Success(Finish(next, accuserSeat, GameEndReason.CorrectAccusation));
         }
 
-        next = WithSeat(next, accuser with { Eliminated = true });
-
-        int survivors = next.ActiveHumanSeats.Count();
-        if (survivors == 0)
+        // A table of one is the exception, and it is not a house rule so much as a refusal to make
+        // the penalty meaningless. Eliminating the only player finishes the game, and finishing the
+        // game is the single moment the treasure is projected -- so the punishment for guessing
+        // wrong would be being handed the answer. The scenario books are puzzles; getting one wrong
+        // is how you learn the pair is ruled out, which is a real deduction and the player's own.
+        // So nothing is revealed, the seat stays in, and the turn ends the way any other action
+        // taken on your own turn ends it.
+        if (state.IsSolo)
         {
-            return Result<GameState>.Success(Finish(next, null, GameEndReason.AllPlayersEliminated));
+            return Result<GameState>.Success(next.ActiveSeat == accuserSeat ? AdvanceTurn(next) : next);
         }
 
-        if (survivors == 1 && next.HumanSeats.Count() > 1)
+        next = WithSeat(next, accuser with { Eliminated = true });
+
+        // At least two humans sat down, because a solo table returned above, and that is what makes
+        // one survivor decisive rather than ambiguous. It also means the count can never reach zero
+        // here: the game ends the first time it falls to one, so there is never a second-to-last
+        // elimination left to make.
+        if (next.ActiveHumanSeats.Count() == 1)
         {
             return Result<GameState>.Success(Finish(
                 next, next.ActiveHumanSeats.Single().Index, GameEndReason.LastPlayerStanding));
@@ -385,6 +395,57 @@ public static class GameEngine
 
         // Being eliminated ends your turn, but only your turn.
         return Result<GameState>.Success(next.ActiveSeat == accuserSeat ? AdvanceTurn(next) : next);
+    }
+
+    /// <summary>
+    /// Ends a solo game the only way it can now end short of a correct accusation: the player asks
+    /// to be shown the treasure.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This exists because <see cref="Accuse"/> no longer finishes a solo game, so without it a
+    /// player who cannot solve the puzzle has no way to find out what the answer was.
+    /// </para>
+    /// <para>
+    /// It is refused until that seat has accused and been wrong at least once, and that is a rule
+    /// rather than a nicety about where a button appears. The treasure is the one thing this whole
+    /// application is built to withhold, and a command that hands it over on request is one misclick
+    /// away from spoiling a puzzle somebody was halfway through. Requiring a wrong accusation first
+    /// means giving up costs what giving up costs: you have to have committed to an answer and
+    /// found out it was not the answer.
+    /// </para>
+    /// </remarks>
+    public static Result<GameState> GiveUp(GameState state, int seatIndex)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if ((Reject(state, GamePhase.InProgress) ?? RejectHumanSeat(state, seatIndex)) is { } error)
+        {
+            return error;
+        }
+
+        if (!state.IsSolo)
+        {
+            return new GameError(
+                GameErrorCode.NotASoloGame,
+                "Only a table of one player can give up. Anywhere else, accusing wrongly is how you leave a game.");
+        }
+
+        // Named by seat although the table has exactly one human, so the two readings cannot differ
+        // today. Written this way because the rule being expressed is about the player giving up
+        // rather than about the table, and a check that reads the rule cannot drift away from it.
+        bool hasAccusedWrongly = state.History
+            .OfType<AccusationEntry>()
+            .Any(entry => entry.AccuserSeat == seatIndex && !entry.Correct);
+
+        if (!hasAccusedWrongly)
+        {
+            return new GameError(
+                GameErrorCode.NothingToGiveUpOn,
+                $"Seat {seatIndex} has not accused and been wrong yet, so there is nothing to give up on.");
+        }
+
+        return Result<GameState>.Success(Finish(state, null, GameEndReason.Conceded));
     }
 
     /// <summary>

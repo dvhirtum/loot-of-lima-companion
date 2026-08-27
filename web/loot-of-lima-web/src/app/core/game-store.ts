@@ -91,6 +91,34 @@ export class GameStore {
   readonly isFinished = computed(() => this._view()?.phase === 'Finished');
 
   /**
+   * One human at the table, the rest bots — the shape the printed scenarios are written for.
+   *
+   * A count of a field every viewer is already sent in full, not a deduction: who is a bot is
+   * public from the lobby onwards, and it is on the seat strip in words. It decides what this page
+   * says about a wrong accusation, and nothing else; the engine still rules on every command that
+   * turns on it.
+   */
+  readonly isSolo = computed(() => this.seats().filter((seat) => seat.kind === 'Human').length === 1);
+
+  /**
+   * How many times this viewer has accused and been wrong.
+   *
+   * Read from their own accusations, which is the only kind they are sent in full: somebody else's
+   * failed accusation arrives as `accusationOccurred`, with no pair and no seat to attribute it to
+   * beyond the accuser. Zero for a spectator, who has never accused anything.
+   */
+  readonly myWrongAccusations = computed(() => {
+    const seat = this.mySeat();
+    if (seat === null) {
+      return 0;
+    }
+
+    return this.history().filter(
+      (entry) => entry.type === 'accusation' && entry.accuserSeat === seat.index && !entry.correct,
+    ).length;
+  });
+
+  /**
    * Takes a frame, unless a newer one has already been taken.
    *
    * Commands are serialised by the server, but the sends that follow them are not: each frame is a

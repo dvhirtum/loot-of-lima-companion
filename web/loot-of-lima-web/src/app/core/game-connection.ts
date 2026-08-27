@@ -205,6 +205,17 @@ export class GameConnection {
   }
 
   /**
+   * Ends a solo game and asks to be shown the treasure.
+   *
+   * Takes no argument on purpose. Who is giving up is the connection's seat, the same as every
+   * other command here, and whether they are allowed to is the server's alone: a table of one, and
+   * a wrong accusation already behind them.
+   */
+  giveUp(): Promise<void> {
+    return this.send('GiveUp');
+  }
+
+  /**
    * Tells the server which game this connection is watching, and who is holding it.
    *
    * Idempotent on the server, and called both when the connection first opens and after every

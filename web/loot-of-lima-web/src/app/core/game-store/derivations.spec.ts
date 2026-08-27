@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { GameStore } from '../game-store';
-import { publicQuestion, seat, view, viewFor } from '../../testing/views';
+import { accusation, publicQuestion, seat, view, viewFor } from '../../testing/views';
 
 /**
  * The computed read surface.
@@ -125,5 +125,76 @@ describe('GameStore derivations', () => {
     // Assert
     expect(store.treasure()).toEqual(['B1', 'M4']);
     expect(store.isFinished()).toBe(true);
+  });
+
+  it('Should_be_solo_when_one_seat_of_five_is_human', () => {
+    // Arrange
+    // Counted from a field every viewer is sent in full. Who is a bot is public from the lobby on.
+    const store = new GameStore();
+
+    // Act
+    store.apply(
+      view({
+        viewerSeat: 0,
+        seats: [seat(0, { isViewer: true }), seat(1, { kind: 'Bot' }), seat(2, { kind: 'Bot' })],
+      }),
+    );
+
+    // Assert
+    expect(store.isSolo()).toBe(true);
+  });
+
+  it('Should_not_be_solo_when_a_second_human_has_sat_down', () => {
+    // Arrange
+    const store = new GameStore();
+
+    // Act
+    store.apply(view({ viewerSeat: 0, seats: [seat(0, { isViewer: true }), seat(1), seat(2, { kind: 'Bot' })] }));
+
+    // Assert
+    expect(store.isSolo()).toBe(false);
+  });
+
+  it('Should_count_only_the_viewers_own_failures_when_accusations_are_in_the_history', () => {
+    // Arrange
+    // Somebody else's wrong accusation reaches this viewer as `accusationOccurred`, with no pair
+    // and no verdict, so it could not be counted here even by mistake. Their own correct one is a
+    // different matter: it is in full, and it is not a failure.
+    const store = new GameStore();
+
+    // Act
+    store.apply(
+      view({
+        viewerSeat: 0,
+        seats: [seat(0, { isViewer: true }), seat(1)],
+        history: [
+          accusation(1, { accuserSeat: 0, correct: false }),
+          accusation(2, { accuserSeat: 0, correct: true }),
+          { type: 'accusationOccurred', sequence: 3, turnNumber: 3, accuserSeat: 1 },
+          accusation(4, { accuserSeat: 0, correct: false }),
+        ],
+      }),
+    );
+
+    // Assert
+    expect(store.myWrongAccusations()).toBe(2);
+  });
+
+  it('Should_count_nothing_when_the_viewer_holds_no_seat', () => {
+    // Arrange
+    // A spectator is sent the redacted shape for everything, and has never accused anything.
+    const store = new GameStore();
+
+    // Act
+    store.apply(
+      view({
+        viewerSeat: null,
+        seats: [seat(0), seat(1)],
+        history: [{ type: 'accusationOccurred', sequence: 1, turnNumber: 1, accuserSeat: 0 }],
+      }),
+    );
+
+    // Assert
+    expect(store.myWrongAccusations()).toBe(0);
   });
 });

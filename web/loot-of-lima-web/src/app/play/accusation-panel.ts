@@ -20,6 +20,12 @@ export interface NamedTreasure {
  *
  * Offered whatever the turn is. Accusation is legal at any moment, including somebody else's turn,
  * which is a rule that would be invisible if the only route to it were the turn panel.
+ *
+ * A table of one is the exception the copy has to carry, because there the rule genuinely differs:
+ * nothing eliminates the only player, so a wrong pair is a ruled-out pair and the game goes on.
+ * Giving up is what ends it instead, and that button appears only once there is something to give
+ * up on — the server refuses it before then, so this is the shape of the rule rather than a
+ * courtesy laid over it.
  */
 @Component({
   selector: 'app-accusation-panel',
@@ -28,13 +34,32 @@ export interface NamedTreasure {
     <section class="card stack">
       @if (!ui.accusing()) {
         <h3>Accusation</h3>
-        <p class="small muted">
-          Name both treasure locations, on your turn or anybody else's. Right and you win. Wrong and you are out for the
-          rest of the game — you still answer questions, and nothing you named is revealed.
-        </p>
+        @if (store.isSolo()) {
+          <p class="small muted">
+            Name both treasure locations. Right and you have solved it. Wrong and you are told so and carry on — there
+            is nobody here to be put out of the game in front of, and ending it would only mean being handed the answer
+            for having guessed badly.
+          </p>
+        } @else {
+          <p class="small muted">
+            Name both treasure locations, on your turn or anybody else's. Right and you win. Wrong and you are out for
+            the rest of the game — you still answer questions, and nothing you named is revealed.
+          </p>
+        }
         <button type="button" class="button" [disabled]="!canOpen()" (click)="ui.setAccusing(true)">Accuse</button>
         @if (eliminated()) {
           <p class="small muted">You are eliminated. Answering is all that is left to you.</p>
+        }
+
+        @if (canGiveUp()) {
+          <div class="stack surrender">
+            <p class="small muted">
+              {{ wrong() }} wrong so far. Each one rules a pair out, which is a real deduction and yours — but if you
+              would rather stop and see it:
+            </p>
+            <button type="button" class="button" (click)="giveUp.emit()">Give up and reveal the treasure</button>
+            <p class="small warn">That ends the game.</p>
+          </div>
         }
       } @else {
         <h3>Name the treasure</h3>
@@ -83,6 +108,12 @@ export interface NamedTreasure {
       margin: 0;
       color: var(--coral);
     }
+
+    /* Ruled off, because it is the opposite of the button above it and sits in the same card. */
+    .surrender {
+      border-top: 1px solid var(--line);
+      padding-top: 0.75rem;
+    }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
@@ -93,6 +124,8 @@ export class AccusationPanel {
 
   readonly accuse = output<NamedTreasure>();
 
+  readonly giveUp = output<void>();
+
   protected readonly slots = [0, 1] as const;
 
   protected readonly eliminated = computed(() => this.store.mySeat()?.eliminated === true);
@@ -100,6 +133,19 @@ export class AccusationPanel {
   /** Seated, playing, and not already out. A spectator has nothing to lose and no seat to lose it from. */
   protected readonly canOpen = computed(
     () => this.store.phase() === 'InProgress' && this.store.mySeat() !== null && !this.eliminated(),
+  );
+
+  protected readonly wrong = computed(() => this.store.myWrongAccusations());
+
+  /**
+   * Whether there is anything to give up on yet.
+   *
+   * The same three conditions the server checks, in the same order, because a button that is only
+   * refused when pressed is the defect this app has already made once. The server is still the one
+   * that decides — this only decides whether to draw it.
+   */
+  protected readonly canGiveUp = computed(
+    () => this.store.phase() === 'InProgress' && this.store.isSolo() && this.wrong() > 0,
   );
 
   protected choose(slot: 0 | 1, value: string): void {

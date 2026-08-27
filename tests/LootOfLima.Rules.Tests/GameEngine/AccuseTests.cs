@@ -134,20 +134,75 @@ public class AccuseTests
     }
 
     [Fact]
-    public void Should_end_with_nobody_winning_when_the_only_human_is_eliminated()
+    public void Should_keep_the_game_running_when_the_only_human_accuses_wrongly()
     {
         // Arrange
-        // A solo game against bots: a wrong accusation is simply a loss, since bots never win.
+        // A solo game against bots. Eliminating the only player would finish the game, and
+        // finishing it is the one moment the treasure is projected -- so guessing wrong would be
+        // rewarded with the answer.
         GameState state = TestGame.InProgress(5, humans: 1);
 
         // Act
-        GameState finished = TestGame.Unwrap(
+        GameState next = TestGame.Unwrap(
             Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
 
         // Assert
+        Assert.Equal(GamePhase.InProgress, next.Phase);
+        Assert.False(next.SeatAt(0).Eliminated);
+        Assert.Null(next.EndReason);
+        Assert.Null(next.WinnerSeat);
+    }
+
+    [Fact]
+    public void Should_leave_the_treasure_where_it_is_when_the_only_human_accuses_wrongly()
+    {
+        // Arrange
+        // The whole point of not finishing: nothing about the pair, and nothing about the two
+        // locations that are the answer, is written anywhere the projection could reach.
+        GameState state = TestGame.InProgress(5, humans: 1);
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Equal(state.Deal!.Treasure, next.Deal!.Treasure);
+        Assert.All(next.Seats, seat => Assert.Equal(state.SeatAt(seat.Index).Hand, seat.Hand));
+    }
+
+    [Fact]
+    public void Should_pass_the_turn_on_when_the_only_human_accuses_wrongly()
+    {
+        // Arrange
+        // Back to the same seat, since bots never take turns -- but a turn later, which is what
+        // makes an accusation cost the same as any other action taken on your own turn.
+        GameState state = TestGame.InProgress(5, humans: 1);
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Equal(0, next.ActiveSeat);
+        Assert.Equal(state.TurnNumber + 1, next.TurnNumber);
+    }
+
+    [Fact]
+    public void Should_let_the_only_human_accuse_again_when_the_first_attempt_was_wrong()
+    {
+        // Arrange
+        GameState state = TestGame.InProgress(5, humans: 1);
+        state = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Act
+        GameState finished = TestGame.Unwrap(
+            Sut.Accuse(state, 0, state.Deal!.Treasure[0], state.Deal.Treasure[1]));
+
+        // Assert
         Assert.Equal(GamePhase.Finished, finished.Phase);
-        Assert.Null(finished.WinnerSeat);
-        Assert.Equal(GameEndReason.AllPlayersEliminated, finished.EndReason);
+        Assert.Equal(0, finished.WinnerSeat);
+        Assert.Equal(GameEndReason.CorrectAccusation, finished.EndReason);
     }
 
     [Fact]

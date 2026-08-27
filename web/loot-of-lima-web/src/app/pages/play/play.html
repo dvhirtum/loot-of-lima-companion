@@ -2,6 +2,11 @@
   <header class="head">
     <div>
       <h1>Loot of Lima</h1>
+      <!--
+        The way out lives on this line because the line is already here. A nav row of its own would
+        cost a phone the top of its screen for something pressed once a session, and the island has
+        just been given that space on purpose.
+      -->
       <p class="muted small">
         Table {{ roomCode() }}
         @if (store.phase(); as phase) {
@@ -10,6 +15,7 @@
             · turn {{ store.turnNumber() }}
           }
         }
+        · <a routerLink="/">Leave table</a>
       </p>
     </div>
 
@@ -26,13 +32,27 @@
     <p class="muted">Waiting for the table…</p>
   } @else {
     @if (store.phase() === 'Finished') {
-      <section class="banner banner--warn">
-        @if (winnerName(); as winner) {
-          <strong>{{ winner }} wins.</strong>
-        } @else {
-          <strong>Nobody wins.</strong>
-        }
-        <span class="muted small"> {{ store.view()!.endReason }}</span>
+      <section class="banner banner--warn stack">
+        <p class="ending">
+          @if (winnerName(); as winner) {
+            <strong>{{ winner }} wins.</strong>
+          } @else if (store.view()!.endReason === 'Conceded') {
+            <strong>You gave up. Here is the treasure.</strong>
+          } @else {
+            <strong>Nobody wins.</strong>
+          }
+          <span class="muted small"> {{ store.view()!.endReason }}</span>
+        </p>
+
+        <!--
+          The one place a fresh game is worth offering unprompted. Two links rather than one because
+          they are different wants: another table right now, or back to the front to find one
+          somebody else has opened.
+        -->
+        <div class="row">
+          <a class="button button--primary" routerLink="/new">New game</a>
+          <a class="button" routerLink="/">Back to the start</a>
+        </div>
       </section>
     } @else if (eliminated()) {
       <!--
@@ -80,7 +100,7 @@
               }
 
               <!-- Off-turn as well as on: accusing is legal at any moment while the game is running. -->
-              <app-accusation-panel (accuse)="accuse($event)" />
+              <app-accusation-panel (accuse)="accuse($event)" (giveUp)="giveUp()" />
             }
           }
         }

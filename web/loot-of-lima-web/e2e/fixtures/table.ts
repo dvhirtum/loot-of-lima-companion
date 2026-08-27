@@ -301,6 +301,17 @@ export async function accuse(page: Page, first: string, second: string): Promise
   await page.getByRole('button', { name: 'Accuse', exact: true }).click();
 }
 
+/**
+ * The button that ends a solo game and shows the answer.
+ *
+ * Returned rather than clicked, because half of what is worth asserting about it is that it is not
+ * there. Matched exactly: "Give up and reveal the treasure" and the panel's own prose around it
+ * share most of their words, and `getByRole`'s name is a case-insensitive substring match.
+ */
+export function giveUpButton(page: Page): ReturnType<Page['getByRole']> {
+  return page.getByRole('button', { name: 'Give up and reveal the treasure', exact: true });
+}
+
 /** Closes the contexts a spec opened. */
 export async function leave(players: readonly Player[]): Promise<void> {
   for (const player of players) {
