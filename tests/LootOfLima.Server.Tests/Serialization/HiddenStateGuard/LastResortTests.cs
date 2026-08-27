@@ -77,10 +77,16 @@ public class LastResortTests
             .Clients.Client(ConnectionId(app))
             .SendAsync("State", game.SeatAt(0), TestContext.Current.CancellationToken);
 
-        // Either outcome settles it: the connection goes down, or something arrived that should
-        // not have. Waiting only for the first would report a leak as a timeout.
-        await WaitUntilAsync(
-            () => connection.State == HubConnectionState.Disconnected || frames.Count > legitimate);
+        // Either outcome settles it: the connection reports itself closed, or something arrived
+        // that should not have. Waiting only for the first would report a leak as a timeout.
+        //
+        // Waited on `closed` and not on `connection.State`, which is the weaker of the two and was
+        // a race. The state flips to Disconnected before the `Closed` handler has run, so a wait on
+        // the state could return with `closed` still empty and the last assertion below reading
+        // "the collection was empty" -- a real failure message about a guard that had in fact
+        // worked. It is load-dependent, so it surfaced as one test in a suite occasionally going
+        // red and then passing alone, which is the least useful shape a failure has.
+        await WaitUntilAsync(() => closed.Count > 0 || frames.Count > legitimate);
 
         // Assert
         // The hand did not reach the client. The message carries whatever did, because a leak is
