@@ -105,6 +105,12 @@ export interface SeatView {
   readonly knownHand: readonly string[];
   readonly handIsComplete: boolean;
   readonly abilitiesRemaining: readonly AbilityType[];
+  /**
+   * Whether this seat spent its Pistol on the turn now in progress, and may therefore ask a secret
+   * question. Public for every seat, and nothing new: spending an ability writes a public history
+   * entry carrying the same turn number.
+   */
+  readonly pistolArmed: boolean;
   /** Announced at setup. Says nothing about whether the choice broke a tie, by design. */
   readonly fewestTerrain: Terrain | null;
   readonly tokensConfirmed: boolean;

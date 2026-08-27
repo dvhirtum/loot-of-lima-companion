@@ -1,4 +1,5 @@
-import { ChangeDetectionStrategy, Component, inject, output } from '@angular/core';
+import { ChangeDetectionStrategy, Component, inject, input, output } from '@angular/core';
+import { RouterLink } from '@angular/router';
 import { GameStore } from '../core/game-store';
 import { LocationToken } from './location-token';
 
@@ -12,7 +13,7 @@ import { LocationToken } from './location-token';
  */
 @Component({
   selector: 'app-seat-strip',
-  imports: [LocationToken],
+  imports: [LocationToken, RouterLink],
   template: `
     <ul class="seats">
       @for (seat of store.seats(); track seat.index) {
@@ -67,11 +68,21 @@ import { LocationToken } from './location-token';
             </div>
           }
 
+          <!--
+            A spectator is offered the way in rather than a button that cannot work. Watching is a
+            normal way to arrive here — the host screen links straight to it — and the hub refuses
+            ClaimSeat from anybody who has not joined, with a message naming a step this page never
+            offered. Joining happens at /join, behind the QR code.
+          -->
           @if (store.phase() === 'Lobby') {
             @if (seat.isViewer) {
               <button type="button" class="button button--small" (click)="release.emit()">Leave seat</button>
             } @else if (seat.kind === 'Bot') {
-              <button type="button" class="button button--small" (click)="claim.emit(seat.index)">Sit here</button>
+              @if (canClaim()) {
+                <button type="button" class="button button--small" (click)="claim.emit(seat.index)">Sit here</button>
+              } @else if (store.roomCode(); as code) {
+                <a class="button button--small" [routerLink]="['/join', code]">Join to sit here</a>
+              }
             }
           }
         </li>
@@ -153,6 +164,16 @@ import { LocationToken } from './location-token';
 })
 export class SeatStrip {
   protected readonly store = inject(GameStore);
+
+  /**
+   * Whether this browser holds a player token for this table.
+   *
+   * Not the same question as holding a seat, which is what makes it worth passing in rather than
+   * reading `isSpectator` off the store: somebody who has just come through the QR code has a
+   * token and no seat, and taking one is exactly what they came to do. Somebody watching from the
+   * host screen has neither, and the hub would refuse them.
+   */
+  readonly canClaim = input.required<boolean>();
 
   readonly claim = output<number>();
 

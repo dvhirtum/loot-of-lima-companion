@@ -19,8 +19,8 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
-| M5 — SVG island map, abilities, accusation, passing UI | Next |
-| M6 — polish | Not started |
+| M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 75 web + 33 e2e green |
+| M6 — polish | Next |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -45,7 +45,7 @@ before touching the importer or `BoardLayout`.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1629 passing
+dotnet test       # expect 1633 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
@@ -56,11 +56,11 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 48 passing
+npm test          # Vitest; expect 75 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 17 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 33 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
@@ -74,10 +74,19 @@ sets `changeOrigin: false` on purpose — the server builds the join URL the QR 
 request's `Host` header, so rewriting it would put `localhost` in the code a phone scans.
 
 **`npm run e2e` is the exception — it starts its own `dotnet run` and `ng serve`**, so it needs
-nothing already running, though it will reuse a dev server that is. The docker mode covers what the
-default mode cannot: the production bundle rather than the dev server's, and nginx rather than the
-Angular proxy. The `^~` location bug that 404'd the QR endpoint was invisible to every other suite
-in this repository, and is the kind of thing only that mode sees.
+nothing already running, though it will reuse a dev server that is.
+
+**Stop the compose stack before running `npm run e2e`.** The web container listens on 4200 — the
+same port `ng serve` uses, which is the whole point of the swap — and `reuseExistingServer` cannot
+tell the two apart. With the containers up, the default mode silently becomes a second run of the
+docker mode: it serves the last *built* bundle, so a source change is not in it. The symptom is a
+suite that passes in a second and a half against code you have just broken, which is far worse than
+a failure.
+
+The docker mode covers what the default mode cannot: the production bundle rather than the dev
+server's, and nginx rather than the Angular proxy. The `^~` location bug that 404'd the QR
+endpoint was invisible to every other suite in this repository, and is the kind of thing only that
+mode sees.
 
 ## Running it without dev servers
 
@@ -139,9 +148,9 @@ tools/LootOfLima.ScenarioImporter/   Offline PDF -> seed data. See its README.
 tests/                      Rules.Tests, Projection.Tests, Scenarios.Tests, Server.Tests.
 compose.yaml                Both halves in Docker. Either one stops for a dev server.
 web/loot-of-lima-web/       Angular 22 workspace. Standalone, zoneless, signals, Vitest.
-  src/app/core/             contracts.ts, GameStore, GameConnection, ApiClient, identity.
+  src/app/core/             contracts.ts, GameStore, GameConnection, ApiClient, BoardStore, identity.
   src/app/pages/            One folder per route, all lazy.
-  src/app/play/             The pieces the game page is made of.
+  src/app/play/             The pieces the game page is made of, plus map-geometry.ts and TableUi.
   e2e/                      Playwright. The only suite that drives a browser.
 ```
 
@@ -179,12 +188,26 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
    `PlayerView` and slices it. Nothing on the client computes an answer, a legal move or a hand.
    This is the fifth layer of the hidden-information design — a client that derives nothing cannot
    derive what it was not told. The one thing it reads out of a string is the terrain letter of a
-   location id, and that only decides what colour a token is drawn.
+   location id, and that only decides what colour a token is drawn. The island map adds one more
+   reading of the same kind: where each location sits comes from `GET /api/board`, the JSON
+   `BoardLayout.Load()` reads, so `map-geometry.ts` turns a *sector index the server gave it* into
+   a place to draw and never works out which sector anything is in.
 7. **`GameStore.apply` drops any frame older than the highest `Version` it has seen.** Commands are
    ordered by the server's store; the sends that follow them are not, so a frame can overtake its
    successor. The comparison is strict — a repeated version is a rejoin projecting the same
    revision to a seat instead of to a spectator, and dropping it would leave a player who has just
    sat down looking at somebody else's view.
+8. **The map draws all 24 location ids, and that is not a leak.** Where a location is on the island
+   is geography, and the printed board is labelled the same way. What a viewer may not know is
+   *whose* it is, and the map says that with `data-state` — mine, revealed, passed, treasure,
+   unknown. So an e2e leak assertion asks `knownOnMap` about the map and `visibleTokens` about
+   everything else; extending `visibleTokens` to the map would make it match all 24 and quietly
+   stop testing anything.
+9. **A projected bool must never lie, even helpfully.** `SeatView.PistolArmed` is projected
+   truthfully for *every* seat rather than only the viewer's, because redaction here is by type: a
+   field that reads false for a seat that is armed is a falsehood, not a redaction. It leaks
+   nothing either way — spending an ability writes a public `abilityUsed` entry carrying the same
+   turn number.
 
 ## Domain facts worth not re-deriving
 
@@ -211,6 +234,15 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   terrain), **Pistol** (secret question, free range, *never* terrain-restricted).
 - Accusation is legal at any time, even off-turn. Wrong accusation reveals **nothing** and
   eliminates the accuser, who must still answer questions.
+- **A wrong accusation at a table of two humans ends the game**, because one survivor is
+  last-player-standing. Anything that has to observe play *continuing* after an elimination — the
+  eliminated seat still answering, the turn passing on — needs a third human at the table. Bots do
+  not count: they are never eliminated and never take turns.
+- **The compass letters belong on the eight lines, not in the middle of the sectors.** The dial's
+  arrows point at the lines, the tokens sit in the gaps, and sector *k* is the gap *clockwise* from
+  line *k* — so B1/F1/M1 are drawn between the N letter and the NE one. Putting a letter in the
+  middle of a slice invites a player to read "from NE" as the middle of the north-east gap, and the
+  wedge then appears to start somewhere the question did not say.
 
 ## Settled product decisions
 
@@ -227,6 +259,13 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   puzzles where only the human asks.
 - **No auto-solving.** Show history, own hand, pass knowledge and ability status; the player deduces.
 - Official scenarios are five-player only, so 3- and 4-player games always use generated deals.
+- **Ephemeral UI state lives in `TableUi`, provided by the game page and not at the root.** A range
+  being built and an accusation half-named are wanted in two components each — the question builder
+  chooses a range and the map draws it; the map is tapped and the accusation panel fills up — but
+  they are not game state, and they must not survive the page. Nothing in it knows what an answer is.
+- **The accusation is a panel, not a modal.** The two locations are named by tapping the island, and
+  a modal would cover the thing being tapped. It stays folded behind one button instead, because an
+  accusation cannot be taken back.
 - **A scenario deal never passes tokens**, even at five players. Their published answers describe
   the hands exactly as dealt, so passing would contradict the book. `Passing.IsRequired` keys off
   `DealSourceKind`, not just seat count.

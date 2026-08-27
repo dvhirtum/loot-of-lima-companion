@@ -19,6 +19,7 @@ export function seat(index: number, overrides: Partial<SeatView> = {}): SeatView
     knownHand: [],
     handIsComplete: false,
     abilitiesRemaining: ['Barrel', 'Shovel', 'Pistol'],
+    pistolArmed: false,
     fewestTerrain: null,
     tokensConfirmed: false,
     passConfirmed: false,

@@ -1,0 +1,104 @@
+<section class="card stack">
+  <div class="map__head">
+    <h3>The island</h3>
+    @if (ui.accusing()) {
+      <p class="small map__hint">Tap two locations to name the treasure.</p>
+    } @else if (ui.highlight(); as range) {
+      <p class="small muted map__hint">
+        @if (range.start === range.end) {
+          The whole island
+        } @else {
+          {{ range.start }} up to {{ range.end }}
+        }
+        @if (range.terrain; as terrain) {
+          · {{ terrain.toLowerCase() }} only
+        }
+      </p>
+    }
+  </div>
+
+  @if (!ready()) {
+    <p class="muted small">Drawing the island…</p>
+  } @else {
+    <svg
+      class="map"
+      [class.map--picking]="ui.accusing()"
+      [attr.viewBox]="viewBox"
+      role="img"
+      [attr.aria-label]="caption()"
+    >
+      <!-- The sea, then the three rings the tokens sit on: shore, forest, peaks. -->
+      <circle class="map__sea" cx="0" cy="0" r="103" />
+      <circle class="map__ring" cx="0" cy="0" r="90" />
+      <circle class="map__ring" cx="0" cy="0" r="73" />
+      <circle class="map__ring" cx="0" cy="0" r="56" />
+
+      <!--
+        The wedge, under the tokens so it never obscures one. It says which slice the question
+        covers and nothing about how many tokens are in it — the answer comes from the server.
+      -->
+      @if (arc(); as wedge) {
+        <path class="map__arc" [class.map__arc--secret]="secretHighlight()" [attr.d]="wedge" />
+      }
+
+      <!-- The eight compass lines the dial's arrows actually point at. Tokens sit in the gaps. -->
+      @for (divider of boundaries(); track $index) {
+        <line
+          class="map__divider"
+          [attr.x1]="divider.x1"
+          [attr.y1]="divider.y1"
+          [attr.x2]="divider.x2"
+          [attr.y2]="divider.y2"
+        />
+      }
+
+      @for (label of compass(); track label.direction) {
+        <text class="map__compass" [attr.x]="label.x" [attr.y]="label.y" text-anchor="middle" dy="0.35em">
+          {{ label.direction }}
+        </text>
+      }
+
+      @for (token of tokens(); track token.location) {
+        <g
+          class="mark"
+          [class.mark--mine]="token.state === 'mine'"
+          [class.mark--revealed]="token.state === 'revealed'"
+          [class.mark--passed]="token.state === 'passed'"
+          [class.mark--treasure]="token.state === 'treasure'"
+          [class.mark--picked]="token.picked"
+          [class.mark--outside]="highlightTerrain() !== null && token.terrain !== highlightTerrain()"
+          [attr.data-location]="token.location"
+          [attr.data-state]="token.state"
+          [attr.role]="ui.accusing() ? 'button' : null"
+          [attr.tabindex]="ui.accusing() ? 0 : null"
+          [attr.aria-pressed]="ui.accusing() ? token.picked : null"
+          [attr.aria-label]="ui.accusing() ? 'Name ' + token.location : null"
+          (click)="pick(token.location)"
+          (keydown.enter)="pick(token.location)"
+          (keydown.space)="pick(token.location)"
+        >
+          <title>{{ token.note }}</title>
+          <circle
+            class="mark__disc"
+            [class.mark__disc--beach]="token.terrain === 'Beach'"
+            [class.mark__disc--forest]="token.terrain === 'Forest'"
+            [class.mark__disc--mountain]="token.terrain === 'Mountain'"
+            [attr.cx]="token.x"
+            [attr.cy]="token.y"
+            [attr.r]="tokenSize"
+          />
+          <text class="mark__label" [attr.x]="token.x" [attr.y]="token.y" text-anchor="middle" dy="0.35em">
+            {{ token.location }}
+          </text>
+        </g>
+      }
+    </svg>
+
+    <ul class="legend small muted">
+      <li><span class="legend__swatch legend__swatch--mine"></span> yours</li>
+      <li><span class="legend__swatch legend__swatch--revealed"></span> face up</li>
+      <li><span class="legend__swatch legend__swatch--passed"></span> passed by you</li>
+      <li><span class="legend__swatch"></span> unknown</li>
+    </ul>
+  }
+</section>

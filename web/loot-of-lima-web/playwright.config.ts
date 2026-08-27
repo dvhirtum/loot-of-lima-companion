@@ -23,6 +23,15 @@ export default defineConfig({
   // are unique per game, which is what makes running them at once safe.
   fullyParallel: true,
 
+  // Twice the default, and it buys nothing on a warm server: a spec here runs in one to three
+  // seconds. What it covers is the first handful of specs on a *cold* one, which is the normal way
+  // to run this — `docker compose up --build` then `e2e:docker`, or a `dotnet run` that has only
+  // just been started for a swap. The readiness gate proves the server answers; it does not warm a
+  // Debug build's JIT, and thirty specs arriving at once on a cold Kestrel push the first few past
+  // thirty seconds. Those failures say nothing about the app, and a suite that fails on its own
+  // documented sequence is worse than a slow one.
+  timeout: 60_000,
+
   // A `.only` left behind passes locally and silently stops testing everything else in CI.
   forbidOnly: !!process.env['CI'],
 

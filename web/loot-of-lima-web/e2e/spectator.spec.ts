@@ -1,0 +1,133 @@
+import { expect, test } from '@playwright/test';
+import { deal, leave, openTable, seatCard, sitDown } from './fixtures/table';
+
+/**
+ * Watching a table without a seat.
+ *
+ * The host screen links straight here, so arriving as a spectator is a normal route rather than a
+ * contrived one — and until now every open seat offered a "Sit here" button that could only ever
+ * come back refused, because the hub will not take `ClaimSeat` from somebody who has not joined and
+ * joining happens at `/join`, behind the QR code.
+ *
+ * The obvious fix is the wrong one, and that is why both halves are here. Gating the button on
+ * "has no seat" would take it away from the player who has just come through the QR code and has
+ * not sat down yet, which is the single most common state anybody is ever in on this page. The
+ * question is whether this browser holds a token, not whether it holds a seat.
+ */
+test.describe('Watching a table', () => {
+  test('Should_offer_the_way_in_rather_than_a_seat_when_the_watcher_has_not_joined', async ({ browser }) => {
+    // Arrange
+    // No `sitDown`, so this context has no player token for this table at all.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+    const watcher = await browser.newContext();
+    const page = await watcher.newPage();
+
+    // Act
+    await page.goto(`/play/${roomCode}`);
+
+    // Assert
+    await expect(seatCard(page, 0)).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sit here' })).toHaveCount(0);
+
+    const join = page.getByRole('link', { name: 'Join to sit here' }).first();
+    await expect(join).toBeVisible();
+    await join.click();
+    await page.waitForURL(new RegExp(`/join/${roomCode}$`));
+
+    await watcher.close();
+  });
+
+  test('Should_offer_every_open_seat_when_the_player_has_joined_but_not_sat_down', async ({ browser }) => {
+    // Arrange
+    // A joined player has a token and no seat, which is exactly the state a spectator check has to
+    // be careful not to catch. `sitDown` walks the whole route — join, land on the play page, take
+    // the first free seat — so it only returns if the button was there to be pressed.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+
+    // Act
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+
+    // Assert
+    await expect(seatCard(ada.page, 0).getByText('you')).toBeVisible();
+    await expect(ada.page.getByRole('link', { name: 'Join to sit here' })).toHaveCount(0);
+
+    // Four seats are still bots, and Ada is entitled to be offered any of them if she wants to move.
+    await expect(ada.page.getByRole('button', { name: 'Sit here' })).toHaveCount(4);
+
+    await leave([ada]);
+  });
+});
+
+/**
+ * The laptop in the middle of the table.
+ *
+ * Its whole job is the QR code, and the deal ends that job: `ClaimSeat` is refused outside `Lobby`,
+ * while joining is not, so a latecomer scanning the code afterwards gets a player token and *then* a
+ * seat the hub will not give them. Leaving the code on screen is worse than a dead button — it is a
+ * dead end two steps long, entered from another device.
+ *
+ * Nothing cheaper than a browser can see this. It is a route changing by itself in response to a
+ * frame that arrived because somebody else pressed a button on a different machine.
+ */
+test.describe('The host screen', () => {
+  test('Should_take_itself_to_the_table_when_the_game_has_begun', async ({ browser }) => {
+    // Arrange
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+    await expect(host.getByRole('img', { name: 'QR code linking to this table' })).toBeVisible();
+
+    // Act
+    // Dealt from Ada's phone. The host screen is told by the same frame everybody else gets.
+    await deal(ada.page, { book: 1, number: 1 });
+
+    // Assert
+    await host.waitForURL(new RegExp(`/play/${roomCode}$`));
+    await expect(host.getByRole('img', { name: 'QR code linking to this table' })).toHaveCount(0);
+
+    // Still nobody, which is the point of this screen: it never joined, so it holds no token and is
+    // projected as a spectator. A hand on the display everybody can see would be the worst leak in
+    // the app.
+    await expect(host.getByText('You are watching this table without a seat.')).toBeVisible();
+
+    await leave([ada]);
+  });
+
+  test('Should_not_come_back_to_a_screen_that_only_redirects_when_the_laptop_goes_back', async ({ browser }) => {
+    // Arrange
+    // The redirect replaces the history entry rather than adding one. Without that, Back lands on a
+    // screen whose only behaviour is to send you forward again, and the laptop is stuck at the table
+    // with no way out — a trap built out of a convenience.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+    await deal(ada.page, { book: 1, number: 1 });
+    await host.waitForURL(new RegExp(`/play/${roomCode}$`));
+
+    // Act
+    await host.goBack();
+
+    // Assert
+    // Wherever the laptop was before it opened the table, which is the page it created it from.
+    await expect(host).toHaveURL(/\/new$/);
+
+    await leave([ada]);
+  });
+
+  test('Should_still_offer_the_code_and_the_seat_when_nobody_has_dealt_yet', async ({ browser }) => {
+    // Arrange
+    // The other half of the same claim. A host screen that hid the code too eagerly would break the
+    // one thing it exists for, and would do it silently.
+    const host = await browser.newPage();
+
+    // Act
+    const roomCode = await openTable(host, 5);
+
+    // Assert
+    await expect(host.getByRole('img', { name: 'QR code linking to this table' })).toBeVisible();
+    await expect(host.getByRole('link', { name: 'Sit down here' })).toBeVisible();
+    await expect(host).toHaveURL(new RegExp(`/host/${roomCode}$`));
+  });
+});

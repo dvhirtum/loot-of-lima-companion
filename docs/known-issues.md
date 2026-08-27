@@ -87,35 +87,6 @@ anticipates, since the same question decides what gets written down.
 
 Raised by the review of [PR #4](https://github.com/dvhirtum/loot-of-lima-companion/pull/4).
 
-## 6. A spectator is offered a seat they cannot take
-
-`web/loot-of-lima-web/src/app/play/seat-strip.ts`.
-
-The "Sit here" button is shown for any seat still held by a bot, with no check on whether this
-browser holds a player token:
-
-```html
-@if (seat.isViewer) { ... } @else if (seat.kind === 'Bot') {
-  <button ... (click)="claim.emit(seat.index)">Sit here</button>
-}
-```
-
-A spectator reaches the game page through the host screen's own "Watch the table" link, so this is
-a normal route rather than a contrived one. Clicking it sends `ClaimSeat`, which
-`GameHub.WithPlayerAsync` refuses with `NotAPlayer` — "Join the game before taking a seat." — a
-step the page never offered, because joining happens at `/join/ABCD` behind the QR code.
-
-`LobbyPanel` gets the same case right on the same screen: it disables "Deal and begin" for a viewer
-with no seat and says why. So the two panels disagree about what a spectator may be shown, which is
-the part that will rot.
-
-**Why it can wait:** the refusal is correct and addressed only to the clicker — no state changes and
-nothing leaks. It is a dead end with a confusing message, not a broken game.
-
-**Fix:** gate the button on `store.isSpectator()` as well as `seat.kind`, and put a link to
-`/join/<code>` in its place. Belongs with M5's seat and passing UI, where this component is being
-worked on anyway; an e2e spec for it costs a file by then, since M4.5 will have built the harness.
-
 ## 7. A rejected `Rejoin` after a reconnect leaves the client attached to nothing
 
 `web/loot-of-lima-web/src/app/core/game-connection.ts`, `onreconnected`.

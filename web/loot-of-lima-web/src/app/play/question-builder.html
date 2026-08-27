@@ -1,5 +1,12 @@
 <section class="card stack">
-  <h3>Ask a question</h3>
+  <h3>{{ secret() ? 'Ask a secret question' : 'Ask a question' }}</h3>
+
+  @if (secret()) {
+    <p class="small muted">
+      Your Pistol is spent, so this one is between you and the player you ask. The rest of the table is told only that
+      it happened — and a Pistol question is never restricted to a single terrain.
+    </p>
+  }
 
   <div class="builder">
     <label class="field">
@@ -30,21 +37,30 @@
       </select>
     </label>
 
-    <label class="field">
-      <span>Terrain</span>
-      <select [value]="terrain() ?? ''" (change)="chooseTerrain($any($event.target).value)">
-        <option value="">Any</option>
-        @for (option of terrains; track option) {
-          <option [value]="option">{{ option }}</option>
-        }
-      </select>
-    </label>
+    <!--
+      Gone rather than disabled while the Pistol is spent. `AskSecretQuestionRequest` has no terrain
+      property at all, so the rule is enforced by the shape of the call; a greyed-out field would
+      suggest the restriction is merely unavailable rather than impossible.
+    -->
+    @if (!secret()) {
+      <label class="field">
+        <span>Terrain</span>
+        <select [value]="terrain() ?? ''" (change)="chooseTerrain($any($event.target).value)">
+          <option value="">Any</option>
+          @for (option of terrains; track option) {
+            <option [value]="option">{{ option }}</option>
+          }
+        </select>
+      </label>
+    }
   </div>
 
-  <p class="reading">{{ reading() }}</p>
+  <p class="reading" [class.reading--secret]="secret()">{{ reading() }}</p>
 
   <div class="row">
-    <button type="button" class="button button--primary" [disabled]="!canAsk()" (click)="submit()">Ask</button>
+    <button type="button" class="button button--primary" [disabled]="!canAsk()" (click)="submit()">
+      {{ secret() ? 'Ask secretly' : 'Ask' }}
+    </button>
     <!--
       Said out loud rather than left implicit, because a player expecting the app to check their
       roll would read its silence as approval.

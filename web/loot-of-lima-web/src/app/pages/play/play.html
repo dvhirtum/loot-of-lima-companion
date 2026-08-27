@@ -34,12 +34,24 @@
         }
         <span class="muted small"> {{ store.view()!.endReason }}</span>
       </section>
+    } @else if (eliminated()) {
+      <!--
+        Worth its own banner. Being eliminated changes almost nothing on screen — the seat is still
+        there, the hand is still there — and the one thing it does change is that you still have to
+        answer, which nobody would guess from a greyed-out button.
+      -->
+      <section class="banner banner--error">
+        <strong>You are out.</strong>
+        <span class="small"> Your accusation was wrong and revealed nothing. You still answer every question.</span>
+      </section>
     }
 
-    <app-seat-strip (claim)="claim($event)" (release)="release()" />
+    <app-seat-strip [canClaim]="canClaim()" (claim)="claim($event)" (release)="release()" />
 
     <div class="columns">
       <div class="stack">
+        <app-island-map />
+
         @switch (store.phase()) {
           @case ('Lobby') {
             <app-lobby-panel (start)="start($event)" />
@@ -54,22 +66,35 @@
             <app-setup-panel (announce)="announce($event)" />
           }
           @case ('InProgress') {
-            @if (store.isMyTurn()) {
-              <app-question-builder (ask)="ask($event)" />
-            } @else if (store.isSpectator()) {
+            @if (store.isSpectator()) {
               <p class="card muted">Watching. Take a seat to play.</p>
             } @else {
-              <p class="card muted">
-                Waiting for {{ turnHolder() }}. Your answers are given for you, from the hand the app dealt you.
-              </p>
+              <app-ability-bar (spend)="spendAbility($event)" />
+
+              @if (store.isMyTurn()) {
+                <app-question-builder (ask)="ask($event)" />
+              } @else {
+                <p class="card muted">
+                  Waiting for {{ turnHolder() }}. Your answers are given for you, from the hand the app dealt you.
+                </p>
+              }
+
+              <!-- Off-turn as well as on: accusing is legal at any moment while the game is running. -->
+              <app-accusation-panel (accuse)="accuse($event)" />
             }
           }
         }
-
-        <app-my-hand-panel />
       </div>
 
-      <app-history-panel />
+      <!--
+        What this player knows, beside what the table has said. The map is the left-hand column with
+        everything that acts on the game; this one is the two things they read while deducing, and
+        splitting them that way keeps either column from running twice the length of the other.
+      -->
+      <div class="stack">
+        <app-my-hand-panel />
+        <app-history-panel />
+      </div>
     </div>
   }
 </main>

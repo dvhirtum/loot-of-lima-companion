@@ -8,6 +8,10 @@ import { GameStore } from '../core/game-store';
  * Both live with the seated players rather than on the host screen, because the hub only accepts
  * `StartGame` from somebody sitting at the table: dealing the game and picking the scenario belong
  * to the people playing it, not to whoever happens to be holding the laptop.
+ *
+ * The scenario is chosen as a book and a number, the two things printed on the booklet in the
+ * player's hand. One select of all 239 was what M4 shipped to get a game started at all, and it is
+ * unusable for its actual purpose: finding the scenario somebody just read out.
  */
 @Component({
   selector: 'app-lobby-panel',
@@ -16,19 +20,42 @@ import { GameStore } from '../core/game-store';
       <h3>Start the game</h3>
 
       @if (scenariosAllowed()) {
-        <label class="field">
-          <span>Deal</span>
-          <select [value]="scenarioId() ?? ''" (change)="choose($any($event.target).value)">
-            <option value="">Shuffle a new deal</option>
-            @for (scenario of scenarios.value(); track scenario.id) {
-              <option [value]="scenario.id">Book {{ scenario.book }}, scenario {{ scenario.number }}</option>
-            }
-          </select>
-        </label>
-        <p class="small muted">
-          The printed scenarios are five-player puzzles, and their deals never pass tokens — their published answers
-          describe the hands exactly as dealt.
-        </p>
+        <div class="row" role="group" aria-label="Deal">
+          <button type="button" class="button" [class.button--primary]="!fromBook()" (click)="fromBook.set(false)">
+            Shuffle a new deal
+          </button>
+          <button type="button" class="button" [class.button--primary]="fromBook()" (click)="fromBook.set(true)">
+            Play a printed scenario
+          </button>
+        </div>
+
+        @if (fromBook()) {
+          <div class="row">
+            <label class="field">
+              <span>Book</span>
+              <select [value]="book()" (change)="chooseBook($any($event.target).value)">
+                @for (option of books(); track option) {
+                  <option [value]="option">{{ option }}</option>
+                }
+              </select>
+            </label>
+            <label class="field">
+              <span>Scenario</span>
+              <select [value]="number()" (change)="number.set(+$any($event.target).value)">
+                @for (option of numbers(); track option) {
+                  <option [value]="option">{{ option }}</option>
+                }
+              </select>
+            </label>
+          </div>
+
+          <p class="small muted">
+            The printed scenarios are five-player puzzles, and their deals never pass tokens — their published answers
+            describe the hands exactly as dealt. Their setup announcements are the book's too, tie or no tie.
+          </p>
+        } @else {
+          <p class="small muted">Twenty-four tokens shuffled fresh. Two go aside as the treasure, unseen by anybody.</p>
+        }
       } @else {
         <p class="small muted">
           A shuffled deal. The official scenarios are five-player only, so a {{ store.view()?.playerCount }}-player
@@ -36,11 +63,18 @@ import { GameStore } from '../core/game-store';
         </p>
       }
 
-      <button type="button" class="button button--primary" [disabled]="!seated()" (click)="start.emit(scenarioId())">
+      <button type="button" class="button button--primary" [disabled]="!canStart()" (click)="start.emit(chosen())">
         Deal and begin
       </button>
       @if (!seated()) {
         <p class="small muted">Take a seat first — only a player at the table can start the game.</p>
+      } @else if (fromBook() && chosen() === null) {
+        <!--
+          One of the 240 is missing on purpose: book 16 prints scenario 12's tokens as a duplicate of
+          scenario 11's, contradicting its own question table. It is an error in the book, so the
+          scenario is absent rather than guessed at, and this is where a player meets that.
+        -->
+        <p class="small muted">That scenario is not in the app — the printed book contradicts itself there.</p>
       }
     </section>
   `,
@@ -53,7 +87,9 @@ export class LobbyPanel {
 
   readonly start = output<string | null>();
 
-  protected readonly scenarioId = signal<string | null>(null);
+  protected readonly fromBook = signal(false);
+  protected readonly book = signal(1);
+  protected readonly number = signal(1);
 
   protected readonly seated = computed(() => this.store.mySeat() !== null);
 
@@ -62,9 +98,8 @@ export class LobbyPanel {
   /**
    * Fetched once, and only where it can be used.
    *
-   * All 239 of them, which is a long select and exactly the picker M5 is meant to replace. It is
-   * here now because the first playable loop is a scenario game, and a text box for `b1s1` would
-   * be a worse thing to have to throw away.
+   * The whole list, because the two selects are built from it: which books exist and which numbers
+   * each book actually has are facts about the seed data, not a range this component may assume.
    */
   protected readonly scenarios = resource({
     params: () => (this.scenariosAllowed() ? {} : undefined),
@@ -72,7 +107,45 @@ export class LobbyPanel {
     defaultValue: [],
   });
 
-  protected choose(value: string): void {
-    this.scenarioId.set(value === '' ? null : value);
+  protected readonly books = computed<readonly number[]>(() =>
+    [...new Set(this.scenarios.value().map((scenario) => scenario.book))].sort((left, right) => left - right),
+  );
+
+  protected readonly numbers = computed<readonly number[]>(() =>
+    this.scenarios
+      .value()
+      .filter((scenario) => scenario.book === this.book())
+      .map((scenario) => scenario.number)
+      .sort((left, right) => left - right),
+  );
+
+  /** The id the server knows this pair by, or null when the pair names no scenario the app holds. */
+  protected readonly chosen = computed<string | null>(() => {
+    if (!this.fromBook()) {
+      return null;
+    }
+
+    const match = this.scenarios
+      .value()
+      .find((scenario) => scenario.book === this.book() && scenario.number === this.number());
+
+    return match?.id ?? null;
+  });
+
+  protected readonly canStart = computed(() => this.seated() && (!this.fromBook() || this.chosen() !== null));
+
+  /**
+   * Moves to another book, keeping the number if that book has one.
+   *
+   * Every book has all twelve but one, so this almost always keeps the player where they were — and
+   * in the case where it cannot, landing on the book's first scenario beats leaving a pair selected
+   * that names nothing.
+   */
+  protected chooseBook(value: string): void {
+    this.book.set(Number(value));
+
+    if (!this.numbers().includes(this.number())) {
+      this.number.set(this.numbers()[0] ?? 1);
+    }
   }
 }

@@ -1,0 +1,236 @@
+/*
+ * The island.
+ *
+ * Everything here dresses shapes the component has already placed; nothing in this file decides
+ * where anything goes. The four token states are drawn as four different weights of the same disc
+ * rather than four different colours, because the colour already means the terrain and a token has
+ * to keep saying which terrain it is even once it is known.
+ */
+
+.map__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.map__head h3 {
+  margin: 0;
+}
+
+.map__hint {
+  margin: 0;
+  color: var(--brass-bright);
+}
+
+.map {
+  display: block;
+  width: 100%;
+  max-width: 30rem;
+  margin: 0 auto;
+  height: auto;
+  touch-action: manipulation;
+}
+
+.map__sea {
+  fill: color-mix(in srgb, var(--sea-deep) 70%, transparent);
+  stroke: var(--line);
+  stroke-width: 0.6;
+}
+
+.map__ring {
+  fill: none;
+  stroke: var(--line);
+  stroke-width: 0.5;
+}
+
+.map__divider {
+  stroke: color-mix(in srgb, var(--parchment) 22%, transparent);
+  stroke-width: 0.7;
+  stroke-dasharray: 3 2.5;
+}
+
+/*
+ * Under the tokens and over the sea. It marks the slice the question covers and, deliberately,
+ * nothing about what is in it.
+ */
+.map__arc {
+  fill: color-mix(in srgb, var(--brass) 26%, transparent);
+  stroke: var(--brass);
+  stroke-width: 0.9;
+}
+
+/* A Pistol question, which only its two participants will ever see the answer to. */
+.map__arc--secret {
+  fill: color-mix(in srgb, var(--coral) 24%, transparent);
+  stroke: var(--coral);
+}
+
+.map__compass {
+  fill: var(--parchment-dim);
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* --- tokens -------------------------------------------------------------- */
+
+.mark__disc {
+  fill: var(--sea-light);
+  stroke: color-mix(in srgb, var(--parchment) 30%, transparent);
+  stroke-width: 0.8;
+
+  /* An unknown token is a shape on the map, not a piece of information. */
+  opacity: 0.35;
+}
+
+.mark__label {
+  fill: var(--parchment);
+  font-family: var(--font-mono);
+  font-size: 6.5px;
+  font-weight: 600;
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+/*
+ * Terrain colour is geography, so it is on the token whenever the token is known. The board in
+ * front of the player is painted the same way.
+ */
+.mark--mine .mark__disc,
+.mark--revealed .mark__disc,
+.mark--passed .mark__disc,
+.mark--treasure .mark__disc {
+  opacity: 1;
+}
+
+.mark--mine .mark__label,
+.mark--revealed .mark__label,
+.mark--passed .mark__label,
+.mark--treasure .mark__label {
+  opacity: 1;
+  fill: var(--ink);
+}
+
+.mark--mine .mark__disc--beach,
+.mark--revealed .mark__disc--beach,
+.mark--passed .mark__disc--beach,
+.mark--treasure .mark__disc--beach {
+  fill: var(--beach);
+}
+
+.mark--mine .mark__disc--forest,
+.mark--revealed .mark__disc--forest,
+.mark--passed .mark__disc--forest,
+.mark--treasure .mark__disc--forest {
+  fill: var(--forest);
+}
+
+.mark--mine .mark__disc--mountain,
+.mark--revealed .mark__disc--mountain,
+.mark--passed .mark__disc--mountain,
+.mark--treasure .mark__disc--mountain {
+  fill: var(--mountain);
+}
+
+.mark--mine .mark__disc--forest + .mark__label,
+.mark--revealed .mark__disc--forest + .mark__label,
+.mark--passed .mark__disc--forest + .mark__label,
+.mark--treasure .mark__disc--forest + .mark__label {
+  fill: var(--parchment);
+}
+
+/* Yours: a brass ring, the same colour this app uses for "you" everywhere else. */
+.mark--mine .mark__disc {
+  stroke: var(--brass-bright);
+  stroke-width: 2;
+}
+
+/* Face up on the table: solid, and belonging to nobody. */
+.mark--revealed .mark__disc {
+  stroke: var(--parchment);
+  stroke-width: 1;
+  stroke-dasharray: none;
+}
+
+/* You handed this one over, so you know where it is without holding it. */
+.mark--passed .mark__disc {
+  stroke: var(--brass);
+  stroke-width: 1.4;
+  stroke-dasharray: 3 2;
+}
+
+.mark--treasure .mark__disc {
+  stroke: var(--coral);
+  stroke-width: 2.4;
+}
+
+/* Dimmed while a terrain-restricted question is being built, so the wedge reads as the question. */
+.mark--outside {
+  opacity: 0.3;
+}
+
+.map--picking .mark {
+  cursor: pointer;
+}
+
+.map--picking .mark:hover .mark__disc,
+.map--picking .mark:focus-visible .mark__disc {
+  stroke: var(--brass-bright);
+  stroke-width: 2;
+}
+
+.map--picking .mark:focus-visible {
+  outline: none;
+}
+
+.mark--picked .mark__disc {
+  stroke: var(--coral);
+  stroke-width: 2.6;
+}
+
+/* --- legend -------------------------------------------------------------- */
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend__swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  background: var(--sea-light);
+  border: 1px solid color-mix(in srgb, var(--parchment) 30%, transparent);
+  opacity: 0.55;
+}
+
+.legend__swatch--mine {
+  background: var(--parchment-dim);
+  border: 2px solid var(--brass-bright);
+  opacity: 1;
+}
+
+.legend__swatch--revealed {
+  background: var(--parchment-dim);
+  border: 1px solid var(--parchment);
+  opacity: 1;
+}
+
+.legend__swatch--passed {
+  background: var(--parchment-dim);
+  border: 2px dashed var(--brass);
+  opacity: 1;
+}

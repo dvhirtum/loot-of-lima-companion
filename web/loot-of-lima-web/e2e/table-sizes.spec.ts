@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   announceFewest,
   deal,
+  field,
   faceUpTokens,
   leave,
   openTable,
@@ -74,6 +75,29 @@ test.describe('A three-player table', () => {
     for (let seat = 0; seat < 3; seat += 1) {
       await expect(seatCard(ada.page, seat)).toContainText('fewest');
     }
+
+    await leave([ada]);
+  });
+
+  test('Should_not_offer_the_scenario_picker_when_fewer_than_five_are_playing', async ({ browser }) => {
+    // Arrange
+    // The books simulate a five-player game and nothing else, so a smaller table always plays a
+    // generated deal. Offering a picker that could only be refused would be worse than saying so.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 3);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+
+    // Act
+    const lobby = ada.page.locator('.card').filter({ hasText: 'Start the game' });
+
+    // Assert
+    await expect(lobby).toBeVisible();
+    await expect(lobby.getByRole('button', { name: 'Play a printed scenario' })).toHaveCount(0);
+    await expect(field(ada.page, 'Book')).toHaveCount(0);
+    await expect(lobby).toContainText('The official scenarios are five-player only');
+
+    // Still startable, because a shuffled deal needs nothing chosen.
+    await expect(lobby.getByRole('button', { name: 'Deal and begin' })).toBeEnabled();
 
     await leave([ada]);
   });

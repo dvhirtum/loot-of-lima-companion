@@ -69,6 +69,12 @@ public static class Projector
             KnownHand: Names(known),
             HandIsComplete: isViewer,
             AbilitiesRemaining: [.. seat.AbilitiesRemaining.Select(ability => ability.ToString())],
+
+            // Truthfully, for every seat rather than only the viewer. It is derivable from the public
+            // ability history either way, and a bool that read false for an armed seat would be a lie
+            // rather than a redaction -- this app redacts by sending a different type, never by
+            // blanking a field.
+            PistolArmed: seat.PistolArmedTurn == state.TurnNumber,
             FewestTerrain: seat.FewestTerrain?.ToString(),
             TokensConfirmed: seat.TokensConfirmed,
             PassConfirmed: seat.PassConfirmed);

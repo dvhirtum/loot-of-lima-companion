@@ -78,10 +78,17 @@ export function field(page: Page, caption: string): ReturnType<Page['locator']> 
     .locator('select');
 }
 
-/** Starts the game on the named scenario, or on a shuffled deal when given null. */
+/**
+ * Starts the game on the named scenario, or on a shuffled deal when given null.
+ *
+ * The scenario is chosen as a book and a number, which is what is printed on the booklet somebody
+ * is holding. A shuffled deal is the default, so passing null touches nothing.
+ */
 export async function deal(page: Page, scenario: { book: number; number: number } | null): Promise<void> {
   if (scenario !== null) {
-    await field(page, 'Deal').selectOption({ label: `Book ${scenario.book}, scenario ${scenario.number}` });
+    await page.getByRole('button', { name: 'Play a printed scenario' }).click();
+    await field(page, 'Book').selectOption(String(scenario.book));
+    await field(page, 'Scenario').selectOption(String(scenario.number));
   }
 
   await page.getByRole('button', { name: 'Deal and begin' }).click();
@@ -200,9 +207,96 @@ export async function statedHandSize(page: Page, seatIndex: number): Promise<num
   return Number(/(\d+) tokens/.exec(facts)?.[1] ?? Number.NaN);
 }
 
-/** Every token string rendered anywhere on this page, wherever it came from. */
+/**
+ * Every token *chip* rendered anywhere on this page, wherever it came from.
+ *
+ * The island map is deliberately not included, and that is not an oversight to fix. The map draws
+ * all 24 locations with their ids on them, exactly as the printed board is labelled: where a
+ * location is on the island is geography, and public. What a viewer may not know is whose it is,
+ * and the map says that with `data-state` rather than with the label -- so `knownOnMap` is the
+ * right question to ask of the map, and this is the right question to ask of everything else.
+ */
 export async function visibleTokens(page: Page): Promise<string[]> {
   return page.locator('.token').allInnerTexts();
+}
+
+/**
+ * One location on the island map.
+ *
+ * Addressed by `data-location`, which the map writes for exactly this reason: the id is also drawn
+ * as a label, and a text match would find the log, the hand panel and the seat strip as well.
+ */
+export function mapToken(page: Page, location: string): ReturnType<Page['locator']> {
+  return page.locator(`.map [data-location="${location}"]`);
+}
+
+/**
+ * What the map says this viewer knows about a location: mine, revealed, passed, treasure, unknown.
+ *
+ * The label is not the interesting part. Every one of the 24 is drawn with its id on it, because the
+ * printed board is labelled the same way and geography is public — what a viewer is not entitled to
+ * is knowing *whose* it is, and that is what this reads.
+ */
+export async function mapTokenState(page: Page, location: string): Promise<string | null> {
+  await expect(mapToken(page, location)).toBeVisible();
+  return mapToken(page, location).getAttribute('data-state');
+}
+
+/**
+ * Every location the map draws as anything other than unknown.
+ *
+ * The map is waited for first, because `evaluateAll` is a one-shot with no auto-waiting and an
+ * empty island is a subset of everything -- a spec proving a leak is absent would pass for free.
+ */
+export async function knownOnMap(page: Page): Promise<string[]> {
+  await expect(page.locator('.map .mark').first()).toBeVisible();
+
+  return page
+    .locator('.map .mark:not([data-state="unknown"])')
+    .evaluateAll((marks) => marks.map((mark) => mark.getAttribute('data-location') ?? ''));
+}
+
+/** The wedge drawn for the question being built, if there is one. */
+export function arcPath(page: Page): ReturnType<Page['locator']> {
+  return page.locator('.map__arc');
+}
+
+/**
+ * Spends one ability token.
+ *
+ * Named exactly, because a spent token keeps its button and renames itself "Barrel, spent" -- so an
+ * exact match is also the assertion that it was still there to spend.
+ */
+export async function spendAbility(page: Page, ability: 'Barrel' | 'Shovel' | 'Pistol'): Promise<void> {
+  await page.getByRole('button', { name: ability, exact: true }).click();
+}
+
+/** Asks the secret question the Pistol unlocked, and waits for it to reach the asker's own log. */
+export async function askSecretly(
+  page: Page,
+  question: { of: string; from: string; upTo: string },
+): Promise<void> {
+  await field(page, 'Ask').selectOption({ label: question.of });
+  await field(page, 'From').selectOption(question.from);
+  await field(page, 'Up to').selectOption(question.upTo);
+
+  const before = await page.locator('.log .entry').count();
+
+  await page.getByRole('button', { name: 'Ask secretly' }).click();
+  await expect(page.locator('.log .entry')).toHaveCount(before + 1);
+}
+
+/**
+ * Names two locations as the treasure.
+ *
+ * Both clicks are the same locator, and that is not a slip: the button that opens the panel is
+ * replaced by the one that confirms it, so only one "Accuse" is ever on the page at a time.
+ */
+export async function accuse(page: Page, first: string, second: string): Promise<void> {
+  await page.getByRole('button', { name: 'Accuse', exact: true }).click();
+  await field(page, 'First').selectOption(first);
+  await field(page, 'Second').selectOption(second);
+  await page.getByRole('button', { name: 'Accuse', exact: true }).click();
 }
 
 /** Closes the contexts a spec opened. */

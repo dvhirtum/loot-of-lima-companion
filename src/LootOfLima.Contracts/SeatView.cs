@@ -14,6 +14,13 @@ namespace LootOfLima.Contracts;
 /// viewer themselves. A client must not infer anything from a short list without this flag.
 /// </param>
 /// <param name="AbilitiesRemaining">Unspent ability tokens. Public: they sit face up on the board.</param>
+/// <param name="PistolArmed">
+/// Whether this seat has spent its Pistol on the turn now in progress, and may therefore ask a
+/// secret question. Public, and not a leak: spending an ability writes a public <c>abilityUsed</c>
+/// history entry carrying the same turn number, so this says nothing the table was not already
+/// told. It is projected truthfully for every seat rather than only for the viewer, because a bool
+/// reading false for a seat that is armed would be a lie, and redaction in this app is by type.
+/// </param>
 /// <param name="FewestTerrain">
 /// The terrain this seat announced holding fewest of at setup, or null before it announced.
 /// Public, and deliberately says nothing about whether the choice broke a tie.
@@ -29,6 +36,7 @@ public sealed record SeatView(
     IReadOnlyList<string> KnownHand,
     bool HandIsComplete,
     IReadOnlyList<string> AbilitiesRemaining,
+    bool PistolArmed,
     string? FewestTerrain,
     bool TokensConfirmed,
     bool PassConfirmed);
