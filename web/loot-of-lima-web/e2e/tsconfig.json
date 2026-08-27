@@ -1,6 +1,11 @@
-/* The e2e specs are compiled by Playwright, not by the Angular builder, so they are outside both
-   tsconfig.app.json (src only, no spec files) and tsconfig.spec.json (Vitest's glob under src).
-   Without a tsconfig of their own they would be type-checked by nothing and red in the editor. */
+/* The e2e specs are outside both tsconfig.app.json (src only, no spec files) and tsconfig.spec.json
+   (Vitest's glob under src), so without this they would belong to no project and be red in the
+   editor.
+
+   Having it is not the same as it being checked. Playwright transpiles without type-checking and
+   the root tsconfig's `references` does not include this one, so nothing enforced it -- which the
+   comment here used to claim it did. `npm run e2e:prepare` now runs `tsc -p` over it before any
+   browser starts, and both configs are in `include` so neither is checked by accident. */
 {
   "extends": "../tsconfig.json",
   "compilerOptions": {
@@ -8,5 +13,5 @@
     "moduleResolution": "bundler",
     "types": ["node"]
   },
-  "include": ["**/*.ts", "../playwright.config.ts"]
+  "include": ["**/*.ts", "../playwright.config.ts", "../playwright.docker.config.ts"]
 }

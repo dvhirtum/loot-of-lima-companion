@@ -2,6 +2,7 @@ import { expect, test } from '@playwright/test';
 import {
   announceFewest,
   deal,
+  faceUpTokens,
   leave,
   openTable,
   ownHand,
@@ -45,8 +46,10 @@ test.describe('A three-player table', () => {
       expect(await statedHandSize(ada.page, seat)).toBe(7);
     }
 
-    const faceUp = ada.page.locator('section').filter({ hasText: 'Face up' }).locator('.token');
-    expect(await faceUp.count()).toBeGreaterThan(0);
+    // Exactly one, not "more than none". Twenty-two locations dealt three ways leaves one over, and
+    // an assertion that only says the words "Face up" appear on the page is satisfied by a section
+    // heading -- it would pass while the reveal itself was empty, or wrong, or the whole hand.
+    expect(await faceUpTokens(ada.page)).toHaveLength(1);
 
     await leave([ada]);
   });

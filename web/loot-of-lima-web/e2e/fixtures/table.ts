@@ -105,10 +105,35 @@ export function seatCard(page: Page, seatIndex: number): ReturnType<Page['locato
   return page.locator('.seat').nth(seatIndex);
 }
 
-/** The tokens the viewer holds, as the strings printed on them. */
+/**
+ * The tokens the viewer holds, as the strings printed on them.
+ *
+ * Anchored on the heading rather than taken as the first `.row` in the panel. Hand, face-up and
+ * treasure are three rows in one section, and the first of them is only the hand when there *is* a
+ * hand: a spectator has no hand row, so a positional read hands back the public reveal and calls it
+ * somebody's hand. This returns an empty list for a viewer with no hand, which is the truth.
+ *
+ * The panel is waited for first. Reading tokens is a one-shot, and a spec that loops over the
+ * result to prove something is absent elsewhere passes for free if the read came back early.
+ *
+ * Matched exactly, and that is not fussiness. `getByRole`'s `name` and CSS `:has-text` are both
+ * case-insensitive *substring* matches, so "Your tokens" also finds the Dealing panel's "Take your
+ * tokens" -- and both panels are on screen together in that phase, so the wait resolved to two
+ * elements and failed on strict mode. It only surfaced under Docker, where the phase changes fast
+ * enough to still be showing when the read happens.
+ */
 export async function ownHand(page: Page): Promise<string[]> {
-  const panel = page.locator('section').filter({ has: page.getByRole('heading', { name: 'Your tokens' }) });
-  return panel.locator('.row').first().locator('.token').allInnerTexts();
+  await expect(page.getByRole('heading', { name: 'Your tokens', exact: true })).toBeVisible();
+  return page.locator('h3:text-is("Your tokens") + .row .token').allInnerTexts();
+}
+
+/**
+ * The locations dealt face up: the remainder after 22 are dealt evenly, so one at three players and
+ * two at four or five.
+ */
+export async function faceUpTokens(page: Page): Promise<string[]> {
+  await expect(page.getByRole('heading', { name: 'Face up', exact: true })).toBeVisible();
+  return page.locator('h3:text-is("Face up") + .row .token').allInnerTexts();
 }
 
 /** Every history line currently on screen, newest first, as the player reads them. */

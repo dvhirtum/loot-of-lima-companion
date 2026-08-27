@@ -37,6 +37,11 @@ npm run e2e         # boots `dotnet run` and `ng serve` itself, then drives Chro
 npm run e2e:docker  # the same specs against `docker compose up -d`
 ```
 
+Both run `e2e:prepare` first: `npm ci` installs the Playwright *package* but no browser, and nothing
+else type-checks `e2e/` — Playwright transpiles the specs without checking them, and neither
+`ng build` nor `npm test` looks at that folder. So the prepare step downloads Chromium if it is
+missing and runs `tsc` over the specs before a browser starts.
+
 `e2e/` is the only suite that drives a browser, and the only one that can see what a player
 actually sees. It asserts nothing a cheaper suite already covers — no arc arithmetic, no oracle, no
 frame-level redaction, since `tests/LootOfLima.Server.Tests` checks the raw bytes of every frame and

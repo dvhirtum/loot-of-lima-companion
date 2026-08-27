@@ -64,6 +64,11 @@ npm run e2e        # Playwright; expect 17 passing. Boots both halves itself —
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
+Both e2e scripts run `e2e:prepare` first, which downloads Chromium if it is missing and type-checks
+`e2e/` — **`npm ci` does not install browsers**, and Playwright transpiles the specs without ever
+checking them, so without that step "nothing else needed" would be false and a type error in a spec
+would fail no command at all.
+
 Both halves have to be running: `npm start` serves the app and proxies to `dotnet run`. The proxy
 sets `changeOrigin: false` on purpose — the server builds the join URL the QR code encodes from the
 request's `Host` header, so rewriting it would put `localhost` in the code a phone scans.
@@ -105,13 +110,18 @@ Consequences worth knowing before editing any of it:
   static-asset rule otherwise wins `/api/games/ABCD/qr.png` and 404s the QR code.
 - There is deliberately **no `depends_on`**: nginx answers 502 until something is on 5000, which is
   what you want while the api container is stopped on purpose.
-- **`launchSettings.json` binds `dotnet run` to `http://0.0.0.0:5000`, not localhost.** nginx
-  reaches the host through `host.docker.internal`, which is not a loopback address, so the
-  framework default of `localhost:5000` refuses that connection anywhere the traffic is not
-  quietly forwarded through a VM — that is, everywhere except Docker Desktop. It fails as a bare
-  502, indistinguishable from "the api is not up yet". Note also that a **malformed
-  `launchSettings.json` does not stop `dotnet run`**: it prints one line and carries on with the
-  defaults, so a JSON comment in there costs you the port *and* the environment silently.
+- **`launchSettings.json` binds `dotnet run` to `http://*:5000`, not localhost.** nginx reaches the
+  host through `host.docker.internal`, which is not a loopback address, so the framework default of
+  `localhost:5000` refuses that connection anywhere the traffic is not quietly forwarded through a
+  VM — that is, everywhere except Docker Desktop. It fails as a bare 502, indistinguishable from
+  "the api is not up yet".
+- **`*` and not `0.0.0.0`, which is IPv4 only.** The default this replaced bound both `127.0.0.1`
+  and `[::1]`, and `proxy.conf.json` and `playwright.config.ts` both say `localhost` — which glibc
+  resolves to `::1` first on exactly the Linux runner the bind was widened for. `0.0.0.0` refuses
+  that connection and survives only on Node's happy-eyeballs retry. `*` binds dual-mode.
+- A **malformed `launchSettings.json` does not stop `dotnet run`**: it prints one line and carries
+  on with the defaults, so a JSON comment in there costs you the port *and* the environment
+  silently.
 
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so
 without the pin everything silently targets the wrong SDK. Do not remove it.
@@ -272,11 +282,17 @@ reads them, and its output is committed, so build and test never need them.
   table repeats. 3- and 4-player specs assert structure — hand sizes, whether passing happens, that
   every seat announces. Adding a test-only seed would put a hook in the wire contract to buy
   assertions `b1s1` already makes.
-- **Two Playwright traps this app walks straight into.** Every `<select>` sits *inside* its
+- **Three Playwright traps this app walks straight into.** Every `<select>` sits *inside* its
   `<label>`, so its accessible name is the caption plus every option — `getByLabel('Ask')` never
   matches exactly, and matches for the wrong reason otherwise. Use the `field()` helper. And
   `hasText` tests raw `textContent` while `allInnerTexts` returns it collapsed, so a string read out
   of an element will not match an anchored pattern put back into it; anchor as `^\s*`.
+- **Text matching is substring by default, and this app's headings overlap.** `getByRole`'s `name`
+  and CSS `:has-text()` both match case-insensitive substrings, so "Your tokens" also finds the
+  Dealing panel's "Take your tokens" — and both panels are on screen together in that phase. Use
+  `exact: true` and `:text-is()`. This one only showed up against Docker, where the phase changes
+  fast enough to still be showing when the read happens: a locator ambiguity is a flake whose
+  probability depends on how quick the server is.
 - **`count()`, `allInnerTexts()` and friends are one-shots with no auto-waiting.** Reading one
   before the first frame has rendered is a race that passes locally and fails under load. Do the
   waiting with a locator assertion first, then read.

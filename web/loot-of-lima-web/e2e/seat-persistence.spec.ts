@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { deal, leave, openTable, ownHand, seatCard, sitDown, takeTokens } from './fixtures/table';
+import { deal, faceUpTokens, leave, openTable, ownHand, seatCard, sitDown, takeTokens } from './fixtures/table';
 
 /**
  * Getting the seat back.
@@ -69,9 +69,20 @@ test.describe('Coming back to a table', () => {
 
     // Assert
     await expect(watching.getByText('You are watching this table without a seat.')).toBeVisible();
-    for (const token of await ownHand(ada.page)) {
+
+    // Ada's hand is checked before it is used. The loop below proves something is *absent*, so an
+    // empty list would satisfy it without testing anything, and a hand read a moment too early is
+    // an empty list. This is the assertion that stops the next one passing for free.
+    const adasHand = await ownHand(ada.page);
+    expect(adasHand).toHaveLength(4);
+
+    for (const token of adasHand) {
       await expect(watching.locator('.token', { hasText: token })).toHaveCount(0);
     }
+
+    // The watcher is not simply looking at a blank page: the face-up locations are public and
+    // really are on screen, so the absence above is redaction rather than an empty render.
+    expect(await faceUpTokens(watching)).toHaveLength(2);
 
     await watcher.close();
     await leave([ada]);

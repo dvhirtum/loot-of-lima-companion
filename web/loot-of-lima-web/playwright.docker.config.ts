@@ -14,6 +14,11 @@ import base from './playwright.config';
  */
 export default defineConfig({
   ...base,
+
+  // Nothing to start -- but dropping `webServer` also drops Playwright's readiness poll, and
+  // `docker compose up -d` returns before Kestrel is listening. `globalSetup` puts the waiting back.
   webServer: undefined,
+  globalSetup: './e2e/wait-for-server',
+
   use: { ...base.use, baseURL: process.env['E2E_BASE_URL'] ?? 'http://localhost:4200' },
 });
