@@ -1,0 +1,19 @@
+# What the server image must not carry.
+#
+# The PDFs alone are ~50 MB and nothing but the offline importer reads them; bin and obj from the
+# host are the wrong platform's output and would be copied over the container's own.
+**/bin/
+**/obj/
+**/node_modules/
+**/dist/
+**/.angular/
+
+docs/
+tests/
+tools/
+web/
+
+.git/
+.idea/
+.vs/
+.vscode/

@@ -1,0 +1,9 @@
+# node_modules above all: the image installs its own from the lockfile, and copying the host's
+# would send hundreds of megabytes only to overwrite them with the right ones.
+node_modules/
+dist/
+.angular/
+coverage/
+
+.vscode/
+.idea/

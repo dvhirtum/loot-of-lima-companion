@@ -1,0 +1,51 @@
+# The whole companion, running without a dev server in sight.
+#
+#   docker compose up --build      everything, at http://localhost:4200
+#
+# Either half can be swapped for a dev server by stopping just that container:
+#
+#   docker compose stop web        then: cd web/loot-of-lima-web && npm start
+#   docker compose stop api        then: dotnet run --project src/LootOfLima.Server
+#
+# That works because neither container talks to the other over the compose network. Both halves
+# meet on the host at port 5000: the api container publishes it, and nginx reaches it back through
+# host.docker.internal. So "the API" means whatever is listening on host port 5000 -- the
+# container, or `dotnet run` after you have stopped it -- and nothing needs reconfiguring either
+# way. The cost is one hop out to the host gateway and back, which for a table of five people is
+# nothing, and the gain is that the swap is a single `stop`.
+#
+# The web container listens on 4200, the port `npm start` already uses, so the address does not
+# change when you swap either. A QR code somebody already scanned keeps working.
+#
+# There is deliberately no depends_on. nginx answers 502 until something is listening on 5000,
+# which is precisely the behaviour wanted while the api container is stopped on purpose -- and an
+# ordering edge would let `docker compose up -d web` start the api you had just stopped.
+
+services:
+  api:
+    build:
+      # The root, because the project references four siblings and reads Directory.Build.props,
+      # Directory.Packages.props and global.json from above its own folder.
+      context: .
+      dockerfile: src/LootOfLima.Server/Dockerfile
+    ports:
+      # Host 5000 is the meeting point described above, and it is also what proxy.conf.json
+      # already targets, so `npm start` against this container needs no change.
+      - "5000:8080"
+    environment:
+      # Set here rather than baked in, so the image stays neutral about where it is running.
+      # Development matches `dotnet run` on the host, which is what this composition is standing
+      # in for: the hub returns detailed errors instead of "An unexpected error occurred".
+      ASPNETCORE_ENVIRONMENT: Development
+    restart: unless-stopped
+
+  web:
+    build:
+      context: ./web/loot-of-lima-web
+    ports:
+      - "4200:4200"
+    extra_hosts:
+      # Docker Desktop defines this already; naming it explicitly is what makes the same file work
+      # on Linux, where it does not exist unless asked for.
+      - "host.docker.internal:host-gateway"
+    restart: unless-stopped

@@ -51,6 +51,38 @@ Both halves have to be running: `npm start` serves the app and proxies to `dotne
 sets `changeOrigin: false` on purpose — the server builds the join URL the QR code encodes from the
 request's `Host` header, so rewriting it would put `localhost` in the code a phone scans.
 
+## Running it without dev servers
+
+```
+docker compose up --build     # the whole thing at http://localhost:4200
+```
+
+Either half swaps for a dev server by stopping only that container:
+
+```
+docker compose stop web   →   cd web/loot-of-lima-web && npm start
+docker compose stop api   →   dotnet run --project src/LootOfLima.Server
+```
+
+**Neither container talks to the other over the compose network, and that is the whole trick.**
+They meet on the host at port **5000**: `api` publishes it, and nginx reaches back to it through
+`host.docker.internal`. So "the API" means whatever is listening on host port 5000 — the container,
+or `dotnet run` once you have stopped it — and neither swap needs any reconfiguration. The web
+container listens on **4200**, the port `npm start` already uses, so the address never changes and
+a QR code somebody has already scanned keeps working.
+
+Consequences worth knowing before editing any of it:
+
+- **`nginx-proxy.conf` is a separate file on purpose.** nginx does not merge `proxy_set_header`: a
+  location that sets one of its own discards every inherited one. `/hub` must set `Upgrade` and
+  `Connection`, so putting the shared headers at server level would silently drop `Host`.
+- **`Host` is forwarded as `$http_host`, not `$host`.** `$host` drops the port, and the join URL is
+  built from this header — same reason the dev proxy sets `changeOrigin: false`.
+- **`/api` and `/hub` are `location ^~`.** A regex location outranks a plain prefix one, so the
+  static-asset rule otherwise wins `/api/games/ABCD/qr.png` and 404s the QR code.
+- There is deliberately **no `depends_on`**: nginx answers 502 until something is on 5000, which is
+  what you want while the api container is stopped on purpose.
+
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so
 without the pin everything silently targets the wrong SDK. Do not remove it.
 
@@ -65,6 +97,7 @@ src/LootOfLima.Server/      Minimal API + SignalR hub.
 tools/LootOfLima.Harness/            Headless demo. Replays scripted games.
 tools/LootOfLima.ScenarioImporter/   Offline PDF -> seed data. See its README.
 tests/                      Rules.Tests, Projection.Tests, Scenarios.Tests, Server.Tests.
+compose.yaml                Both halves in Docker. Either one stops for a dev server.
 web/loot-of-lima-web/       Angular 22 workspace. Standalone, zoneless, signals, Vitest.
   src/app/core/             contracts.ts, GameStore, GameConnection, ApiClient, identity.
   src/app/pages/            One folder per route, all lazy.
