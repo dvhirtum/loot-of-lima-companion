@@ -19,7 +19,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
-| M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 34 e2e green |
+| M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
 | M6 — polish | Next |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
@@ -60,7 +60,7 @@ npm test          # Vitest; expect 84 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 34 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 37 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
@@ -289,6 +289,15 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   it. Offering a button whose only outcome is a refusal is the same defect as the seat a spectator
   could not take — the refusal was correct, and it named an internal seat index at somebody who had
   done nothing but press what they were shown.
+- **The phone layout is ordered by the loop, not by the columns.** Stacked into one column the
+  panels run island → question → history → abilities → accusation → hand, set with CSS `order` and
+  `display: contents` on the two column wrappers rather than with a second template. The laptop's
+  order put the ability bar between the island and the question builder, which on a phone meant
+  scrolling down to choose a range, back up to check the arc against the island, and down again to
+  press Ask — and the answer then landed in the history panel below everything else. Abilities are
+  spent at most three times a game and the ask loop happens every turn, so the loop wins the top of
+  the page. `e2e/phone-layout.spec.ts` asserts it by vertical position, because a DOM-order check
+  would pass while `order` put the panels somewhere else entirely.
 - **The accusation is a panel, not a modal.** The two locations are named by tapping the island, and
   a modal would cover the thing being tapped. It stays folded behind one button instead, because an
   accusation cannot be taken back.

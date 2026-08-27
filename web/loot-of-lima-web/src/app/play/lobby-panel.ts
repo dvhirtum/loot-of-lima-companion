@@ -63,6 +63,16 @@ import { GameStore } from '../core/game-store';
         </p>
       }
 
+      <!--
+        Said here rather than above every question. A player expecting the app to check their roll
+        would read its silence as approval, so it has to be said — but once, before the game starts,
+        not as a standing line between the range and the button that sends it.
+      -->
+      <p class="small muted">
+        The dice stay on the table. The app never asks what you rolled and never checks a question against one — that is
+        the table's to police, exactly as it always was.
+      </p>
+
       <button type="button" class="button button--primary" [disabled]="!canStart()" (click)="start.emit(chosen())">
         Deal and begin
       </button>

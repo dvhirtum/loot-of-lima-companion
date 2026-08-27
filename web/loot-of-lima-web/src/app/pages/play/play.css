@@ -29,6 +29,54 @@
   grid-template-columns: 1fr;
 }
 
+/*
+ * On a phone, the order that reads well beside a laptop's two columns reads badly stacked into one.
+ * The ability bar sat between the map and the question builder, so asking meant scrolling down to
+ * choose a range, back up to check the arc against the island, and down again to press Ask -- and
+ * the answer then landed in the history panel below everything else on the page.
+ *
+ * `display: contents` takes the two column wrappers out of the box tree so that every panel becomes
+ * a grid item in its own right. That is what makes them orderable independently of which column
+ * they live in, without a second copy of the template.
+ *
+ * The order is the loop a player actually repeats: look at the island, build the question against
+ * it, read the answer. History sits third because the answer is what pressing Ask is *for*, and the
+ * newest entry is at the top of that panel. Everything spent once a turn or once a game -- the
+ * abilities, the accusation, the list form of a hand the map is already showing -- comes after.
+ */
+@media (max-width: 55.999rem) {
+  .col {
+    display: contents;
+  }
+
+  app-island-map {
+    order: 1;
+  }
+
+  app-lobby-panel,
+  app-setup-panel,
+  app-question-builder,
+  .turn-note {
+    order: 2;
+  }
+
+  app-history-panel {
+    order: 3;
+  }
+
+  app-ability-bar {
+    order: 4;
+  }
+
+  app-accusation-panel {
+    order: 5;
+  }
+
+  app-my-hand-panel {
+    order: 6;
+  }
+}
+
 @media (min-width: 56rem) {
   .columns {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);

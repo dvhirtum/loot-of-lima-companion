@@ -24,10 +24,18 @@
   color: var(--brass-bright);
 }
 
+/*
+ * Bounded by the viewport's *height* as well as its width, which is not the usual way round.
+ *
+ * The island is square, so its width is also its height, and a map given the full width of a short
+ * window becomes a screenful on its own. The `vh` term only bites where the viewport is wider than
+ * it is tall -- a laptop window dragged short, a phone turned on its side -- because everywhere else
+ * the width runs out first. On a phone held upright it changes nothing, which is why no spec guards
+ * it: there is no phone viewport on which removing this line moves anything a player could see.
+ */
 .map {
   display: block;
-  width: 100%;
-  max-width: 30rem;
+  width: min(100%, 30rem, 52vh);
   margin: 0 auto;
   height: auto;
   touch-action: manipulation;
