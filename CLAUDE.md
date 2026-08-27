@@ -96,6 +96,13 @@ Consequences worth knowing before editing any of it:
   static-asset rule otherwise wins `/api/games/ABCD/qr.png` and 404s the QR code.
 - There is deliberately **no `depends_on`**: nginx answers 502 until something is on 5000, which is
   what you want while the api container is stopped on purpose.
+- **`launchSettings.json` binds `dotnet run` to `http://0.0.0.0:5000`, not localhost.** nginx
+  reaches the host through `host.docker.internal`, which is not a loopback address, so the
+  framework default of `localhost:5000` refuses that connection anywhere the traffic is not
+  quietly forwarded through a VM — that is, everywhere except Docker Desktop. It fails as a bare
+  502, indistinguishable from "the api is not up yet". Note also that a **malformed
+  `launchSettings.json` does not stop `dotnet run`**: it prints one line and carries on with the
+  defaults, so a JSON comment in there costs you the port *and* the environment silently.
 
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so
 without the pin everything silently targets the wrong SDK. Do not remove it.
