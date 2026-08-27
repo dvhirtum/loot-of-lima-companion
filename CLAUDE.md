@@ -18,8 +18,8 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M2 — complete headless engine: dealer, passing, turns, abilities, accusation, `Project()` | **Done.** 1486 tests green |
 | M3 — minimal API + SignalR server | **Done.** 1629 tests green, leak tests included |
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
-| M4.5 — Playwright e2e harness, first loop pinned | Next |
-| M5 — SVG island map, abilities, accusation, passing UI | Not started |
+| M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
+| M5 — SVG island map, abilities, accusation, passing UI | Next |
 | M6 — polish | Not started |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
@@ -59,11 +59,25 @@ cd web/loot-of-lima-web
 npm test          # Vitest; expect 48 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
+
+npm run e2e        # Playwright; expect 17 passing. Boots both halves itself — nothing else needed.
+npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
+
+Both e2e scripts run `e2e:prepare` first, which downloads Chromium if it is missing and type-checks
+`e2e/` — **`npm ci` does not install browsers**, and Playwright transpiles the specs without ever
+checking them, so without that step "nothing else needed" would be false and a type error in a spec
+would fail no command at all.
 
 Both halves have to be running: `npm start` serves the app and proxies to `dotnet run`. The proxy
 sets `changeOrigin: false` on purpose — the server builds the join URL the QR code encodes from the
 request's `Host` header, so rewriting it would put `localhost` in the code a phone scans.
+
+**`npm run e2e` is the exception — it starts its own `dotnet run` and `ng serve`**, so it needs
+nothing already running, though it will reuse a dev server that is. The docker mode covers what the
+default mode cannot: the production bundle rather than the dev server's, and nginx rather than the
+Angular proxy. The `^~` location bug that 404'd the QR endpoint was invisible to every other suite
+in this repository, and is the kind of thing only that mode sees.
 
 ## Running it without dev servers
 
@@ -96,6 +110,18 @@ Consequences worth knowing before editing any of it:
   static-asset rule otherwise wins `/api/games/ABCD/qr.png` and 404s the QR code.
 - There is deliberately **no `depends_on`**: nginx answers 502 until something is on 5000, which is
   what you want while the api container is stopped on purpose.
+- **`launchSettings.json` binds `dotnet run` to `http://*:5000`, not localhost.** nginx reaches the
+  host through `host.docker.internal`, which is not a loopback address, so the framework default of
+  `localhost:5000` refuses that connection anywhere the traffic is not quietly forwarded through a
+  VM — that is, everywhere except Docker Desktop. It fails as a bare 502, indistinguishable from
+  "the api is not up yet".
+- **`*` and not `0.0.0.0`, which is IPv4 only.** The default this replaced bound both `127.0.0.1`
+  and `[::1]`, and `proxy.conf.json` and `playwright.config.ts` both say `localhost` — which glibc
+  resolves to `::1` first on exactly the Linux runner the bind was widened for. `0.0.0.0` refuses
+  that connection and survives only on Node's happy-eyeballs retry. `*` binds dual-mode.
+- A **malformed `launchSettings.json` does not stop `dotnet run`**: it prints one line and carries
+  on with the defaults, so a JSON comment in there costs you the port *and* the environment
+  silently.
 
 `global.json` pins SDK **10.0.203**. This machine's default `dotnet` is a .NET 11 preview, so
 without the pin everything silently targets the wrong SDK. Do not remove it.
@@ -116,6 +142,7 @@ web/loot-of-lima-web/       Angular 22 workspace. Standalone, zoneless, signals,
   src/app/core/             contracts.ts, GameStore, GameConnection, ApiClient, identity.
   src/app/pages/            One folder per route, all lazy.
   src/app/play/             The pieces the game page is made of.
+  e2e/                      Playwright. The only suite that drives a browser.
 ```
 
 `Projection` exists because the projection has nowhere else to live: `Rules` references nothing and
@@ -244,3 +271,28 @@ reads them, and its output is committed, so build and test never need them.
   suites, because `tsconfig.spec.json` collects them by glob.
 - **A new guard is not finished until it has been seen to fail.** Break the thing it guards, watch
   the test go red, then put it back. Two of the M3 leak tests passed with the bug still in place.
+- **The e2e suite asserts what a player sees, and nothing a cheaper suite already asserts.** No arc
+  arithmetic, no oracle, no frame-level redaction — `Server.Tests` checks the raw bytes of every
+  frame, which is stricter than the DOM can be. What only a browser can say is whether the page in
+  front of a player shows them somebody else's hand, and **two `browser.newContext()`s are the only
+  way to sit two humans at one table**: the seat lives in `localStorage`, so two pages of one
+  context are the same person twice and make every two-player assertion vacuous.
+- **Value assertions in e2e belong to five-player scenario games only.** A generated deal is seeded
+  from `Random.Shared.Next()` and `CreateGameRequest` has no seed field, so nothing about a shuffled
+  table repeats. 3- and 4-player specs assert structure — hand sizes, whether passing happens, that
+  every seat announces. Adding a test-only seed would put a hook in the wire contract to buy
+  assertions `b1s1` already makes.
+- **Three Playwright traps this app walks straight into.** Every `<select>` sits *inside* its
+  `<label>`, so its accessible name is the caption plus every option — `getByLabel('Ask')` never
+  matches exactly, and matches for the wrong reason otherwise. Use the `field()` helper. And
+  `hasText` tests raw `textContent` while `allInnerTexts` returns it collapsed, so a string read out
+  of an element will not match an anchored pattern put back into it; anchor as `^\s*`.
+- **Text matching is substring by default, and this app's headings overlap.** `getByRole`'s `name`
+  and CSS `:has-text()` both match case-insensitive substrings, so "Your tokens" also finds the
+  Dealing panel's "Take your tokens" — and both panels are on screen together in that phase. Use
+  `exact: true` and `:text-is()`. This one only showed up against Docker, where the phase changes
+  fast enough to still be showing when the read happens: a locator ambiguity is a flake whose
+  probability depends on how quick the server is.
+- **`count()`, `allInnerTexts()` and friends are one-shots with no auto-waiting.** Reading one
+  before the first frame has rendered is a race that passes locally and fails under load. Do the
+  waiting with a locator assertion first, then read.
