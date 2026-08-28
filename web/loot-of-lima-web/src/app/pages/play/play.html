@@ -95,11 +95,18 @@
           <app-setup-panel (announce)="announce($event)" />
         }
         @case ('InProgress') {
-          @if (store.isSpectator()) {
-            <p class="card muted turn-note">Watching. Take a seat to play.</p>
-          } @else if (store.isMyTurn()) {
+          <!--
+            A spectator gets nothing here, and `isMyTurn` is already false for one because they
+            have no seat. "Watching. Take a seat to play." used to sit in this slot, and it was an
+            offer the engine would refuse: `ClaimSeat` starts with `Reject(state, GamePhase.Lobby)`,
+            so the way in closes the moment the game does. The seat strip has always known that —
+            it draws no "Sit here" outside the lobby — and this panel was the last place still
+            telling somebody to do a thing that cannot be done. They are still told they are
+            watching, by the tokens panel, which says so instead of showing a hand.
+          -->
+          @if (store.isMyTurn()) {
             <app-question-builder (ask)="ask($event)" />
-          } @else {
+          } @else if (!store.isSpectator()) {
             <p class="card muted turn-note">
               Waiting for {{ turnHolder() }}. Your answers are given for you, from the hand the app dealt you.
             </p>

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { deal, leave, openTable, seatCard, sitDown } from './fixtures/table';
+import { deal, leave, openTable, seatCard, sitDown, takeTokens } from './fixtures/table';
 
 /**
  * Watching a table without a seat.
@@ -56,6 +56,42 @@ test.describe('Watching a table', () => {
     // Four seats are still bots, and Ada is entitled to be offered any of them if she wants to move.
     await expect(ada.page.getByRole('button', { name: 'Sit here' })).toHaveCount(4);
 
+    await leave([ada]);
+  });
+
+  test('Should_offer_no_way_in_at_all_once_the_game_has_begun', async ({ browser }) => {
+    // Arrange
+    // `ClaimSeat` starts with `Reject(state, GamePhase.Lobby)`, so the deal closes the door. Until
+    // now the game page kept a panel open beside it reading "Watching. Take a seat to play." — an
+    // instruction for a thing the engine would refuse, which is the same defect as a seat button a
+    // spectator could not press, one screen further on.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+
+    const watcher = await browser.newContext();
+    const page = await watcher.newPage();
+    await page.goto(`/play/${roomCode}`);
+
+    // The offer is real while the lobby is open, so its disappearance below means something.
+    await expect(page.getByRole('link', { name: 'Join to sit here' }).first()).toBeVisible();
+
+    // Act
+    await deal(ada.page, { book: 1, number: 1 });
+    await takeTokens([ada]);
+    await expect(ada.page.getByText('Your turn', { exact: true })).toBeVisible();
+
+    // Assert
+    await expect(page.getByText('Take a seat to play')).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Join to sit here' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Sit here' })).toHaveCount(0);
+
+    // Still watching, and still told so — by the panel that would otherwise hold a hand. Asserted
+    // because the fix for an untrue offer must not be a page that says nothing about who you are.
+    await expect(page.getByText('You are watching this table without a seat.')).toBeVisible();
+    await expect(page.locator('.map .mark').first()).toBeVisible();
+
+    await watcher.close();
     await leave([ada]);
   });
 });

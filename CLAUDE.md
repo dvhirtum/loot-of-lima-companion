@@ -23,7 +23,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1659 .NET + 104 web + 46 e2e green |
+| M6 — polish | **In progress.** 1659 .NET + 104 web + 47 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -63,7 +63,7 @@ npm test          # Vitest; expect 104 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 46 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 47 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
