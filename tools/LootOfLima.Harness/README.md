@@ -1,6 +1,6 @@
 # Headless harness
 
-The M2 demo. Plays two scripted games through the rules engine — no server, no UI — and prints the
+The demo. Plays two scripted games through the rules engine — no server, no UI — and prints the
 result **once per seat**, so the hidden-information design can be read straight off the terminal
 instead of inferred from the test names.
 

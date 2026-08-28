@@ -82,8 +82,8 @@ the product rather than about this code: a table sitting in `Finished` may still
 players arguing about the last accusation.
 
 **Fix:** an eviction policy — likely "idle for N hours" — plus `IGameStore.Remove` releasing the
-room code and the tokens issued for that game. Best done alongside the persistence M6 already
-anticipates, since the same question decides what gets written down.
+room code and the tokens issued for that game. Best done alongside persistence, since the same
+question decides what gets written down.
 
 Raised by the review of [PR #4](https://github.com/dvhirtum/loot-of-lima-companion/pull/4).
 
@@ -115,9 +115,9 @@ reconnecting, which in practice means the server restarting inside the reconnect
 observed in play.
 
 **Fix:** catch the rejection, and retry rather than merely report it — a client that has an open
-socket and no attachment can recover, so surfacing "disconnected" would be a lie. M6 lists
-"Reconnect UX", which is where this belongs, but note that this is a correctness bug underneath it
-rather than presentation: styling the banner would ship straight past it.
+socket and no attachment can recover, so surfacing "disconnected" would be a lie. This belongs with
+reconnect UX, but it is a correctness bug underneath rather than presentation: styling the banner
+would ship straight past it.
 
 Raised while renaming the locations for the physical game.
 
@@ -142,8 +142,8 @@ So the two spellings coexist and the seam is where they meet:
 **Why it can wait:** nothing is wrong at runtime, and the boundary is drawn where it is cheap to
 hold — one function, called from the four presentation surfaces, with the rule "anything that
 addresses an element takes the id, anything that reads the screen comes back a label" written down
-in `CLAUDE.md` and enforced by the e2e suite. The client is where players are, so the client is
-where the rename earns most of what it is worth.
+in [technical.md](technical.md) and enforced by the e2e suite. The client is where players are,
+so the client is where the rename earns most of what it is worth.
 
 **Fix, when it is worth doing:** rename in the engine, so `LocationId.ToString()` and its parse are
 the box's spelling and everything downstream inherits it — then delete `locationLabel`. That is a
