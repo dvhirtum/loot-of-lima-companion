@@ -102,8 +102,11 @@
   stroke: var(--mountain);
 }
 
-/* A Pistol question, which only its two participants will ever see the answer to. */
-.map--secret .map__arc {
+/*
+ * A Pistol question, which only its two participants will ever see the answer to. Selected on
+ * `[data-terrain]` so it outweighs the three terrain rules rather than merely following them.
+ */
+.map--secret .map__arc[data-terrain] {
   fill: color-mix(in srgb, var(--coral) 30%, transparent);
   stroke: var(--coral);
 }
@@ -172,8 +175,14 @@
   stroke: color-mix(in srgb, var(--mountain) 50%, var(--ink));
 }
 
+/*
+ * The secret ring carries its own width. A terrain ring is nearly the colour of the unlit one and
+ * leans on the arc beneath it to read; coral on a terrain disc is the only per-token sign that the
+ * question is the secret one, so it stays heavy enough to see on its own.
+ */
 .map--secret .mark--lit .mark__disc {
   stroke: var(--coral);
+  stroke-width: 1.8;
 }
 
 .map--picking .mark {
