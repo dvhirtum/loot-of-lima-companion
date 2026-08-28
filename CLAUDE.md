@@ -433,6 +433,18 @@ plays.
   highlight is now per terrain, so "how many forest locations from N up to SE" lights the forest band
   and the three forest tokens in it instead of a wedge across all three rings that said "somewhere
   in here" about a question that named one terrain.
+- **The island is drawn on a three-step scale of one colour per terrain**, and a highlight that is
+  not made of terrain colour is a bug. The band is the terrain mixed down into the sea, the token is
+  the terrain plain, and the segment a question covers is `--beach-bright` / `--forest-bright` /
+  `--mountain-bright` — paired with the plain ones in `styles.css` exactly as `--brass-bright` is
+  with `--brass`, so no component picks its own greens. A single brass wash for all three came
+  first and was wrong: against the beach band it barely showed and against the forest one it was
+  worse, so it said "something is selected" without saying which band — the one thing the highlight
+  exists to say. Asking about Any lights all three at once and they must stay told apart. The lit
+  tokens' ring is `--ink` for the same reason the wash failed: a bright ring on newly-brightened
+  ground disappears. The Pistol changes the segment's outline to `--coral` and leaves the fill
+  alone, because which terrain is being asked about is worth more than a second way of saying
+  "secret".
 - **The accusation is a panel, not a modal.** The two locations are named by tapping the island, and
   a modal would cover the thing being tapped. It stays folded behind one button instead, because an
   accusation cannot be taken back.

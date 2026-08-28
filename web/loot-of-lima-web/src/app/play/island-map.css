@@ -80,17 +80,40 @@
 /*
  * The lit segments, over the bands and under the tokens. Which bands are lit is the terrain the
  * question names; how far round they run is the arc it names. Neither says what is in it.
+ *
+ * Each lights in its own terrain's bright colour, which is the third step of the same three-step
+ * scale the rest of the island is drawn on: terrain mixed into the sea for the band, terrain plain
+ * for the token, terrain lit for the segment. One brass wash for all three read badly against the
+ * beach and worse against the forest — it said "something here is selected" without saying which
+ * band, which is the one thing the highlight exists to say. Opaque rather than a wash, since the
+ * compass lines are drawn after these and still fall across them.
  */
 .map__arc {
-  fill: color-mix(in srgb, var(--brass) 32%, transparent);
   stroke: var(--brass);
   stroke-width: 0.9;
 }
 
-/* A Pistol question, which only its two participants will ever see the answer to. */
+.map__arc--beach {
+  fill: var(--beach-bright);
+}
+
+.map__arc--forest {
+  fill: var(--forest-bright);
+}
+
+.map__arc--mountain {
+  fill: var(--mountain-bright);
+}
+
+/*
+ * A Pistol question, which only its two participants will ever see the answer to.
+ *
+ * The outline changes and the fill does not: which terrain is being asked about is the same
+ * question it always was, and losing it to say "secret" would trade the more useful of the two.
+ */
 .map--secret .map__arc {
-  fill: color-mix(in srgb, var(--coral) 30%, transparent);
   stroke: var(--coral);
+  stroke-width: 1.6;
 }
 
 .map__compass {
@@ -138,11 +161,14 @@
 }
 
 /*
- * Inside the range being built. A ring the colour the arc is drawn in, so the tokens the question
- * covers and the slice it covers read as one thing rather than as two overlapping claims.
+ * Inside the range being built: the same dark outline the token already has, drawn heavily.
+ *
+ * Dark rather than bright, because the ground underneath it just became the brightest thing on the
+ * island. A gold ring was legible on a dimmed band and nearly invisible on a lit beach one, and a
+ * token that vanishes into its own highlight is worse than one that was never marked.
  */
 .mark--lit .mark__disc {
-  stroke: var(--brass-bright);
+  stroke: var(--ink);
   stroke-width: 1.8;
 }
 

@@ -25,6 +25,16 @@
   --forest: #4e8b5c;
   --mountain: #8b8a92;
 
+  /*
+   * The lit form of each terrain, paired with the plain one exactly as --brass-bright is with
+   * --brass. The island uses all three at once: a band is its terrain mixed down into the sea, a
+   * token is the terrain itself, and the segment a question covers is the terrain lit -- three
+   * steps of one colour, so which band is highlighted is legible without a legend.
+   */
+  --beach-bright: #f8e2ab;
+  --forest-bright: #86c894;
+  --mountain-bright: #cbcad3;
+
   --line: color-mix(in srgb, var(--parchment) 16%, transparent);
   --raised: color-mix(in srgb, var(--parchment) 6%, transparent);
 
