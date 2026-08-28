@@ -23,7 +23,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1662 .NET + 110 web + 50 e2e green |
+| M6 — polish | **In progress.** 1665 .NET + 113 web + 50 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -38,6 +38,12 @@ not done:
    `dotnet run`.
 4. This file reflects what is now true — status, test counts, and any new invariant.
 
+**Terms 2 and 3 are Dick's to run and Dick's to report.** They are the only two that need the
+compose stack, and the stack lives down — see [The e2e procedure](#the-e2e-procedure--the-stack-stays-down-and-it-is-dick-who-brings-it-up).
+So a milestone is not closed off the back of the suites alone: say which terms were checked and
+which are still outstanding, and leave the claim about the containers to the person who stood them
+up.
+
 **The full plan lives at `C:\Users\Dick\.claude\plans\nested-hatching-petal.md`** (outside the
 repo). Read it before starting a milestone.
 
@@ -48,7 +54,7 @@ before touching the importer, `BoardLayout`, or how a location is spelled.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1662 passing
+dotnet test       # expect 1665 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
@@ -59,7 +65,7 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 110 passing
+npm test          # Vitest; expect 113 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
@@ -79,13 +85,24 @@ request's `Host` header, so rewriting it would put `localhost` in the code a pho
 **`npm run e2e` is the exception — it starts its own `dotnet run` and `ng serve`**, so it needs
 nothing already running, though it will reuse a dev server that is.
 
-### The e2e procedure — these three steps, in this order, every time
+### The e2e procedure — the stack stays down, and it is Dick who brings it up
 
 ```
-docker compose down             # down, not stop
+docker compose ps               # anything listed means ASK before going further
 npm run e2e                     # against the working tree
-docker compose up --build -d    # back up holding what was just tested
 ```
+
+**The default state of the compose stack is down.** It is not left running between sessions and it
+is not handed back after a test run: Dick brings it up himself when he wants to test against it,
+and it stays down the rest of the time. So the ordinary case is that `npm run e2e` needs nothing
+doing first — it boots its own `dotnet run` and `ng serve`, and with no containers up there is
+nothing to collide with.
+
+**Never run `docker compose down` unprompted.** If `docker compose ps` lists anything, the stack is
+up because Dick put it there, and taking it down is his call and not an implementation detail of
+running a test suite. Ask, and wait for an answer. The same goes for bringing it back up afterwards
+— `docker compose up` is his command, and running the suite is not a licence to leave the machine
+in a different state than it was found in.
 
 **The stack has to be down, because both halves want port 4200.** The web container listens on
 it — the same port `ng serve` uses, which is the whole point of the swap — and Playwright's
@@ -103,9 +120,10 @@ for is broken, so the diagnosis costs an evening if it starts from "what did I c
 the repo causes it and nothing in the repo can detect it — the only symptom is on a device that is
 not this one. `down` and `up` rebuild the bindings; `start` reuses the broken ones.
 
-**`--build` on the way back up**, so the containers end up serving the code the suite just went
-green against rather than whatever happened to be built last. Leaving the stack down is not an
-option either: a phone at the table is pointed at it, and the third step is what hands it back.
+**`--build` whenever it does go back up**, so the containers serve the code that was last tested
+rather than whatever happened to be built last. That is a note for the person bringing it up, which
+is Dick: a stack left running on a stale image is the quiet version of the same problem the port
+collision causes, and `--build` is what rules it out.
 
 **`npm run e2e:docker` is Dick's to run — never run it for him.** It is the same specs against the
 containers, and it covers what no other suite here can: the production bundle rather than the dev
@@ -375,6 +393,13 @@ plays.
   `InProgress`, the turn advances as it would after any other action taken on your own turn, and
   the pair is ruled out — which is a real deduction and the accuser's own. See the settled decision
   below for why this is not a house rule.
+- **That turn advance carries an armed Pistol with it, and it has to.** `Seat.PistolArmedTurn` names
+  an absolute turn, so anything that advances the turn disarms it — right when the turn ended in the
+  question the Pistol was spent on, and wrong when it ended in an accusation. Spending already
+  removed the Pistol from `AbilitiesRemaining`, so without the carry a solo player who arms it and
+  then accuses loses the secret question outright, with nothing left to spend a second time.
+  `EndAccusersTurn` is the whole of it, and it is reachable only from the solo branch: everywhere
+  else the accusation eliminates the accuser, who has no further use for an armed anything.
 - **`GameEndReason.AllPlayersEliminated` is now unreachable from `Accuse`.** A solo table returns
   before the elimination, and at two or more humans the game ends the first time the active count
   falls to one, so it can never fall to zero. It survives only as the fall-through of `AdvanceTurn`,
@@ -611,6 +636,16 @@ reads them, and its output is committed, so build and test never need them.
   parse — reported as a syntax error at the `@Component({` twenty lines above, which is nowhere near
   the comment. Write `ClaimSeat`, not the quoted form, inside `template:` and `styles:`. The JSDoc
   above the class is ordinary source and may quote freely.
+- **A `<select>` whose options come from `@for` must mark the chosen `<option>`, never bind
+  `[value]` on the select.** Both are written in the same update pass, and the select's binding goes
+  first — so on the pass that *creates* the block the value lands on an empty select, where setting
+  one no option carries does nothing, and it is never re-applied because the signal behind it has
+  not changed. The select then shows its first option while the component still holds what the
+  player chose, and the button beside it sends what the component holds. `[selected]="option ===
+  chosen()"` puts the write on the option, which cannot exist before there is something to mark.
+  Nothing looks wrong until the block is destroyed and rebuilt with the signal already moved off its
+  default, which is why `LobbyPanel` shipped it and `QuestionBuilder` (whose default `'N'` is
+  `DIRECTIONS[0]`) and the accusation selects (whose first option is a static `value=""`) did not.
 - **Three Playwright traps this app walks straight into.** Every `<select>` sits *inside* its
   `<label>`, so its accessible name is the caption plus every option — `getByLabel('Ask')` never
   matches exactly, and matches for the wrong reason otherwise. Use the `field()` helper. And

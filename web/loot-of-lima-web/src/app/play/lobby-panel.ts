@@ -29,21 +29,33 @@ import { GameStore } from '../core/game-store';
           </button>
         </div>
 
+        <!--
+          Which option is chosen is marked on the options, not bound to the select.
+
+          A value binding on the select is written during the update pass that *creates* this
+          block, and the options are supplied by a control flow block whose views are created in
+          that same pass — so the assignment can land on a select that is still empty, where
+          setting a value no option carries does nothing. It is never re-applied either, because
+          the signal it reads has not changed. The result is a select showing the first option
+          while the component still holds the one the player chose, and the button below deals what
+          the component holds. Marking the chosen option instead puts the write on the option
+          itself, which cannot exist before there is something to mark.
+        -->
         @if (fromBook()) {
           <div class="row">
             <label class="field">
               <span>Book</span>
-              <select [value]="book()" (change)="chooseBook($any($event.target).value)">
+              <select (change)="chooseBook($any($event.target).value)">
                 @for (option of books(); track option) {
-                  <option [value]="option">{{ option }}</option>
+                  <option [value]="option" [selected]="option === book()">{{ option }}</option>
                 }
               </select>
             </label>
             <label class="field">
               <span>Scenario</span>
-              <select [value]="number()" (change)="number.set(+$any($event.target).value)">
+              <select (change)="number.set(+$any($event.target).value)">
                 @for (option of numbers(); track option) {
-                  <option [value]="option">{{ option }}</option>
+                  <option [value]="option" [selected]="option === number()">{{ option }}</option>
                 }
               </select>
             </label>

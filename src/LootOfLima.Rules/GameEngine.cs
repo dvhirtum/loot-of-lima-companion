@@ -387,7 +387,8 @@ public static class GameEngine
         // taken on your own turn ends it.
         if (state.IsSolo)
         {
-            return Result<GameState>.Success(next.ActiveSeat == accuserSeat ? AdvanceTurn(next) : next);
+            return Result<GameState>.Success(
+                next.ActiveSeat == accuserSeat ? EndAccusersTurn(next, accuserSeat) : next);
         }
 
         next = WithSeat(next, accuser with { Eliminated = true });
@@ -402,8 +403,38 @@ public static class GameEngine
                 next, next.ActiveHumanSeats.Single().Index, GameEndReason.LastPlayerStanding));
         }
 
-        // Being eliminated ends your turn, but only your turn.
+        // Being eliminated ends your turn, but only your turn. Nothing is carried across it here:
+        // the accuser has just been put out of the game, so an armed Pistol is one of several
+        // things they no longer have any use for.
         return Result<GameState>.Success(next.ActiveSeat == accuserSeat ? AdvanceTurn(next) : next);
+    }
+
+    /// <summary>
+    /// Advances a turn that an accusation ended rather than a question, carrying an armed Pistol
+    /// into the turn it now belongs to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Seat.PistolArmedTurn"/> names an absolute turn, so anything that advances the turn
+    /// disarms it. That is right when the turn ended in the question the Pistol was spent on, and
+    /// wrong here: an accusation is not a question, and the ability has been paid for and not used.
+    /// Without this, a player who arms the Pistol and then accuses loses it outright — it is already
+    /// gone from <see cref="Seat.AbilitiesRemaining"/>, so no second spend is possible either, and
+    /// the secret question they bought can never be asked.
+    /// </para>
+    /// <para>
+    /// Only reachable from a solo table, which is the only one where a wrong accusation leaves the
+    /// accuser still playing. Everywhere else the accusation eliminates them.
+    /// </para>
+    /// </remarks>
+    private static GameState EndAccusersTurn(GameState state, int accuserSeat)
+    {
+        bool armed = state.SeatAt(accuserSeat).PistolArmedTurn == state.TurnNumber;
+        GameState next = AdvanceTurn(state);
+
+        return armed
+            ? WithSeat(next, next.SeatAt(accuserSeat) with { PistolArmedTurn = next.TurnNumber })
+            : next;
     }
 
     /// <summary>

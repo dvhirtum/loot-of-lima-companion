@@ -206,6 +206,63 @@ public class AccuseTests
     }
 
     [Fact]
+    public void Should_keep_the_pistol_armed_when_the_only_human_accuses_wrongly_before_asking()
+    {
+        // Arrange
+        // Spending the Pistol pins it to the turn it was spent on and takes it out of the seat's
+        // remaining abilities, so a turn that advances without the secret question being asked
+        // destroys it outright: there is nothing left to spend a second time. An accusation is not
+        // a question, and the ability has been paid for and not used.
+        GameState state = TestGame.InProgress(5, humans: 1);
+        state = TestGame.Unwrap(Sut.SpendAbility(state, 0, AbilityType.Pistol));
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Equal(next.TurnNumber, next.SeatAt(0).PistolArmedTurn);
+        Assert.DoesNotContain(AbilityType.Pistol, next.SeatAt(0).AbilitiesRemaining);
+    }
+
+    [Fact]
+    public void Should_let_the_secret_question_be_asked_when_a_wrong_accusation_came_between()
+    {
+        // Arrange
+        // The claim the one above is only the mechanism for. Arming, changing your mind, guessing
+        // wrong and then asking is an ordinary sequence at a table of one, where a wrong accusation
+        // is a ruled-out pair rather than the end of the game.
+        GameState state = TestGame.InProgress(5, humans: 1);
+        state = TestGame.Unwrap(Sut.SpendAbility(state, 0, AbilityType.Pistol));
+        state = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.AskSecretQuestion(state, 0, 1, new QueryRange(Direction.N, Direction.SE), Board.Default));
+
+        // Assert
+        Assert.Single(next.History.OfType<SecretQuestionEntry>());
+    }
+
+    [Fact]
+    public void Should_leave_the_pistol_unarmed_when_the_only_human_accuses_wrongly_without_one()
+    {
+        // Arrange
+        // The other side of the same rule, so carrying it forward cannot be mistaken for arming it.
+        // A seat that never spent the Pistol is not handed a secret question by guessing badly.
+        GameState state = TestGame.InProgress(5, humans: 1);
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Null(next.SeatAt(0).PistolArmedTurn);
+        Assert.Contains(AbilityType.Pistol, next.SeatAt(0).AbilitiesRemaining);
+    }
+
+    [Fact]
     public void Should_record_the_accusation_in_the_history_when_it_is_made()
     {
         // Arrange
