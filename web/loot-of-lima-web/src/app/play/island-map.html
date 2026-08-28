@@ -51,14 +51,7 @@
         which slice of which terrain is being asked about, never how many tokens are in it.
       -->
       @for (arc of arcs(); track arc.terrain) {
-        <path
-          class="map__arc"
-          [class.map__arc--beach]="arc.terrain === 'Beach'"
-          [class.map__arc--forest]="arc.terrain === 'Forest'"
-          [class.map__arc--mountain]="arc.terrain === 'Mountain'"
-          [attr.data-terrain]="arc.terrain"
-          [attr.d]="arc.d"
-        />
+        <path class="map__arc" [attr.data-terrain]="arc.terrain" [attr.d]="arc.d" />
       }
 
       <!-- The eight compass lines the dial's arrows actually point at. Tokens sit in the gaps. -->

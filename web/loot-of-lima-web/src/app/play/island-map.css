@@ -80,42 +80,17 @@
 /*
  * The lit segments, over the bands and under the tokens. Which bands are lit is the terrain the
  * question names; how far round they run is the arc it names. Neither says what is in it.
- *
- * Each lights in its own terrain's bright colour, which is the third step of the same three-step
- * scale the rest of the island is drawn on: terrain mixed into the sea for the band, terrain plain
- * for the token, terrain lit for the segment. One brass wash for all three read badly against the
- * beach and worse against the forest — it said "something here is selected" without saying which
- * band, which is the one thing the highlight exists to say. Opaque rather than a wash, since the
- * compass lines are drawn after these and still fall across them.
  */
 .map__arc {
+  fill: color-mix(in srgb, var(--brass) 32%, transparent);
+  stroke: var(--brass);
   stroke-width: 0.9;
 }
 
-.map__arc--beach {
-  fill: var(--beach-bright);
-  stroke: var(--beach-deep);
-}
-
-.map__arc--forest {
-  fill: var(--forest-bright);
-  stroke: var(--forest-deep);
-}
-
-.map__arc--mountain {
-  fill: var(--mountain-bright);
-  stroke: var(--mountain-deep);
-}
-
-/*
- * A Pistol question, which only its two participants will ever see the answer to.
- *
- * The outline changes and the fill does not: which terrain is being asked about is the same
- * question it always was, and losing it to say "secret" would trade the more useful of the two.
- */
+/* A Pistol question, which only its two participants will ever see the answer to. */
 .map--secret .map__arc {
+  fill: color-mix(in srgb, var(--coral) 30%, transparent);
   stroke: var(--coral);
-  stroke-width: 1.6;
 }
 
 .map__compass {
@@ -129,26 +104,24 @@
 /* --- tokens -------------------------------------------------------------- */
 
 /*
- * Terrain colour, always, and its own terrain's edge with it. A token is a place on the island,
- * and where a place is and what it is made of are both printed on the board in front of the player.
+ * Terrain colour, always. A token is a place on the island, and where a place is and what it is
+ * made of are both printed on the board in front of the player.
  */
 .mark__disc {
+  stroke: color-mix(in srgb, var(--ink) 45%, transparent);
   stroke-width: 0.8;
 }
 
 .mark__disc--beach {
   fill: var(--beach);
-  stroke: var(--beach-deep);
 }
 
 .mark__disc--forest {
   fill: var(--forest);
-  stroke: var(--forest-deep);
 }
 
 .mark__disc--mountain {
   fill: var(--mountain);
-  stroke: var(--mountain-deep);
 }
 
 .mark__label {
@@ -165,15 +138,11 @@
 }
 
 /*
- * Inside the range being built: the token's own edge, drawn heavily.
- *
- * Weight alone, because the colour is already spoken for. Every disc is outlined in its terrain's
- * deep shade, so a lit one is the same rim thickened rather than a different colour introduced --
- * and it needs no more than that, sitting as it does on the brightest ground on the island. A gold
- * ring was tried first: legible on a dimmed band and nearly invisible on a lit beach one, which is
- * a token vanishing into its own highlight.
+ * Inside the range being built. A ring the colour the arc is drawn in, so the tokens the question
+ * covers and the slice it covers read as one thing rather than as two overlapping claims.
  */
 .mark--lit .mark__disc {
+  stroke: var(--brass-bright);
   stroke-width: 1.8;
 }
 
@@ -217,25 +186,21 @@
   gap: 0.35rem;
 }
 
-/* A token in miniature, so it is edged the same way one is. */
 .legend__swatch {
   width: 0.85rem;
   height: 0.85rem;
   border-radius: 50%;
-  border: 1px solid;
+  border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
 }
 
 .legend__swatch--beach {
   background: var(--beach);
-  border-color: var(--beach-deep);
 }
 
 .legend__swatch--forest {
   background: var(--forest);
-  border-color: var(--forest-deep);
 }
 
 .legend__swatch--mountain {
   background: var(--mountain);
-  border-color: var(--mountain-deep);
 }

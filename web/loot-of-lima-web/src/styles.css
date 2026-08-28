@@ -25,26 +25,6 @@
   --forest: #4e8b5c;
   --mountain: #8b8a92;
 
-  /*
-   * The lit form of each terrain, paired with the plain one exactly as --brass-bright is with
-   * --brass. The island uses all three at once: a band is its terrain mixed down into the sea, a
-   * token is the terrain itself, and the segment a question covers is the terrain lit -- three
-   * steps of one colour, so which band is highlighted is legible without a legend.
-   */
-  --beach-bright: #f8e2ab;
-  --forest-bright: #86c894;
-  --mountain-bright: #cbcad3;
-
-  /*
-   * And the drawn edge of each, named after --sea-deep. Every outline on the island is its own
-   * terrain rather than a shared dark: a token's rim, the rim of the segment a question lights.
-   * One ink outline for all three was a fourth colour doing no work, and it broke the rule the
-   * rest of the map keeps -- that nothing on this picture is coloured by anything but terrain.
-   */
-  --beach-deep: #7a6128;
-  --forest-deep: #24462f;
-  --mountain-deep: #43424e;
-
   --line: color-mix(in srgb, var(--parchment) 16%, transparent);
   --raised: color-mix(in srgb, var(--parchment) 6%, transparent);
 

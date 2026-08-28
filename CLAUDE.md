@@ -91,27 +91,6 @@ server's, and nginx rather than the Angular proxy. The `^~` location bug that 40
 endpoint was invisible to every other suite in this repository, and is the kind of thing only that
 mode sees.
 
-**And the same collision runs the other way, silently, because the two bind different addresses.**
-`ng serve` listens on `::1` only; Docker publishes on `::` and `0.0.0.0`. So a leftover dev server
-does *not* stop `docker compose up` — the container starts, `docker compose ps` shows
-`0.0.0.0:4200->4200`, and everything looks right — but `localhost` resolves to `::1` first, so
-`npm run e2e:docker` reaches the dev server and never touches nginx at all. It passes, and it has
-tested nothing the default mode had not already tested.
-
-Killing the dev server is not always enough to be sure: stopping the shell that ran `npm start`
-leaves `ng serve`'s own node process alive and still holding `::1`. **Check the port rather than
-trusting the stop**, and check what answered rather than that something did:
-
-```
-Get-NetTCPConnection -LocalPort 4200 -State Listen | ForEach-Object {
-  "$($_.LocalAddress) pid=$($_.OwningProcess) $((Get-Process -Id $_.OwningProcess).ProcessName)" }
-(Invoke-WebRequest http://localhost:4200 -UseBasicParsing).Headers.Server   # nginx/1.x, or nothing
-```
-
-nginx sends `Server: nginx/…` with an `ETag`; the dev server sends neither, and answers with
-`Vary: Origin` and `Cache-Control: no-cache`. One header is the whole difference between having run
-the docker mode and having believed you did.
-
 ## Running it without dev servers
 
 ```
@@ -454,18 +433,6 @@ plays.
   highlight is now per terrain, so "how many forest locations from N up to SE" lights the forest band
   and the three forest tokens in it instead of a wedge across all three rings that said "somewhere
   in here" about a question that named one terrain.
-- **The island is drawn on a three-step scale of one colour per terrain**, and a highlight that is
-  not made of terrain colour is a bug. The band is the terrain mixed down into the sea, the token is
-  the terrain plain, and the segment a question covers is `--beach-bright` / `--forest-bright` /
-  `--mountain-bright` — paired with the plain ones in `styles.css` exactly as `--brass-bright` is
-  with `--brass`, so no component picks its own greens. A single brass wash for all three came
-  first and was wrong: against the beach band it barely showed and against the forest one it was
-  worse, so it said "something is selected" without saying which band — the one thing the highlight
-  exists to say. Asking about Any lights all three at once and they must stay told apart. The lit
-  tokens' ring is `--ink` for the same reason the wash failed: a bright ring on newly-brightened
-  ground disappears. The Pistol changes the segment's outline to `--coral` and leaves the fill
-  alone, because which terrain is being asked about is worth more than a second way of saying
-  "secret".
 - **The accusation is a panel, not a modal.** The two locations are named by tapping the island, and
   a modal would cover the thing being tapped. It stays folded behind one button instead, because an
   accusation cannot be taken back.
