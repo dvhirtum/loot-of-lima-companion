@@ -323,15 +323,26 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   it. Offering a button whose only outcome is a refusal is the same defect as the seat a spectator
   could not take — the refusal was correct, and it named an internal seat index at somebody who had
   done nothing but press what they were shown.
-- **The phone layout is ordered by the loop, not by the columns.** Stacked into one column the
-  panels run island → question → history → abilities → accusation → hand, set with CSS `order` and
-  `display: contents` on the two column wrappers rather than with a second template. The laptop's
-  order put the ability bar between the island and the question builder, which on a phone meant
-  scrolling down to choose a range, back up to check the arc against the island, and down again to
-  press Ask — and the answer then landed in the history panel below everything else. Abilities are
+- **There is one game-page layout, ordered by the loop, and the width decides only how many columns
+  it is poured into.** The panels are the grid's own children in the order a player uses them —
+  island → what this phase wants from you → history → abilities → accusation → hand — with no column
+  wrappers and **no `order` declaration anywhere**, so DOM order, reading order, tab order and
+  painted order agree by construction. On a laptop the island takes `grid-row: span 2`, which is the
+  entire difference between the two sizes: the question builder and the log land beside it instead
+  of below it, and the hand, the abilities and the accusation flow on into the cells after them.
+  There used to be two layouts — a laptop's two columns, and a phone stack reordered on top of them
+  with `order` and `display: contents` — and both buried the question builder, which is how the same
+  complaint arrived twice. The phone put the ability bar between the island and the builder; the
+  laptop put the map's full height *and* the ability bar above it in one column, so asking meant
+  scrolling past the island to choose a range and back up to check the arc against it. Abilities are
   spent at most three times a game and the ask loop happens every turn, so the loop wins the top of
-  the page. `e2e/phone-layout.spec.ts` asserts it by vertical position, because a DOM-order check
-  would pass while `order` put the panels somewhere else entirely.
+  the page at every size. **`MyHandPanel` is last because it is the only panel nothing is ever done
+  to**, and because `SeatStrip` already prints this seat's own `knownHand` at the top of the page —
+  what is only in that panel is the face-up row, and at the end the treasure. Abilities and
+  accusation outrank it because they are things a player can act on. `e2e/page-layout.spec.ts`
+  asserts both sizes by measured position — vertical order on a phone, and beside-not-below on a
+  laptop — because a DOM-order check says nothing about which column the grid actually put a panel
+  in.
 - **The map is about the terrain, and says nothing about who holds what.** Three coloured bands and
   24 terrain-coloured tokens, the same picture on every screen at the table. The four ownership
   states it used to draw — mine, revealed, passed, treasure — are gone along with `data-state`, and

@@ -28,67 +28,51 @@
 }
 
 /*
- * Two columns on a laptop, one on a phone. Both are real layouts rather than a shrunken desktop:
- * the phone is where players actually sit, and the history is what they scroll while it is not
- * their turn.
+ * One layout, ordered once.
+ *
+ * There used to be two: a laptop's two columns, and a phone's single stack reordered on top of them
+ * with `order` and `display: contents`. Two layouts meant two chances to bury the question builder,
+ * and both were taken — the phone put the ability bar between the island and the builder, and the
+ * laptop put the whole ability bar *and* the map's full height above it in one column, so a player
+ * on a laptop scrolled past the island to choose a range and back up to check the arc against it.
+ * The panels a player uses every turn were the ones furthest apart on both.
+ *
+ * So the panels are the grid's own children, in the order they are used, and the only thing the
+ * width decides is how many columns they are poured into. Nothing is reordered anywhere, which is
+ * why there is no `order` declaration in this file: DOM order is the order, and reading order, tab
+ * order and painted order agree by construction.
+ *
+ * The order is the loop: island, the thing this phase wants from you, the log the answer lands in.
+ * Then the two things a player can still *do* — the abilities, three spends in a whole game, and
+ * the accusation. The tokens panel is last because it is the only one nothing is ever done to, and
+ * because the seat strip already prints this seat's own hand at the top of the page: what is only
+ * in that panel is the face-up row, and at the end the treasure.
  */
-.columns {
+.board {
   display: grid;
   gap: var(--gap);
   grid-template-columns: 1fr;
 }
 
 /*
- * On a phone, the order that reads well beside a laptop's two columns reads badly stacked into one.
- * The ability bar sat between the map and the question builder, so asking meant scrolling down to
- * choose a range, back up to check the arc against the island, and down again to press Ask -- and
- * the answer then landed in the history panel below everything else on the page.
+ * Two columns once there is room, filled by the same sequence.
  *
- * `display: contents` takes the two column wrappers out of the box tree so that every panel becomes
- * a grid item in its own right. That is what makes them orderable independently of which column
- * they live in, without a second copy of the template.
+ * The island keeps the left of the first two rows, so the question builder and the log land beside
+ * it instead of below it — the three panels the loop is made of, all in one screen. Everything
+ * after them flows on into whichever cell comes next: the hand under the island, the abilities
+ * beside it, the accusation last.
  *
- * The order is the loop a player actually repeats: look at the island, build the question against
- * it, read the answer. History sits third because the answer is what pressing Ask is *for*, and the
- * newest entry is at the top of that panel. Everything spent once a turn or once a game -- the
- * abilities, the accusation, the list form of a hand the map is already showing -- comes after.
+ * The span is safe against the island growing taller than the two panels next to it, because it
+ * cannot: the map is capped at 30rem, and a question builder and a log stacked together are always
+ * taller than that. If it ever did, the two rows would stretch and open a gap under the builder.
  */
-@media (max-width: 55.999rem) {
-  .col {
-    display: contents;
+@media (min-width: 56rem) {
+  .board {
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    align-items: start;
   }
 
   app-island-map {
-    order: 1;
-  }
-
-  app-lobby-panel,
-  app-setup-panel,
-  app-question-builder,
-  .turn-note {
-    order: 2;
-  }
-
-  app-history-panel {
-    order: 3;
-  }
-
-  app-ability-bar {
-    order: 4;
-  }
-
-  app-accusation-panel {
-    order: 5;
-  }
-
-  app-my-hand-panel {
-    order: 6;
-  }
-}
-
-@media (min-width: 56rem) {
-  .columns {
-    grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
-    align-items: start;
+    grid-row: span 2;
   }
 }
