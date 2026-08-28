@@ -89,20 +89,22 @@
  * compass lines are drawn after these and still fall across them.
  */
 .map__arc {
-  stroke: var(--brass);
   stroke-width: 0.9;
 }
 
 .map__arc--beach {
   fill: var(--beach-bright);
+  stroke: var(--beach-deep);
 }
 
 .map__arc--forest {
   fill: var(--forest-bright);
+  stroke: var(--forest-deep);
 }
 
 .map__arc--mountain {
   fill: var(--mountain-bright);
+  stroke: var(--mountain-deep);
 }
 
 /*
@@ -127,24 +129,26 @@
 /* --- tokens -------------------------------------------------------------- */
 
 /*
- * Terrain colour, always. A token is a place on the island, and where a place is and what it is
- * made of are both printed on the board in front of the player.
+ * Terrain colour, always, and its own terrain's edge with it. A token is a place on the island,
+ * and where a place is and what it is made of are both printed on the board in front of the player.
  */
 .mark__disc {
-  stroke: color-mix(in srgb, var(--ink) 45%, transparent);
   stroke-width: 0.8;
 }
 
 .mark__disc--beach {
   fill: var(--beach);
+  stroke: var(--beach-deep);
 }
 
 .mark__disc--forest {
   fill: var(--forest);
+  stroke: var(--forest-deep);
 }
 
 .mark__disc--mountain {
   fill: var(--mountain);
+  stroke: var(--mountain-deep);
 }
 
 .mark__label {
@@ -161,14 +165,15 @@
 }
 
 /*
- * Inside the range being built: the same dark outline the token already has, drawn heavily.
+ * Inside the range being built: the token's own edge, drawn heavily.
  *
- * Dark rather than bright, because the ground underneath it just became the brightest thing on the
- * island. A gold ring was legible on a dimmed band and nearly invisible on a lit beach one, and a
- * token that vanishes into its own highlight is worse than one that was never marked.
+ * Weight alone, because the colour is already spoken for. Every disc is outlined in its terrain's
+ * deep shade, so a lit one is the same rim thickened rather than a different colour introduced --
+ * and it needs no more than that, sitting as it does on the brightest ground on the island. A gold
+ * ring was tried first: legible on a dimmed band and nearly invisible on a lit beach one, which is
+ * a token vanishing into its own highlight.
  */
 .mark--lit .mark__disc {
-  stroke: var(--ink);
   stroke-width: 1.8;
 }
 
@@ -212,21 +217,25 @@
   gap: 0.35rem;
 }
 
+/* A token in miniature, so it is edged the same way one is. */
 .legend__swatch {
   width: 0.85rem;
   height: 0.85rem;
   border-radius: 50%;
-  border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
+  border: 1px solid;
 }
 
 .legend__swatch--beach {
   background: var(--beach);
+  border-color: var(--beach-deep);
 }
 
 .legend__swatch--forest {
   background: var(--forest);
+  border-color: var(--forest-deep);
 }
 
 .legend__swatch--mountain {
   background: var(--mountain);
+  border-color: var(--mountain-deep);
 }
