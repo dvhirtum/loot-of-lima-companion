@@ -1,5 +1,12 @@
 <section class="card stack">
-  <h3>Ask a question</h3>
+  <h3>{{ secret() ? 'Ask a secret question' : 'Ask a question' }}</h3>
+
+  @if (secret()) {
+    <p class="small muted">
+      Your Pistol is spent, so this one is between you and the player you ask. The rest of the table is told only that
+      it happened — and you are free of the dice you rolled, so ask any range you like.
+    </p>
+  }
 
   <div class="builder">
     <label class="field">
@@ -30,6 +37,11 @@
       </select>
     </label>
 
+    <!--
+      Present whether or not the Pistol is spent. A secret question may name a terrain like any
+      other, so hiding the field here would be the app inventing a restriction the game does not
+      have — and it would drop a terrain the player had already chosen the moment they armed.
+    -->
     <label class="field">
       <span>Terrain</span>
       <select [value]="terrain() ?? ''" (change)="chooseTerrain($any($event.target).value)">
@@ -41,14 +53,17 @@
     </label>
   </div>
 
-  <p class="reading">{{ reading() }}</p>
+  <p class="reading" [class.reading--secret]="secret()">{{ reading() }}</p>
 
+  <!--
+    No standing note about the dice here. That the app never asks what you rolled is worth saying
+    once, and it is said in the lobby where the game is dealt; repeating it above every question is
+    a line a player reads once and then scrolls past for the rest of the game, and on a phone it is
+    a line between the range and the button that sends it.
+  -->
   <div class="row">
-    <button type="button" class="button button--primary" [disabled]="!canAsk()" (click)="submit()">Ask</button>
-    <!--
-      Said out loud rather than left implicit, because a player expecting the app to check their
-      roll would read its silence as approval.
-    -->
-    <span class="small muted">The app never asks what you rolled — check the dice yourself.</span>
+    <button type="button" class="button button--primary" [disabled]="!canAsk()" (click)="submit()">
+      {{ secret() ? 'Ask secretly' : 'Ask' }}
+    </button>
   </div>
 </section>

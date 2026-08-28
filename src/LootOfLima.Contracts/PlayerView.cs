@@ -16,7 +16,9 @@ namespace LootOfLima.Contracts;
 /// The two hidden locations. Null in every phase but Finished — this field is the one the whole
 /// hidden-information design exists to protect.
 /// </param>
-/// <param name="EndReason">One of CorrectAccusation, LastPlayerStanding, AllPlayersEliminated.</param>
+/// <param name="EndReason">
+/// One of CorrectAccusation, LastPlayerStanding, AllPlayersEliminated, Conceded.
+/// </param>
 /// <param name="Version">
 /// Which revision of the game this view was built from. It rises by one per command applied, so
 /// a client that keeps the highest it has seen can drop a frame that arrives after a later one:

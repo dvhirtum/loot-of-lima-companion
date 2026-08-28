@@ -35,6 +35,9 @@ export class GameConnection {
   private roomCode: string | null = null;
   private playerToken: string | null = null;
 
+  /** Every attach and detach asked for so far, so no two of them are ever in flight together. */
+  private queue: Promise<unknown> = Promise.resolve();
+
   /**
    * The most recent nudge, for a component that wants to animate or chime.
    *
@@ -50,13 +53,37 @@ export class GameConnection {
    * Safe to call again for the same room: the second call is a no-op rather than a second socket,
    * which matters because a route can be re-entered by a navigation the player did not think of as
    * leaving.
+   *
+   * Calls are also queued against each other and against `disconnect`, which the early return alone
+   * cannot do. Taking a seat now happens on the page that holds the connection: the name is asked
+   * for at the seat card, so joining writes a token down and two things then want to reconnect with
+   * it -- the claim, which cannot send `ClaimSeat` down a spectator's socket, and the page's own
+   * effect, which watches the identity. The early return recognises only a connection already in
+   * place, and `attach` spends its first await holding none, so both calls would get past it and
+   * the loser's socket would be built, started and then abandoned without ever being stopped.
+   * Queued, the second call sees the first's fields and returns early, which is what it always
+   * meant to do.
    */
-  async connect(roomCode: string, playerToken: string | null): Promise<void> {
+  connect(roomCode: string, playerToken: string | null): Promise<void> {
+    return this.enqueue(() => this.attach(roomCode, playerToken));
+  }
+
+  /**
+   * Lets go of the current connection, if there is one.
+   *
+   * Queued behind whatever `connect` is doing, so a page torn down mid-connect stops the socket
+   * that call is in the middle of building rather than the null it is holding at that instant.
+   */
+  disconnect(): Promise<void> {
+    return this.enqueue(() => this.detach());
+  }
+
+  private async attach(roomCode: string, playerToken: string | null): Promise<void> {
     if (this.connection !== null && this.roomCode === roomCode && this.playerToken === playerToken) {
       return;
     }
 
-    await this.disconnect();
+    await this.detach();
 
     this.roomCode = roomCode;
     this.playerToken = playerToken;
@@ -132,24 +159,27 @@ export class GameConnection {
     } catch {
       // The failed connection has to be let go of here, not just reported.
       //
-      // `connect` returns early when it is already holding this room and token, so a connection
+      // `attach` returns early when it is already holding this room and token, so a connection
       // left in place by a failure makes every retry a no-op that reports success while nothing is
       // attached -- and the api container being down, which is a state the composition treats as
       // ordinary, is precisely when a retry is what the caller will do.
-      await this.disconnect();
+      await this.detach();
       this.store.setStatus('disconnected');
       throw new Error(`Could not connect to game ${roomCode}.`);
     }
   }
 
   /**
-   * Lets go of the current connection, if there is one.
+   * The body of `disconnect`, and what `attach` calls to put down the connection it is replacing.
+   *
+   * Private, and called directly by both, because it runs *inside* a queue slot: asking `enqueue`
+   * for another one from in here would wait on the slot it is already occupying.
    *
    * The fields are cleared before the stop is awaited, deliberately: from this line on the
    * connection is no longer current, so anything still arriving on it is ignored rather than
    * racing whatever connects next.
    */
-  async disconnect(): Promise<void> {
+  private async detach(): Promise<void> {
     const connection = this.connection;
     this.connection = null;
     this.roomCode = null;
@@ -194,14 +224,30 @@ export class GameConnection {
     return this.send('AskQuestion', request);
   }
 
-  askSecretQuestion(targetSeat: number, start: Direction, end: Direction): Promise<void> {
-    const request: AskSecretQuestionRequest = { targetSeat, start, end };
+  askSecretQuestion(
+    targetSeat: number,
+    start: Direction,
+    end: Direction,
+    terrain: Terrain | null,
+  ): Promise<void> {
+    const request: AskSecretQuestionRequest = { targetSeat, start, end, terrain };
     return this.send('AskSecretQuestion', request);
   }
 
   accuse(first: string, second: string): Promise<void> {
     const request: AccuseRequest = { first, second };
     return this.send('Accuse', request);
+  }
+
+  /**
+   * Ends a solo game and asks to be shown the treasure.
+   *
+   * Takes no argument on purpose. Who is giving up is the connection's seat, the same as every
+   * other command here, and whether they are allowed to is the server's alone: a table of one, and
+   * a wrong accusation already behind them.
+   */
+  giveUp(): Promise<void> {
+    return this.send('GiveUp');
   }
 
   /**
@@ -218,6 +264,19 @@ export class GameConnection {
 
     await this.connection.invoke('Rejoin', this.roomCode, this.playerToken);
     this.store.setStatus('connected');
+  }
+
+  /**
+   * Runs one attach or detach, after every one already asked for.
+   *
+   * The chain itself is kept as a promise that cannot reject, so a refused connection -- ordinary
+   * here, since one of the two swap modes stops the api container on purpose -- does not poison
+   * every later call. The rejection still reaches the caller who asked for that one.
+   */
+  private enqueue(step: () => Promise<void>): Promise<void> {
+    const done = this.queue.then(step);
+    this.queue = done.catch(() => undefined);
+    return done;
   }
 
   /**

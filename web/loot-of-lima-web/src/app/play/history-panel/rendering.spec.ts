@@ -95,6 +95,7 @@ describe('HistoryPanel rendering', () => {
       targetSeat: 1,
       start: 'E',
       end: 'W',
+      terrain: null,
       answer: 1,
     };
 
@@ -104,6 +105,29 @@ describe('HistoryPanel rendering', () => {
     // Assert
     expect(text).toContain('Secretly, Ada asked Grace');
     expect(text).toContain('from E up to W');
+  });
+
+  it('Should_name_the_terrain_when_the_secret_question_was_restricted_to_one', () => {
+    // Arrange
+    // A Pistol question may name a terrain like any other, so a viewer entitled to the question is
+    // entitled to the whole of it. Reading it back as "locations" would misquote what was asked.
+    const entry: HistoryEntryView = {
+      type: 'secretQuestion',
+      sequence: 1,
+      turnNumber: 4,
+      askerSeat: 0,
+      targetSeat: 1,
+      start: 'E',
+      end: 'W',
+      terrain: 'Mountain',
+      answer: 1,
+    };
+
+    // Act
+    const text = render([entry]);
+
+    // Assert
+    expect(text).toContain('mountain locations from E up to W');
   });
 
   it('Should_show_only_that_it_happened_when_the_viewer_was_not_party_to_the_secret', () => {
@@ -141,9 +165,10 @@ describe('HistoryPanel rendering', () => {
     const text = render([entry]);
 
     // Assert
+    // Named as the box names them: the entry carries `B3`, and the log reads `3B`.
     expect(text).toContain('Ada named');
-    expect(text).toContain('B3');
-    expect(text).toContain('B5');
+    expect(text).toContain('3B');
+    expect(text).toContain('5B');
     expect(text).toContain('the treasure.');
   });
 

@@ -29,7 +29,7 @@ test.describe('A scenario game', () => {
     // full. Announcing resolves itself here: a scenario deal prescribes every answer, so nobody is
     // asked to choose and play starts as soon as the tokens are confirmed.
     await expect(ada.page.getByText('InProgress')).toBeVisible();
-    expect(await ownHand(ada.page)).toEqual(['B1', 'B2', 'F6', 'M3']);
+    expect(await ownHand(ada.page)).toEqual(['1B', '2B', '6F', '3M']);
 
     // F M F F M, exactly as printed. Seat 2 announcing mountain is the part worth having a browser
     // for: that hand holds no beach and no mountain, so the two tie at zero and the choice was the

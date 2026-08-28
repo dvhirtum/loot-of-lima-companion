@@ -128,6 +128,16 @@ a {
   font-size: 0.85rem;
 }
 
+/*
+ * A line that is not merely quieter than the text around it but worse news: an accusation that
+ * cannot be taken back, a fetch that failed. Here rather than in each component because three of
+ * them want it, and three copies of one colour is how two of them end up a shade apart.
+ */
+.warn {
+  margin: 0;
+  color: var(--coral);
+}
+
 /* --- controls ----------------------------------------------------------- */
 
 button,

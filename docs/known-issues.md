@@ -87,35 +87,6 @@ anticipates, since the same question decides what gets written down.
 
 Raised by the review of [PR #4](https://github.com/dvhirtum/loot-of-lima-companion/pull/4).
 
-## 6. A spectator is offered a seat they cannot take
-
-`web/loot-of-lima-web/src/app/play/seat-strip.ts`.
-
-The "Sit here" button is shown for any seat still held by a bot, with no check on whether this
-browser holds a player token:
-
-```html
-@if (seat.isViewer) { ... } @else if (seat.kind === 'Bot') {
-  <button ... (click)="claim.emit(seat.index)">Sit here</button>
-}
-```
-
-A spectator reaches the game page through the host screen's own "Watch the table" link, so this is
-a normal route rather than a contrived one. Clicking it sends `ClaimSeat`, which
-`GameHub.WithPlayerAsync` refuses with `NotAPlayer` — "Join the game before taking a seat." — a
-step the page never offered, because joining happens at `/join/ABCD` behind the QR code.
-
-`LobbyPanel` gets the same case right on the same screen: it disables "Deal and begin" for a viewer
-with no seat and says why. So the two panels disagree about what a spectator may be shown, which is
-the part that will rot.
-
-**Why it can wait:** the refusal is correct and addressed only to the clicker — no state changes and
-nothing leaks. It is a dead end with a confusing message, not a broken game.
-
-**Fix:** gate the button on `store.isSpectator()` as well as `seat.kind`, and put a link to
-`/join/<code>` in its place. Belongs with M5's seat and passing UI, where this component is being
-worked on anyway; an e2e spec for it costs a file by then, since M4.5 will have built the harness.
-
 ## 7. A rejected `Rejoin` after a reconnect leaves the client attached to nothing
 
 `web/loot-of-lima-web/src/app/core/game-connection.ts`, `onreconnected`.
@@ -147,3 +118,38 @@ observed in play.
 socket and no attachment can recover, so surfacing "disconnected" would be a lie. M6 lists
 "Reconnect UX", which is where this belongs, but note that this is a correctness bug underneath it
 rather than presentation: styling the banner would ship straight past it.
+
+Raised while renaming the locations for the physical game.
+
+## 8. The two halves spell a location differently
+
+The physical game stamps the number first, so the token in a player's hand reads `1B`. The client
+now shows that everywhere a player looks, but the flip is presentation only —
+`web/.../core/locations.ts`, `locationLabel` — and everything behind it still says `B1`: the engine,
+`board-layout.json`, all 239 scenario files, the wire, `data-location`, the server's logs and the
+harness's output.
+
+So the two spellings coexist and the seam is where they meet:
+
+- `GameHub.TryReadLocation` refuses an unreadable location with `'1B' is not one of the 24 island
+  locations.` — naming the id format at a player who typed exactly what the box says. Nothing in
+  the app can currently produce that message (the client only ever sends ids it was given), but it
+  is the first thing a hand-written client or a future free-text field would hit.
+- `tools/LootOfLima.Harness` prints `B1`, so its per-seat output no longer reads like the screens it
+  is demonstrating.
+- Anyone reading a server log next to a phone is translating between the two.
+
+**Why it can wait:** nothing is wrong at runtime, and the boundary is drawn where it is cheap to
+hold — one function, called from the four presentation surfaces, with the rule "anything that
+addresses an element takes the id, anything that reads the screen comes back a label" written down
+in `CLAUDE.md` and enforced by the e2e suite. The client is where players are, so the client is
+where the rename earns most of what it is worth.
+
+**Fix, when it is worth doing:** rename in the engine, so `LocationId.ToString()` and its parse are
+the box's spelling and everything downstream inherits it — then delete `locationLabel`. That is a
+bigger change than it sounds and is the reason it is not this change: the 239 committed scenario
+files and `board-layout.json` are keyed by the id, the oracle checks 244,736 answers against them,
+and `LocationId` round-trips through `ToString`/parse on the wire. Doing it properly means the seed
+data and the importer move together with the engine, in one commit, with the oracle as the proof.
+Accepting both spellings on the way in would leave the app permanently ambiguous about which it
+means, so it should be a rename rather than a widening.

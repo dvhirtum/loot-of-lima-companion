@@ -42,6 +42,10 @@ export async function openTable(page: Page, playerCount: 3 | 4 | 5): Promise<str
  * `localStorage` and two pages of one context share it -- which would make the second player the
  * first one again, and would quietly make every two-player assertion vacuous.
  *
+ * The whole journey is now one page. The room code opens the table, everybody arrives watching it,
+ * and the name is asked for by the seat card at the moment a seat is taken -- so this walks the
+ * route a scanned QR code actually walks, which is the reason the helper exists at all.
+ *
  * Seats fill in order: the first free "Sit here" is always the lowest-numbered bot seat, so the
  * n-th player to call this sits in seat n - 1.
  */
@@ -49,15 +53,24 @@ export async function sitDown(browser: Browser, roomCode: string, name: string, 
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  await page.goto(`/join/${roomCode}`);
-  await page.getByLabel('Your name').fill(name);
-  await page.getByRole('button', { name: 'Join the table' }).click();
-
-  await page.waitForURL(new RegExp(`/play/${roomCode}$`));
+  await page.goto(`/play/${roomCode}`);
   await page.getByRole('button', { name: 'Sit here' }).first().click();
+  await page.getByLabel('Your name').fill(name);
+  await page.getByRole('button', { name: 'Sit down', exact: true }).click();
 
   // The seat is not taken until the server says so, and every following step assumes it is.
-  await expect(seatCard(page, seatIndex).getByText('you')).toBeVisible();
+  //
+  // `exact`, and it is load-bearing rather than tidy. `getByText` matches case-insensitive
+  // substrings, and the name field this card now opens is captioned "Your name" -- which contains
+  // "you". Loosely matched, this went green the instant the field appeared, so `sitDown` returned
+  // before the claim had reached the server and the caller dealt at a table the player was not yet
+  // sitting at. It surfaced three files away, as a wait for a "Ready" button on a page that had
+  // never been given a seat.
+  await expect(seatCard(page, seatIndex).getByText('you', { exact: true })).toBeVisible();
+
+  // And the name in the seat's own heading, which only the server can have put there. The tag above
+  // says this card is the viewer's; this says the table has been told who the viewer is.
+  await expect(seatCard(page, seatIndex).locator('strong')).toHaveText(name);
 
   return { name, page, context, seatIndex };
 }
@@ -78,14 +91,21 @@ export function field(page: Page, caption: string): ReturnType<Page['locator']> 
     .locator('select');
 }
 
-/** Starts the game on the named scenario, or on a shuffled deal when given null. */
+/**
+ * Starts the game on the named scenario, or on a shuffled deal when given null.
+ *
+ * The scenario is chosen as a book and a number, which is what is printed on the booklet somebody
+ * is holding. A shuffled deal is the default, so passing null touches nothing.
+ */
 export async function deal(page: Page, scenario: { book: number; number: number } | null): Promise<void> {
   if (scenario !== null) {
-    await field(page, 'Deal').selectOption({ label: `Book ${scenario.book}, scenario ${scenario.number}` });
+    await page.getByRole('button', { name: 'Play a printed scenario' }).click();
+    await field(page, 'Book').selectOption(String(scenario.book));
+    await field(page, 'Scenario').selectOption(String(scenario.number));
   }
 
   await page.getByRole('button', { name: 'Deal and begin' }).click();
-  await expect(page.getByText('Take your tokens')).toBeVisible();
+  await expect(page.getByRole('heading', { name: 'Set up behind your screen' })).toBeVisible();
 }
 
 /**
@@ -93,10 +113,14 @@ export async function deal(page: Page, scenario: { book: number; number: number 
  *
  * Bots need no confirming -- the engine only waits on human seats -- so this is exactly the list of
  * people at the table.
+ *
+ * Named for the rulebook step rather than for what a player physically does, which is now to take
+ * any handful of counters: the tokens on the boards are props, and the hand this confirms lives
+ * only in the app.
  */
 export async function takeTokens(players: readonly Player[]): Promise<void> {
   for (const player of players) {
-    await player.page.getByRole('button', { name: 'I have them' }).click();
+    await player.page.getByRole('button', { name: 'Ready' }).click();
   }
 }
 
@@ -106,7 +130,13 @@ export function seatCard(page: Page, seatIndex: number): ReturnType<Page['locato
 }
 
 /**
- * The tokens the viewer holds, as the strings printed on them.
+ * The tokens the viewer holds, written the way the app writes them: `1B`, not `B1`.
+ *
+ * Two vocabularies meet in this file, and which one a helper speaks follows from what it does.
+ * Anything that *reads the screen* -- this, `faceUpTokens`, `visibleTokens` -- comes back in the
+ * box's spelling, because that is what is on the screen. Anything that *addresses an element* --
+ * `mapToken` through `data-location`, `accuse` through a select value -- takes the server's id,
+ * because that is what the DOM is keyed by and what goes back on the wire.
  *
  * Anchored on the heading rather than taken as the first `.row` in the panel. Hand, face-up and
  * treasure are three rows in one section, and the first of them is only the hand when there *is* a
@@ -117,10 +147,11 @@ export function seatCard(page: Page, seatIndex: number): ReturnType<Page['locato
  * result to prove something is absent elsewhere passes for free if the read came back early.
  *
  * Matched exactly, and that is not fussiness. `getByRole`'s `name` and CSS `:has-text` are both
- * case-insensitive *substring* matches, so "Your tokens" also finds the Dealing panel's "Take your
- * tokens" -- and both panels are on screen together in that phase, so the wait resolved to two
- * elements and failed on strict mode. It only surfaced under Docker, where the phase changes fast
- * enough to still be showing when the read happens.
+ * case-insensitive *substring* matches. This once resolved to two elements and failed on strict
+ * mode, because the Dealing panel was then headed "Take your tokens" and both panels are on screen
+ * together in that phase. That heading has since been renamed, so the collision is gone -- but the
+ * exact match stays, because the next overlap will not announce itself either. It only surfaced
+ * under Docker, where the phase changes fast enough to still be showing when the read happens.
  */
 export async function ownHand(page: Page): Promise<string[]> {
   await expect(page.getByRole('heading', { name: 'Your tokens', exact: true })).toBeVisible();
@@ -129,7 +160,7 @@ export async function ownHand(page: Page): Promise<string[]> {
 
 /**
  * The locations dealt face up: the remainder after 22 are dealt evenly, so one at three players and
- * two at four or five.
+ * two at four or five. Read off the screen, so spelled `1B` like everything else a player reads.
  */
 export async function faceUpTokens(page: Page): Promise<string[]> {
   await expect(page.getByRole('heading', { name: 'Face up', exact: true })).toBeVisible();
@@ -200,9 +231,149 @@ export async function statedHandSize(page: Page, seatIndex: number): Promise<num
   return Number(/(\d+) tokens/.exec(facts)?.[1] ?? Number.NaN);
 }
 
-/** Every token string rendered anywhere on this page, wherever it came from. */
+/**
+ * Every token *chip* rendered anywhere on this page, wherever it came from.
+ *
+ * The island map is deliberately not included, and that is not an oversight to fix. The map draws
+ * all 24 locations labelled, exactly as the printed board is labelled, and it draws them the same
+ * way for everyone at the table: where a location is on the island and what terrain it is are both
+ * geography, and public. Extending this to the map would make it match all 24 on every page and
+ * quietly stop testing anything. What the map says is checked by `mapTokens` instead, which asks
+ * whether two players see the same island rather than what one of them sees.
+ *
+ * Comes back in the box's spelling. Both sides of every leak assertion are read off a screen, so
+ * they compare like with like; a spec that mixed a screen read against a hard-coded `B1` would
+ * pass by never matching anything, which is the one way a leak test can fail silently.
+ */
 export async function visibleTokens(page: Page): Promise<string[]> {
   return page.locator('.token').allInnerTexts();
+}
+
+/**
+ * The treasure, once somebody has earned the right to see it. Spelled `3B`, like everything read
+ * off a screen.
+ *
+ * Anchored on its own heading and matched exactly: hand, face-up and treasure are three rows in
+ * one section, and `getByRole`'s name is a case-insensitive substring match.
+ */
+export async function treasureTokens(page: Page): Promise<string[]> {
+  await expect(page.getByRole('heading', { name: 'The treasure', exact: true })).toBeVisible();
+  return page.locator('h3:text-is("The treasure") + .row .token').allInnerTexts();
+}
+
+/**
+ * One location on the island map.
+ *
+ * Takes the server's id, `B1`. Addressed by `data-location`, which the map writes for exactly this
+ * reason: the label is also drawn on the token, and a text match would find the log, the hand panel
+ * and the seat strip as well.
+ */
+export function mapToken(page: Page, location: string): ReturnType<Page['locator']> {
+  return page.locator(`.map [data-location="${location}"]`);
+}
+
+/**
+ * Every token on the island, as one string apiece: id, the terrain class it is coloured by, and
+ * everything it says — the hover title and the printed label.
+ *
+ * Written to be compared between two players rather than read against expected values, because the
+ * claim worth making about this map is that there is only one of it. The map no longer knows who
+ * holds anything: `IslandMap` injects the board and the ephemeral UI and not `GameStore`, so two
+ * players' islands must come back byte for byte identical, and any leak reintroduced here would
+ * have to make them differ.
+ *
+ * The `<g>`'s own classes are deliberately left out. `mark--lit` and `mark--picked` are the range
+ * this viewer is typing and the locations they have tapped, which are theirs alone and legitimately
+ * differ; the terrain class on the disc, the id and the text are the map itself.
+ *
+ * The map is waited for first, because `evaluateAll` is a one-shot with no auto-waiting and two
+ * empty islands compare equal — a leak spec that raced the first frame would pass for free.
+ */
+export async function mapTokens(page: Page): Promise<string[]> {
+  await expect(page.locator('.map .mark').first()).toBeVisible();
+
+  return page.locator('.map .mark').evaluateAll((marks) =>
+    marks.map((mark) => {
+      const id = mark.getAttribute('data-location') ?? '';
+      const terrain = mark.querySelector('.mark__disc')?.getAttribute('class') ?? '';
+      const said = (mark.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+      return `${id} ${terrain} ${said}`;
+    }),
+  );
+}
+
+/** The locations lit by the range being built, which is the tokens inside the highlighted bands. */
+export async function litOnMap(page: Page): Promise<string[]> {
+  await expect(page.locator('.map .mark').first()).toBeVisible();
+
+  return page
+    .locator('.map .mark--lit')
+    .evaluateAll((marks) => marks.map((mark) => mark.getAttribute('data-location') ?? ''));
+}
+
+/** What a screen reader is told the island is, which is the one place a map can leak silently. */
+export async function mapCaption(page: Page): Promise<string | null> {
+  await expect(page.locator('.map')).toBeVisible();
+  return page.locator('.map').getAttribute('aria-label');
+}
+
+/**
+ * The lit band segments of the question being built: one per terrain the question covers, so one
+ * for a terrain question and three for a question about anywhere.
+ */
+export function arcPaths(page: Page): ReturnType<Page['locator']> {
+  return page.locator('.map__arc');
+}
+
+/**
+ * Spends one ability token.
+ *
+ * Named exactly, because a spent token keeps its button and renames itself "Barrel, spent" -- so an
+ * exact match is also the assertion that it was still there to spend.
+ */
+export async function spendAbility(page: Page, ability: 'Barrel' | 'Shovel' | 'Pistol'): Promise<void> {
+  await page.getByRole('button', { name: ability, exact: true }).click();
+}
+
+/** Asks the secret question the Pistol unlocked, and waits for it to reach the asker's own log. */
+export async function askSecretly(
+  page: Page,
+  question: { of: string; from: string; upTo: string; terrain?: 'Beach' | 'Forest' | 'Mountain' },
+): Promise<void> {
+  await field(page, 'Ask').selectOption({ label: question.of });
+  await field(page, 'From').selectOption(question.from);
+  await field(page, 'Up to').selectOption(question.upTo);
+  await field(page, 'Terrain').selectOption(question.terrain ?? '');
+
+  const before = await page.locator('.log .entry').count();
+
+  await page.getByRole('button', { name: 'Ask secretly' }).click();
+  await expect(page.locator('.log .entry')).toHaveCount(before + 1);
+}
+
+/**
+ * Names two locations as the treasure.
+ *
+ * Both clicks are the same locator, and that is not a slip: the button that opens the panel is
+ * replaced by the one that confirms it, so only one "Accuse" is ever on the page at a time.
+ */
+export async function accuse(page: Page, first: string, second: string): Promise<void> {
+  await page.getByRole('button', { name: 'Accuse', exact: true }).click();
+  await field(page, 'First').selectOption(first);
+  await field(page, 'Second').selectOption(second);
+  await page.getByRole('button', { name: 'Accuse', exact: true }).click();
+}
+
+/**
+ * The button that ends a solo game and shows the answer.
+ *
+ * Returned rather than clicked, because half of what is worth asserting about it is that it is not
+ * there. Matched exactly: "Give up and reveal the treasure" and the panel's own prose around it
+ * share most of their words, and `getByRole`'s name is a case-insensitive substring match.
+ */
+export function giveUpButton(page: Page): ReturnType<Page['getByRole']> {
+  return page.getByRole('button', { name: 'Give up and reveal the treasure', exact: true });
 }
 
 /** Closes the contexts a spec opened. */

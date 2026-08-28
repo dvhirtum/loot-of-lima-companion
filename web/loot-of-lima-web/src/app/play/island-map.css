@@ -1,0 +1,206 @@
+/*
+ * The island.
+ *
+ * Everything here dresses shapes the component has already placed; nothing in this file decides
+ * where anything goes. There is exactly one thing being said in colour -- the terrain -- and it is
+ * said twice over, by the band a token sits on and by the token itself. The band is the terrain
+ * washed into the sea colour and the token is the terrain at full strength, so a disc reads as a
+ * token lying on its own ground rather than disappearing into it.
+ *
+ * Nothing here dresses a token by who holds it, because nothing in this component knows.
+ */
+
+.map__head {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem 1rem;
+  align-items: baseline;
+  justify-content: space-between;
+}
+
+.map__head h3 {
+  margin: 0;
+}
+
+.map__hint {
+  margin: 0;
+  color: var(--brass-bright);
+}
+
+/*
+ * Bounded by the viewport's *height* as well as its width, which is not the usual way round.
+ *
+ * The island is square, so its width is also its height, and a map given the full width of a short
+ * window becomes a screenful on its own. The `vh` term only bites where the viewport is wider than
+ * it is tall -- a laptop window dragged short, a phone turned on its side -- because everywhere else
+ * the width runs out first. On a phone held upright it changes nothing, which is why no spec guards
+ * it: there is no phone viewport on which removing this line moves anything a player could see.
+ */
+.map {
+  display: block;
+  width: min(100%, 30rem, 52vh);
+  margin: 0 auto;
+  height: auto;
+  touch-action: manipulation;
+}
+
+.map__sea {
+  fill: color-mix(in srgb, var(--sea-deep) 70%, transparent);
+  stroke: var(--line);
+  stroke-width: 0.6;
+}
+
+/*
+ * A band is a stroked circle rather than a filled annulus: the stroke is centred on the path, so
+ * one radius and one width give an exact ring and there is no second path to keep in step with the
+ * tokens. The three widths meet, so the island is continuous terrain rather than three hoops.
+ */
+.map__band {
+  fill: none;
+}
+
+.map__band--beach {
+  stroke: color-mix(in srgb, var(--beach) 30%, var(--sea-deep));
+}
+
+.map__band--forest {
+  stroke: color-mix(in srgb, var(--forest) 34%, var(--sea-deep));
+}
+
+.map__band--mountain {
+  stroke: color-mix(in srgb, var(--mountain) 30%, var(--sea-deep));
+}
+
+.map__divider {
+  stroke: color-mix(in srgb, var(--parchment) 26%, transparent);
+  stroke-width: 0.7;
+  stroke-dasharray: 3 2.5;
+}
+
+/*
+ * The lit segments, over the bands and under the tokens. Which bands are lit is the terrain the
+ * question names; how far round they run is the arc it names. Neither says what is in it.
+ */
+.map__arc {
+  fill: color-mix(in srgb, var(--brass) 32%, transparent);
+  stroke: var(--brass);
+  stroke-width: 0.9;
+}
+
+/* A Pistol question, which only its two participants will ever see the answer to. */
+.map--secret .map__arc {
+  fill: color-mix(in srgb, var(--coral) 30%, transparent);
+  stroke: var(--coral);
+}
+
+.map__compass {
+  fill: var(--parchment-dim);
+  font-family: var(--font-body);
+  font-size: 8px;
+  font-weight: 600;
+  letter-spacing: 0.06em;
+}
+
+/* --- tokens -------------------------------------------------------------- */
+
+/*
+ * Terrain colour, always. A token is a place on the island, and where a place is and what it is
+ * made of are both printed on the board in front of the player.
+ */
+.mark__disc {
+  stroke: color-mix(in srgb, var(--ink) 45%, transparent);
+  stroke-width: 0.8;
+}
+
+.mark__disc--beach {
+  fill: var(--beach);
+}
+
+.mark__disc--forest {
+  fill: var(--forest);
+}
+
+.mark__disc--mountain {
+  fill: var(--mountain);
+}
+
+.mark__label {
+  fill: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 6.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* The one terrain dark enough to need light lettering. */
+.mark__disc--forest + .mark__label {
+  fill: var(--parchment);
+}
+
+/*
+ * Inside the range being built. A ring the colour the arc is drawn in, so the tokens the question
+ * covers and the slice it covers read as one thing rather than as two overlapping claims.
+ */
+.mark--lit .mark__disc {
+  stroke: var(--brass-bright);
+  stroke-width: 1.8;
+}
+
+.map--secret .mark--lit .mark__disc {
+  stroke: var(--coral);
+}
+
+.map--picking .mark {
+  cursor: pointer;
+}
+
+.map--picking .mark:hover .mark__disc,
+.map--picking .mark:focus-visible .mark__disc {
+  stroke: var(--brass-bright);
+  stroke-width: 2;
+}
+
+.map--picking .mark:focus-visible {
+  outline: none;
+}
+
+.mark--picked .mark__disc {
+  stroke: var(--coral);
+  stroke-width: 2.6;
+}
+
+/* --- legend -------------------------------------------------------------- */
+
+.legend {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem 1rem;
+}
+
+.legend li {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend__swatch {
+  width: 0.85rem;
+  height: 0.85rem;
+  border-radius: 50%;
+  border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
+}
+
+.legend__swatch--beach {
+  background: var(--beach);
+}
+
+.legend__swatch--forest {
+  background: var(--forest);
+}
+
+.legend__swatch--mountain {
+  background: var(--mountain);
+}

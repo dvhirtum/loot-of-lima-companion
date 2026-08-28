@@ -60,6 +60,24 @@ internal static class HubGame
     }
 
     /// <summary>
+    /// Two locations that are certainly not the treasure, as an <see cref="AccuseRequest"/>.
+    /// </summary>
+    /// <remarks>
+    /// Reads the deal, so it is scaffolding rather than anything a client could do — which is the
+    /// point. A test that guessed a pair and hoped would occasionally guess right and then assert
+    /// the wrong half of the rule.
+    /// </remarks>
+    public static AccuseRequest WrongPair(GameState state)
+    {
+        LocationId[] wrong = [.. Enumerable.Range(0, LocationId.TotalCount)
+            .Select(LocationId.FromIndex)
+            .Where(location => !state.Deal!.Treasure.Contains(location))
+            .Take(2)];
+
+        return new AccuseRequest(wrong[0].ToString(), wrong[1].ToString());
+    }
+
+    /// <summary>
     /// Walks the setup announcement, each seated player naming a terrain it truthfully holds fewest
     /// of. Bots and prescribed seats settle themselves, so this only ever drives human seats.
     /// </summary>

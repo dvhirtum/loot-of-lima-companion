@@ -2,6 +2,11 @@
   <header class="head">
     <div>
       <h1>Loot of Lima</h1>
+      <!--
+        The way out lives on this line because the line is already here. A nav row of its own would
+        cost a phone the top of its screen for something pressed once a session, and the island has
+        just been given that space on purpose.
+      -->
       <p class="muted small">
         Table {{ roomCode() }}
         @if (store.phase(); as phase) {
@@ -10,6 +15,7 @@
             · turn {{ store.turnNumber() }}
           }
         }
+        · <a routerLink="/">Leave table</a>
       </p>
     </div>
 
@@ -26,20 +32,82 @@
     <p class="muted">Waiting for the table…</p>
   } @else {
     @if (store.phase() === 'Finished') {
-      <section class="banner banner--warn">
-        @if (winnerName(); as winner) {
-          <strong>{{ winner }} wins.</strong>
-        } @else {
-          <strong>Nobody wins.</strong>
-        }
-        <span class="muted small"> {{ store.view()!.endReason }}</span>
+      <section class="banner banner--warn stack">
+        <p class="ending">
+          <!--
+            "You" only where there is a you. Conceded is reachable at a table of one, and this page
+            is watched by more than that one: the host laptop sends itself here the moment the deal
+            happens, so the screen most likely to be showing this banner belongs to nobody. It is
+            told who gave up instead, which it can be — who is human is public from the lobby on.
+          -->
+          @if (winnerName(); as winner) {
+            <strong>{{ winner }} wins.</strong>
+          } @else if (store.view()!.endReason === 'Conceded') {
+            @if (store.isSpectator()) {
+              <strong>{{ concededBy() }} gave up. Here is the treasure.</strong>
+            } @else {
+              <strong>You gave up. Here is the treasure.</strong>
+            }
+          } @else {
+            <strong>Nobody wins.</strong>
+          }
+          <span class="muted small"> {{ store.view()!.endReason }}</span>
+        </p>
+
+        <!--
+          The one place a fresh game is worth offering unprompted. Two links rather than one because
+          they are different wants: another table right now, or back to the front to find one
+          somebody else has opened.
+        -->
+        <div class="row">
+          <a class="button button--primary" routerLink="/new">New game</a>
+          <a class="button" routerLink="/">Back to the start</a>
+        </div>
+      </section>
+    } @else if (eliminated()) {
+      <!--
+        Worth its own banner. Being eliminated changes almost nothing on screen — the seat is still
+        there, the hand is still there — and the one thing it does change is that you still have to
+        answer, which nobody would guess from a greyed-out button.
+      -->
+      <section class="banner banner--error">
+        <strong>You are out.</strong>
+        <span class="small"> Your accusation was wrong and revealed nothing. You still answer every question.</span>
       </section>
     }
 
-    <app-seat-strip (claim)="claim($event)" (release)="release()" />
+    <app-seat-strip [needsName]="needsName()" (claim)="claim($event)" (release)="release()" />
 
-    <div class="columns">
-      <div class="stack">
+    <!--
+      One list of panels, in the order a player uses them, at every width. There are no column
+      wrappers: the panels are the grid's own children, so what a laptop shows as two columns and a
+      phone shows as one stack is the same sequence placed into a different number of columns.
+      Reading order, tab order and visual order therefore cannot come apart.
+
+      The sequence is the loop: look at the island, ask against it, read the answer. Then the two
+      things a player can still act on, and last the one panel they only read.
+    -->
+    <div class="board">
+      <app-island-map />
+
+      <!--
+        Whatever this phase wants from this player, and only while there is a player to want it
+        from. This whole slot belongs to a seat: every command behind it — `StartGame`,
+        `ConfirmTokensTaken`, `ConfirmPassDone`, `AnnounceFewestTerrain`, `AskQuestion` — reaches
+        the hub through `WithSeatAsync` and is refused outright from a viewer without one. So a
+        spectator gets none of it, and one condition says so for all five phases rather than four
+        panels each remembering separately.
+
+        Shown to a spectator it did not merely clutter, it lied: the dealing panel reads its count
+        off `mySeat()`, so it asked somebody with no seat to take *any 0 tokens*, and the buttons
+        beside it were an instruction to do a thing the engine would refuse. A spectator is still
+        told what they are, by the tokens panel, which says so instead of showing a hand — and in
+        the lobby the seat strip still offers them the way in, because there the way in is real.
+
+        Exactly one case is ever up, and `isMyTurn` is already false for a seat that does not
+        exist, so the turn note needs no spectator check of its own.
+      -->
+      @if (!store.isSpectator()) {
         @switch (store.phase()) {
           @case ('Lobby') {
             <app-lobby-panel (start)="start($event)" />
@@ -56,20 +124,37 @@
           @case ('InProgress') {
             @if (store.isMyTurn()) {
               <app-question-builder (ask)="ask($event)" />
-            } @else if (store.isSpectator()) {
-              <p class="card muted">Watching. Take a seat to play.</p>
             } @else {
-              <p class="card muted">
+              <p class="card muted turn-note">
                 Waiting for {{ turnHolder() }}. Your answers are given for you, from the hand the app dealt you.
               </p>
             }
           }
         }
-
-        <app-my-hand-panel />
-      </div>
+      }
 
       <app-history-panel />
+
+      <!--
+        Split from the question builder above rather than kept beside it in one block, because the
+        answer to a question is what the question is *for* and the log has to come between them. The
+        condition is repeated instead: two `@if`s cost less than a template whose DOM order and
+        painted order disagree.
+
+        The accusation is here off-turn as well as on — accusing is legal at any moment while the
+        game is running.
+      -->
+      @if (store.phase() === 'InProgress' && !store.isSpectator()) {
+        <app-ability-bar (spend)="spendAbility($event)" />
+        <app-accusation-panel (accuse)="accuse($event)" (giveUp)="giveUp()" />
+      }
+
+      <!--
+        Last, because it is the only panel a player never acts on, and almost all of it is already
+        on screen above: the seat strip prints this seat's own `knownHand` at the top of the page.
+        What is only here is the face-up row, and at the very end the treasure.
+      -->
+      <app-my-hand-panel />
     </div>
   }
 </main>

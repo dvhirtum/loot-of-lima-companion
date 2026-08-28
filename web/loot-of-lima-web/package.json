@@ -7,7 +7,7 @@
     "build": "ng build",
     "watch": "ng build --watch --configuration development",
     "test": "ng test",
-    "start:lan": "ng serve --host 0.0.0.0 --allowed-hosts all",
+    "start:lan": "ng serve --host 0.0.0.0 --allowed-hosts",
     "format": "prettier --write \"src/**/*.{ts,html,css}\"",
     "format:check": "prettier --check \"src/**/*.{ts,html,css}\"",
     "e2e": "npm run e2e:prepare && playwright test",

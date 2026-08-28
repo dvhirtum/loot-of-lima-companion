@@ -86,6 +86,37 @@ public class LeakTests
     }
 
     [Fact]
+    public async Task Should_send_the_treasure_to_nobody_when_the_only_player_accuses_wrongly()
+    {
+        // Arrange
+        // This is the guard the whole solo change hangs on. A wrong accusation used to eliminate
+        // the only player, which finished the game, and Finished is the one phase that projects the
+        // treasure -- so the punishment for guessing wrong was being handed the answer. Nothing
+        // about that would show up as a rule failing; it would show up here, as two locations
+        // arriving in a frame.
+        await using HubHarness harness = new();
+        await harness.SeedLobbyAsync();
+        IReadOnlyList<TestClient> players = await HubGame.PlayToInProgressAsync(harness, humans: 1);
+        TestClient watcher = await harness.JoinAsync();
+
+        GameState state = await harness.CurrentAsync();
+        string[] treasure = [.. state.Deal!.Treasure.Select(location => location.ToString())];
+
+        // Act
+        await harness.ActAsync(players[0], "Accuse", HubGame.WrongPair(state));
+
+        // Assert
+        Assert.Equal(GamePhase.InProgress, (await harness.CurrentAsync()).Phase);
+        foreach (TestClient client in new[] { players[0], watcher })
+        {
+            foreach (string secret in treasure)
+            {
+                Assert.DoesNotContain(secret, LocationsIn(client));
+            }
+        }
+    }
+
+    [Fact]
     public async Task Should_give_a_bystander_no_field_for_the_secret_when_a_pistol_question_is_asked()
     {
         // Arrange
@@ -99,7 +130,8 @@ public class LeakTests
 
         // Act
         await harness.ActAsync(players[0], "SpendAbility", "Pistol");
-        await harness.ActAsync(players[0], "AskSecretQuestion", new AskSecretQuestionRequest(TargetSeat: 1, "N", "SE"));
+        await harness.ActAsync(
+            players[0], "AskSecretQuestion", new AskSecretQuestionRequest(TargetSeat: 1, "N", "SE", "Beach"));
 
         // Assert
         foreach (TestClient participant in new[] { players[0], players[1] })
@@ -108,6 +140,7 @@ public class LeakTests
             Assert.Equal("secretQuestion", entry.GetProperty("type").GetString());
             Assert.True(entry.TryGetProperty("answer", out _));
             Assert.True(entry.TryGetProperty("start", out _));
+            Assert.Equal("Beach", entry.GetProperty("terrain").GetString());
         }
 
         JsonElement redacted = SecretQuestionEntryIn(watcher);
@@ -115,6 +148,7 @@ public class LeakTests
         Assert.False(redacted.TryGetProperty("answer", out _));
         Assert.False(redacted.TryGetProperty("start", out _));
         Assert.False(redacted.TryGetProperty("end", out _));
+        Assert.False(redacted.TryGetProperty("terrain", out _));
     }
 
     [Fact]

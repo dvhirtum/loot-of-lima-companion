@@ -31,7 +31,9 @@ public class GameEndpointsTests
             TestContext.Current.CancellationToken))!;
 
         Assert.Equal(4, created.RoomCode.Length);
-        Assert.EndsWith($"/join/{created.RoomCode}", created.JoinUrl, StringComparison.Ordinal);
+        // The table, not a form on the way to it. A phone that scans this is a spectator until
+        // somebody taps a seat, so the same code works before the deal and after it.
+        Assert.EndsWith($"/play/{created.RoomCode}", created.TableUrl, StringComparison.Ordinal);
     }
 
     [Theory]
@@ -196,7 +198,7 @@ public class GameEndpointsTests
     }
 
     [Fact]
-    public async Task Should_draw_a_png_of_the_join_url_when_the_qr_code_is_fetched()
+    public async Task Should_draw_a_png_of_the_table_url_when_the_qr_code_is_fetched()
     {
         // Arrange
         await using WebApplicationFactory<Program> app = new();

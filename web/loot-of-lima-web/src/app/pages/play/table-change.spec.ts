@@ -1,4 +1,5 @@
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { beforeEach, describe, expect, it } from 'vitest';
 import { GameConnection } from '../../core/game-connection';
 import { GameStore } from '../../core/game-store';
@@ -31,7 +32,9 @@ describe('Play table change', () => {
   beforeEach(() => {
     TestBed.configureTestingModule({
       imports: [Play],
-      providers: [{ provide: GameConnection, useClass: StubConnection }],
+      // The header carries a link home, so the page needs a router even though nothing here
+      // navigates. An empty route table is enough: `routerLink` only has to resolve.
+      providers: [provideRouter([]), { provide: GameConnection, useClass: StubConnection }],
     });
     store = TestBed.inject(GameStore);
   });

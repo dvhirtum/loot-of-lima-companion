@@ -17,10 +17,11 @@ public enum GameErrorCode
     CannotTargetYourself,
     AbilityAlreadySpent,
     PistolNotSpentThisTurn,
-    TerrainFilterNotAllowed,
     NotAFewestTerrain,
     InvalidAccusation,
     AlreadyConfirmed,
+    NotASoloGame,
+    NothingToGiveUpOn,
 }
 
 /// <summary>A rejected command. Commands never throw for rule violations; they return one of these.</summary>

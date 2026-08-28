@@ -194,9 +194,8 @@ internal sealed class GameHub(
     }
 
     /// <summary>
-    /// A Pistol question. The request has no terrain property at all, so the rule that a secret
-    /// question is never terrain-restricted is enforced by the shape of the call rather than by a
-    /// check somebody could forget to write.
+    /// A Pistol question. It reads the same range an ordinary question does, terrain included: the
+    /// ability lifts the roll, not the rules about what a question may ask.
     /// </summary>
     public async Task AskSecretQuestion(AskSecretQuestionRequest request)
     {
@@ -205,7 +204,7 @@ internal sealed class GameHub(
             return;
         }
 
-        if (!TryReadRange(request.Start, request.End, null, out QueryRange range, out string? complaint))
+        if (!TryReadRange(request.Start, request.End, request.Terrain, out QueryRange range, out string? complaint))
         {
             await FailAsync("BadRequest", complaint).ConfigureAwait(false);
             return;
@@ -234,6 +233,19 @@ internal sealed class GameHub(
             (seat, state) => GameEngine.Accuse(state, seat, first, second),
             seat => new GameEventDto(GameEventDto.AccusationMade, seat)).ConfigureAwait(false);
     }
+
+    /// <summary>
+    /// Ends a solo game and reveals the treasure, on the request of the only player in it.
+    /// </summary>
+    /// <remarks>
+    /// No event accompanies it, for the same reason no other ending has one: the view arriving
+    /// alongside carries the phase and the treasure, and an event is a nudge to animate, never a
+    /// source of state. Every condition on it lives in the engine — that the table has one player,
+    /// and that the player has already accused and been wrong — so a client that never draws the
+    /// button is a convenience rather than the enforcement.
+    /// </remarks>
+    public Task GiveUp() =>
+        WithSeatAsync((seat, state) => GameEngine.GiveUp(state, seat), _ => null);
 
     /// <summary>
     /// Reads an enum the client named. Names only, and only names this build knows.

@@ -80,7 +80,7 @@ internal static class GameEndpoints
                 GameState game = created.Value;
                 return TypedResults.Created(
                     $"/api/games/{game.RoomCode}",
-                    new CreateGameResponse(game.GameId, game.RoomCode, JoinUrl(http, game.RoomCode)));
+                    new CreateGameResponse(game.GameId, game.RoomCode, TableUrl(http, game.RoomCode)));
             }
         }
 
@@ -144,7 +144,7 @@ internal static class GameEndpoints
 
         using QRCodeGenerator generator = new();
         using QRCodeData data = generator.CreateQrCode(
-            JoinUrl(http, game.State.RoomCode), QRCodeGenerator.ECCLevel.Q);
+            TableUrl(http, game.State.RoomCode), QRCodeGenerator.ECCLevel.Q);
 
         // Rendered server-side so the host's screen needs nothing but an img tag, and so the URL
         // in the code is the one the server believes in rather than one a page assembled.
@@ -179,8 +179,14 @@ internal static class GameEndpoints
             new ArcSemantics(StartInclusive: true, EndExclusive: true, StartEqualsEndMeansFullCircle: true)));
     }
 
-    /// <summary>Where a phone should point to join. Built from the request, so it works on a LAN
-    /// address as readily as on a hostname.</summary>
-    private static string JoinUrl(HttpRequest http, string roomCode) =>
-        $"{http.Scheme}://{http.Host}/join/{roomCode}";
+    /// <summary>Where a phone should point to reach the table. Built from the request, so it works
+    /// on a LAN address as readily as on a hostname.</summary>
+    /// <remarks>
+    /// The table itself, not a form on the way to it. A phone that has just scanned this is a
+    /// spectator until somebody taps a seat, and the name is asked for there -- so the code leads
+    /// to the same page whether it is scanned before the deal or after, and a latecomer sees the
+    /// game rather than a question they cannot act on.
+    /// </remarks>
+    private static string TableUrl(HttpRequest http, string roomCode) =>
+        $"{http.Scheme}://{http.Host}/play/{roomCode}";
 }

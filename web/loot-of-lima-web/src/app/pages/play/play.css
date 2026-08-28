@@ -18,20 +18,61 @@
   color: var(--brass-bright);
 }
 
+/* A sentence and two links, so it wants far less air than a column of panels does. */
+.banner.stack {
+  gap: 0.6rem;
+}
+
+.ending {
+  margin: 0;
+}
+
 /*
- * Two columns on a laptop, one on a phone. Both are real layouts rather than a shrunken desktop:
- * the phone is where players actually sit, and the history is what they scroll while it is not
- * their turn.
+ * One layout, ordered once.
+ *
+ * There used to be two: a laptop's two columns, and a phone's single stack reordered on top of them
+ * with `order` and `display: contents`. Two layouts meant two chances to bury the question builder,
+ * and both were taken — the phone put the ability bar between the island and the builder, and the
+ * laptop put the whole ability bar *and* the map's full height above it in one column, so a player
+ * on a laptop scrolled past the island to choose a range and back up to check the arc against it.
+ * The panels a player uses every turn were the ones furthest apart on both.
+ *
+ * So the panels are the grid's own children, in the order they are used, and the only thing the
+ * width decides is how many columns they are poured into. Nothing is reordered anywhere, which is
+ * why there is no `order` declaration in this file: DOM order is the order, and reading order, tab
+ * order and painted order agree by construction.
+ *
+ * The order is the loop: island, the thing this phase wants from you, the log the answer lands in.
+ * Then the two things a player can still *do* — the abilities, three spends in a whole game, and
+ * the accusation. The tokens panel is last because it is the only one nothing is ever done to, and
+ * because the seat strip already prints this seat's own hand at the top of the page: what is only
+ * in that panel is the face-up row, and at the end the treasure.
  */
-.columns {
+.board {
   display: grid;
   gap: var(--gap);
   grid-template-columns: 1fr;
 }
 
+/*
+ * Two columns once there is room, filled by the same sequence.
+ *
+ * The island keeps the left of the first two rows, so the question builder and the log land beside
+ * it instead of below it — the three panels the loop is made of, all in one screen. Everything
+ * after them flows on into whichever cell comes next: the hand under the island, the abilities
+ * beside it, the accusation last.
+ *
+ * The span is safe against the island growing taller than the two panels next to it, because it
+ * cannot: the map is capped at 30rem, and a question builder and a log stacked together are always
+ * taller than that. If it ever did, the two rows would stretch and open a gap under the builder.
+ */
 @media (min-width: 56rem) {
-  .columns {
+  .board {
     grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
     align-items: start;
+  }
+
+  app-island-map {
+    grid-row: span 2;
   }
 }

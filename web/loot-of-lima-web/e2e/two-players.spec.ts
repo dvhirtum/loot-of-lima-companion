@@ -40,7 +40,7 @@ test.describe('Two players at one table', () => {
     const adasHand = await ownHand(ada.page);
     const gracesHand = await ownHand(grace.page);
 
-    expect(adasHand).toEqual(['B1', 'B2', 'F6', 'M3']);
+    expect(adasHand).toEqual(['1B', '2B', '6F', '3M']);
     expect(gracesHand).toHaveLength(4);
     expect(adasHand).not.toEqual(gracesHand);
 

@@ -35,7 +35,7 @@ import { Router, RouterLink } from '@angular/router';
               (input)="roomCode.set($any($event.target).value)"
             />
           </label>
-          <button type="submit" class="button" [disabled]="roomCode().trim().length === 0">Join</button>
+          <button type="submit" class="button" [disabled]="roomCode().trim().length === 0">Join table</button>
         </form>
       </section>
     </main>
@@ -52,7 +52,7 @@ export class Home {
 
     const code = this.roomCode().trim().toUpperCase();
     if (code.length > 0) {
-      void this.router.navigate(['/join', code]);
+      void this.router.navigate(['/play', code]);
     }
   }
 }

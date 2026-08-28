@@ -1,0 +1,123 @@
+<section class="card stack">
+  <div class="map__head">
+    <h3>The island</h3>
+    @if (ui.accusing()) {
+      <p class="small map__hint">Tap two locations to name the treasure.</p>
+    } @else if (ui.highlight(); as range) {
+      <p class="small muted map__hint">
+        @if (range.start === range.end) {
+          The whole island
+        } @else {
+          {{ range.start }} up to {{ range.end }}
+        }
+        @if (range.terrain; as terrain) {
+          · {{ terrain.toLowerCase() }} only
+        }
+      </p>
+    }
+  </div>
+
+  <!--
+    A failed fetch is not a slow one, and it says so. The board is asked for once for the life of
+    the app, so this does not fix itself — and it takes more than the picture with it, since the
+    accusation panel names its two locations from the same 24. Hence a button rather than a
+    sentence: one retry here serves both panels, because the store is provided at the root.
+  -->
+  @if (board.failed()) {
+    <p class="small warn">The island could not be loaded, so there is nothing to draw or to tap.</p>
+    <button type="button" class="button" [disabled]="board.loading()" (click)="board.reload()">
+      {{ board.loading() ? 'Trying again…' : 'Try again' }}
+    </button>
+  } @else if (!ready()) {
+    <p class="muted small">Drawing the island…</p>
+  } @else {
+    <svg
+      class="map"
+      [class.map--picking]="ui.accusing()"
+      [class.map--secret]="secretHighlight()"
+      [attr.viewBox]="viewBox"
+      role="img"
+      [attr.aria-label]="caption"
+    >
+      <!-- The sea, then the island: three bands of terrain, shore outside forest outside peaks. -->
+      <circle class="map__sea" cx="0" cy="0" r="103" />
+
+      @for (band of bands(); track band.terrain) {
+        <circle
+          class="map__band"
+          [class.map__band--beach]="band.terrain === 'Beach'"
+          [class.map__band--forest]="band.terrain === 'Forest'"
+          [class.map__band--mountain]="band.terrain === 'Mountain'"
+          [attr.data-terrain]="band.terrain"
+          cx="0"
+          cy="0"
+          [attr.r]="(band.inner + band.outer) / 2"
+          [attr.stroke-width]="band.outer - band.inner"
+        />
+      }
+
+      <!--
+        One lit segment per band the question covers — its own band for a terrain question, all
+        three for a question about anywhere. Under the tokens so it never obscures one, and saying
+        which slice of which terrain is being asked about, never how many tokens are in it.
+      -->
+      @for (arc of arcs(); track arc.terrain) {
+        <path class="map__arc" [attr.data-terrain]="arc.terrain" [attr.d]="arc.d" />
+      }
+
+      <!-- The eight compass lines the dial's arrows actually point at. Tokens sit in the gaps. -->
+      @for (divider of boundaries(); track $index) {
+        <line
+          class="map__divider"
+          [attr.x1]="divider.x1"
+          [attr.y1]="divider.y1"
+          [attr.x2]="divider.x2"
+          [attr.y2]="divider.y2"
+        />
+      }
+
+      @for (label of compass(); track label.direction) {
+        <text class="map__compass" [attr.x]="label.x" [attr.y]="label.y" text-anchor="middle" dy="0.35em">
+          {{ label.direction }}
+        </text>
+      }
+
+      @for (token of tokens(); track token.location) {
+        <g
+          class="mark"
+          [class.mark--lit]="token.lit"
+          [class.mark--picked]="token.picked"
+          [attr.data-location]="token.location"
+          [attr.role]="ui.accusing() ? 'button' : null"
+          [attr.tabindex]="ui.accusing() ? 0 : null"
+          [attr.aria-pressed]="ui.accusing() ? token.picked : null"
+          [attr.aria-label]="ui.accusing() ? 'Name ' + token.label : null"
+          (click)="pick(token.location)"
+          (keydown.enter)="pickByKey($event, token.location)"
+          (keydown.space)="pickByKey($event, token.location)"
+        >
+          <!-- The label and nothing else. The map has nothing to add about whose this is. -->
+          <title>{{ token.label }}</title>
+          <circle
+            class="mark__disc"
+            [class.mark__disc--beach]="token.terrain === 'Beach'"
+            [class.mark__disc--forest]="token.terrain === 'Forest'"
+            [class.mark__disc--mountain]="token.terrain === 'Mountain'"
+            [attr.cx]="token.x"
+            [attr.cy]="token.y"
+            [attr.r]="tokenSize"
+          />
+          <text class="mark__label" [attr.x]="token.x" [attr.y]="token.y" text-anchor="middle" dy="0.35em">
+            {{ token.label }}
+          </text>
+        </g>
+      }
+    </svg>
+
+    <ul class="legend small muted">
+      <li><span class="legend__swatch legend__swatch--beach"></span> beach</li>
+      <li><span class="legend__swatch legend__swatch--forest"></span> forest</li>
+      <li><span class="legend__swatch legend__swatch--mountain"></span> mountain</li>
+    </ul>
+  }
+</section>

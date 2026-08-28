@@ -69,10 +69,19 @@ import { LocationToken } from './location-token';
       color: var(--parchment-dim);
     }
 
+    /*
+     * A chip rather than bare text, because the answer sits in a third column aligned to the body's
+     * first baseline. On a wide screen it lands in clear space at the end of the line; on a phone
+     * the body wraps and it comes to rest mid-sentence, where "asked Bot 3: locations from N 2 up
+     * to SE" reads as though the number were one of the words.
+     */
     .answer {
       font-family: var(--font-mono);
       font-weight: 700;
       color: var(--brass-bright);
+      padding: 0.05rem 0.4rem;
+      border-radius: 5px;
+      background: color-mix(in srgb, var(--brass) 20%, transparent);
     }
   `,
   changeDetection: ChangeDetectionStrategy.OnPush,

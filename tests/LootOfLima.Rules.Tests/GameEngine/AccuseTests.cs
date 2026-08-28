@@ -134,20 +134,132 @@ public class AccuseTests
     }
 
     [Fact]
-    public void Should_end_with_nobody_winning_when_the_only_human_is_eliminated()
+    public void Should_keep_the_game_running_when_the_only_human_accuses_wrongly()
     {
         // Arrange
-        // A solo game against bots: a wrong accusation is simply a loss, since bots never win.
+        // A solo game against bots. Eliminating the only player would finish the game, and
+        // finishing it is the one moment the treasure is projected -- so guessing wrong would be
+        // rewarded with the answer.
         GameState state = TestGame.InProgress(5, humans: 1);
 
         // Act
-        GameState finished = TestGame.Unwrap(
+        GameState next = TestGame.Unwrap(
             Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
 
         // Assert
+        Assert.Equal(GamePhase.InProgress, next.Phase);
+        Assert.False(next.SeatAt(0).Eliminated);
+        Assert.Null(next.EndReason);
+        Assert.Null(next.WinnerSeat);
+    }
+
+    [Fact]
+    public void Should_leave_the_treasure_where_it_is_when_the_only_human_accuses_wrongly()
+    {
+        // Arrange
+        // The whole point of not finishing: nothing about the pair, and nothing about the two
+        // locations that are the answer, is written anywhere the projection could reach.
+        GameState state = TestGame.InProgress(5, humans: 1);
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Equal(state.Deal!.Treasure, next.Deal!.Treasure);
+        Assert.All(next.Seats, seat => Assert.Equal(state.SeatAt(seat.Index).Hand, seat.Hand));
+    }
+
+    [Fact]
+    public void Should_pass_the_turn_on_when_the_only_human_accuses_wrongly()
+    {
+        // Arrange
+        // Back to the same seat, since bots never take turns -- but a turn later, which is what
+        // makes an accusation cost the same as any other action taken on your own turn.
+        GameState state = TestGame.InProgress(5, humans: 1);
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Equal(0, next.ActiveSeat);
+        Assert.Equal(state.TurnNumber + 1, next.TurnNumber);
+    }
+
+    [Fact]
+    public void Should_let_the_only_human_accuse_again_when_the_first_attempt_was_wrong()
+    {
+        // Arrange
+        GameState state = TestGame.InProgress(5, humans: 1);
+        state = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Act
+        GameState finished = TestGame.Unwrap(
+            Sut.Accuse(state, 0, state.Deal!.Treasure[0], state.Deal.Treasure[1]));
+
+        // Assert
         Assert.Equal(GamePhase.Finished, finished.Phase);
-        Assert.Null(finished.WinnerSeat);
-        Assert.Equal(GameEndReason.AllPlayersEliminated, finished.EndReason);
+        Assert.Equal(0, finished.WinnerSeat);
+        Assert.Equal(GameEndReason.CorrectAccusation, finished.EndReason);
+    }
+
+    [Fact]
+    public void Should_keep_the_pistol_armed_when_the_only_human_accuses_wrongly_before_asking()
+    {
+        // Arrange
+        // Spending the Pistol pins it to the turn it was spent on and takes it out of the seat's
+        // remaining abilities, so a turn that advances without the secret question being asked
+        // destroys it outright: there is nothing left to spend a second time. An accusation is not
+        // a question, and the ability has been paid for and not used.
+        GameState state = TestGame.InProgress(5, humans: 1);
+        state = TestGame.Unwrap(Sut.SpendAbility(state, 0, AbilityType.Pistol));
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Equal(next.TurnNumber, next.SeatAt(0).PistolArmedTurn);
+        Assert.DoesNotContain(AbilityType.Pistol, next.SeatAt(0).AbilitiesRemaining);
+    }
+
+    [Fact]
+    public void Should_let_the_secret_question_be_asked_when_a_wrong_accusation_came_between()
+    {
+        // Arrange
+        // The claim the one above is only the mechanism for. Arming, changing your mind, guessing
+        // wrong and then asking is an ordinary sequence at a table of one, where a wrong accusation
+        // is a ruled-out pair rather than the end of the game.
+        GameState state = TestGame.InProgress(5, humans: 1);
+        state = TestGame.Unwrap(Sut.SpendAbility(state, 0, AbilityType.Pistol));
+        state = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.AskSecretQuestion(state, 0, 1, new QueryRange(Direction.N, Direction.SE), Board.Default));
+
+        // Assert
+        Assert.Single(next.History.OfType<SecretQuestionEntry>());
+    }
+
+    [Fact]
+    public void Should_leave_the_pistol_unarmed_when_the_only_human_accuses_wrongly_without_one()
+    {
+        // Arrange
+        // The other side of the same rule, so carrying it forward cannot be mistaken for arming it.
+        // A seat that never spent the Pistol is not handed a secret question by guessing badly.
+        GameState state = TestGame.InProgress(5, humans: 1);
+
+        // Act
+        GameState next = TestGame.Unwrap(
+            Sut.Accuse(state, 0, TestGame.NotTreasure(state), TestGame.NotTreasure(state, skip: 1)));
+
+        // Assert
+        Assert.Null(next.SeatAt(0).PistolArmedTurn);
+        Assert.Contains(AbilityType.Pistol, next.SeatAt(0).AbilitiesRemaining);
     }
 
     [Fact]

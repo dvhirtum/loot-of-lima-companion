@@ -19,6 +19,7 @@ export function seat(index: number, overrides: Partial<SeatView> = {}): SeatView
     knownHand: [],
     handIsComplete: false,
     abilitiesRemaining: ['Barrel', 'Shovel', 'Pistol'],
+    pistolArmed: false,
     fewestTerrain: null,
     tokensConfirmed: false,
     passConfirmed: false,
@@ -57,6 +58,24 @@ export function viewFor(seatIndex: number, hand: readonly string[], overrides: P
     ),
     ...overrides,
   });
+}
+
+/**
+ * One accusation as the accuser themselves is sent it, pair and verdict included.
+ *
+ * A bystander is sent `accusationOccurred` instead, which has no `named` and no `correct`, so a
+ * spec that wants the redacted shape has to build it rather than override its way out of this one.
+ */
+export function accusation(sequence: number, overrides: Partial<HistoryEntryView> = {}): HistoryEntryView {
+  return {
+    type: 'accusation',
+    sequence,
+    turnNumber: sequence,
+    accuserSeat: 0,
+    named: ['B1', 'F2'],
+    correct: false,
+    ...overrides,
+  } as HistoryEntryView;
 }
 
 export function publicQuestion(sequence: number, overrides: Partial<HistoryEntryView> = {}): HistoryEntryView {

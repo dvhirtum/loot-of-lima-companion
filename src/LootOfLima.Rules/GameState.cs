@@ -43,6 +43,12 @@ public sealed record GameState(
     /// <summary>Human seats still in the game.</summary>
     public IEnumerable<Seat> ActiveHumanSeats => HumanSeats.Where(seat => !seat.Eliminated);
 
+    /// <summary>
+    /// One human at the table, the rest bots. This is the shape the printed scenarios are written
+    /// for, and the one table size at which elimination is not a penalty but the end of the game.
+    /// </summary>
+    public bool IsSolo => HumanSeats.Count() == 1;
+
     /// <summary>Every token pass that has been delivered, in the order it was made.</summary>
     public IEnumerable<PassRecord> PassRecords => History.OfType<TokenPassEntry>().Select(entry => entry.Pass);
 }

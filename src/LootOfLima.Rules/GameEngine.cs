@@ -53,11 +53,18 @@ public static class GameEngine
             return error;
         }
 
+        // Two people tapping the same card is ordinary rather than exceptional -- the lobby is a
+        // table of five cards and everybody is looking at the same one -- so this message is read by
+        // somebody who has done nothing wrong, and it is the one the loser of that race is shown.
+        //
+        // It names the occupant and not the index. `seatIndex` is the engine's own numbering,
+        // zero-based, so "Seat 2" means the third card: telling a player that is telling them
+        // something false in the only units they can check it in.
         Seat seat = state.SeatAt(seatIndex);
         if (seat.IsHuman)
         {
             return new GameError(
-                GameErrorCode.SeatAlreadyClaimed, $"Seat {seatIndex} is already taken by {seat.DisplayName}.");
+                GameErrorCode.SeatAlreadyClaimed, $"That seat has already been taken by {seat.DisplayName}.");
         }
 
         // One identity, one hand. Without this a single player could hold two seats and the
@@ -67,8 +74,12 @@ public static class GameEngine
             other => string.Equals(other.PlayerId, playerId, StringComparison.Ordinal));
         if (held is not null)
         {
+            // The same rule about units. A player id is a bearer credential nobody has ever seen,
+            // and the index is zero-based; what a player can act on is that they already have a
+            // seat and that giving it up is how they move.
             return new GameError(
-                GameErrorCode.PlayerAlreadySeated, $"{playerId} already holds seat {held.Index}.");
+                GameErrorCode.PlayerAlreadySeated,
+                "You are already sitting at this table. Leave your seat before taking another.");
         }
 
         return Result<GameState>.Success(WithSeat(
@@ -291,9 +302,14 @@ public static class GameEngine
 
     /// <summary>
     /// Asks a question only the two participants ever see. Requires a Pistol spent this turn, and
-    /// refuses a terrain filter: that is a rule about the ability rather than about the dice, so
-    /// unlike ordinary question legality it really is enforced.
+    /// takes the same range an ordinary question takes, terrain filter included.
     /// </summary>
+    /// <remarks>
+    /// The Pistol frees the asker from the dice they rolled, not from the shapes a question may
+    /// take: anything a roll could theoretically have allowed is allowed here, and a single terrain
+    /// is one of those. So there is nothing extra to enforce, and the reason ordinary question
+    /// legality goes unchecked — the app does not model the roll — applies here unchanged.
+    /// </remarks>
     public static Result<GameState> AskSecretQuestion(
         GameState state,
         int askerSeat,
@@ -307,13 +323,6 @@ public static class GameEngine
         if (RejectQuestion(state, askerSeat, targetSeat) is { } error)
         {
             return error;
-        }
-
-        if (range.TerrainFilter is not null)
-        {
-            return new GameError(
-                GameErrorCode.TerrainFilterNotAllowed,
-                "A Pistol question can never be restricted to a single terrain.");
         }
 
         if (state.SeatAt(askerSeat).PistolArmedTurn != state.TurnNumber)
@@ -369,22 +378,114 @@ public static class GameEngine
             return Result<GameState>.Success(Finish(next, accuserSeat, GameEndReason.CorrectAccusation));
         }
 
-        next = WithSeat(next, accuser with { Eliminated = true });
-
-        int survivors = next.ActiveHumanSeats.Count();
-        if (survivors == 0)
+        // A table of one is the exception, and it is not a house rule so much as a refusal to make
+        // the penalty meaningless. Eliminating the only player finishes the game, and finishing the
+        // game is the single moment the treasure is projected -- so the punishment for guessing
+        // wrong would be being handed the answer. The scenario books are puzzles; getting one wrong
+        // is how you learn the pair is ruled out, which is a real deduction and the player's own.
+        // So nothing is revealed, the seat stays in, and the turn ends the way any other action
+        // taken on your own turn ends it.
+        if (state.IsSolo)
         {
-            return Result<GameState>.Success(Finish(next, null, GameEndReason.AllPlayersEliminated));
+            return Result<GameState>.Success(
+                next.ActiveSeat == accuserSeat ? EndAccusersTurn(next, accuserSeat) : next);
         }
 
-        if (survivors == 1 && next.HumanSeats.Count() > 1)
+        next = WithSeat(next, accuser with { Eliminated = true });
+
+        // At least two humans sat down, because a solo table returned above, and that is what makes
+        // one survivor decisive rather than ambiguous. It also means the count can never reach zero
+        // here: the game ends the first time it falls to one, so there is never a second-to-last
+        // elimination left to make.
+        if (next.ActiveHumanSeats.Count() == 1)
         {
             return Result<GameState>.Success(Finish(
                 next, next.ActiveHumanSeats.Single().Index, GameEndReason.LastPlayerStanding));
         }
 
-        // Being eliminated ends your turn, but only your turn.
+        // Being eliminated ends your turn, but only your turn. Nothing is carried across it here:
+        // the accuser has just been put out of the game, so an armed Pistol is one of several
+        // things they no longer have any use for.
         return Result<GameState>.Success(next.ActiveSeat == accuserSeat ? AdvanceTurn(next) : next);
+    }
+
+    /// <summary>
+    /// Advances a turn that an accusation ended rather than a question, carrying an armed Pistol
+    /// into the turn it now belongs to.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Seat.PistolArmedTurn"/> names an absolute turn, so anything that advances the turn
+    /// disarms it. That is right when the turn ended in the question the Pistol was spent on, and
+    /// wrong here: an accusation is not a question, and the ability has been paid for and not used.
+    /// Without this, a player who arms the Pistol and then accuses loses it outright — it is already
+    /// gone from <see cref="Seat.AbilitiesRemaining"/>, so no second spend is possible either, and
+    /// the secret question they bought can never be asked.
+    /// </para>
+    /// <para>
+    /// Only reachable from a solo table, which is the only one where a wrong accusation leaves the
+    /// accuser still playing. Everywhere else the accusation eliminates them.
+    /// </para>
+    /// </remarks>
+    private static GameState EndAccusersTurn(GameState state, int accuserSeat)
+    {
+        bool armed = state.SeatAt(accuserSeat).PistolArmedTurn == state.TurnNumber;
+        GameState next = AdvanceTurn(state);
+
+        return armed
+            ? WithSeat(next, next.SeatAt(accuserSeat) with { PistolArmedTurn = next.TurnNumber })
+            : next;
+    }
+
+    /// <summary>
+    /// Ends a solo game the only way it can now end short of a correct accusation: the player asks
+    /// to be shown the treasure.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// This exists because <see cref="Accuse"/> no longer finishes a solo game, so without it a
+    /// player who cannot solve the puzzle has no way to find out what the answer was.
+    /// </para>
+    /// <para>
+    /// It is refused until that seat has accused and been wrong at least once, and that is a rule
+    /// rather than a nicety about where a button appears. The treasure is the one thing this whole
+    /// application is built to withhold, and a command that hands it over on request is one misclick
+    /// away from spoiling a puzzle somebody was halfway through. Requiring a wrong accusation first
+    /// means giving up costs what giving up costs: you have to have committed to an answer and
+    /// found out it was not the answer.
+    /// </para>
+    /// </remarks>
+    public static Result<GameState> GiveUp(GameState state, int seatIndex)
+    {
+        ArgumentNullException.ThrowIfNull(state);
+
+        if ((Reject(state, GamePhase.InProgress) ?? RejectHumanSeat(state, seatIndex)) is { } error)
+        {
+            return error;
+        }
+
+        if (!state.IsSolo)
+        {
+            return new GameError(
+                GameErrorCode.NotASoloGame,
+                "Only a table of one player can give up. Anywhere else, accusing wrongly is how you leave a game.");
+        }
+
+        // Named by seat although the table has exactly one human, so the two readings cannot differ
+        // today. Written this way because the rule being expressed is about the player giving up
+        // rather than about the table, and a check that reads the rule cannot drift away from it.
+        bool hasAccusedWrongly = state.History
+            .OfType<AccusationEntry>()
+            .Any(entry => entry.AccuserSeat == seatIndex && !entry.Correct);
+
+        if (!hasAccusedWrongly)
+        {
+            return new GameError(
+                GameErrorCode.NothingToGiveUpOn,
+                $"Seat {seatIndex} has not accused and been wrong yet, so there is nothing to give up on.");
+        }
+
+        return Result<GameState>.Success(Finish(state, null, GameEndReason.Conceded));
     }
 
     /// <summary>
