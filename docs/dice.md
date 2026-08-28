@@ -45,6 +45,6 @@ has exactly three members; any future dice model needs its own
 
 ## If in-app rolling is ever added
 
-It is backlogged (see the plan's M6) for players without the physical dice to hand. It would read a
+Backlogged, for players without the physical dice to hand. It would read a
 `dice.json` mirroring the table above, with the same data-not-logic treatment as
 `src/LootOfLima.Rules/Data/board-layout.json`.
