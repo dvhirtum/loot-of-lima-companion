@@ -53,11 +53,18 @@ public static class GameEngine
             return error;
         }
 
+        // Two people tapping the same card is ordinary rather than exceptional -- the lobby is a
+        // table of five cards and everybody is looking at the same one -- so this message is read by
+        // somebody who has done nothing wrong, and it is the one the loser of that race is shown.
+        //
+        // It names the occupant and not the index. `seatIndex` is the engine's own numbering,
+        // zero-based, so "Seat 2" means the third card: telling a player that is telling them
+        // something false in the only units they can check it in.
         Seat seat = state.SeatAt(seatIndex);
         if (seat.IsHuman)
         {
             return new GameError(
-                GameErrorCode.SeatAlreadyClaimed, $"Seat {seatIndex} is already taken by {seat.DisplayName}.");
+                GameErrorCode.SeatAlreadyClaimed, $"That seat has already been taken by {seat.DisplayName}.");
         }
 
         // One identity, one hand. Without this a single player could hold two seats and the
@@ -67,8 +74,12 @@ public static class GameEngine
             other => string.Equals(other.PlayerId, playerId, StringComparison.Ordinal));
         if (held is not null)
         {
+            // The same rule about units. A player id is a bearer credential nobody has ever seen,
+            // and the index is zero-based; what a player can act on is that they already have a
+            // seat and that giving it up is how they move.
             return new GameError(
-                GameErrorCode.PlayerAlreadySeated, $"{playerId} already holds seat {held.Index}.");
+                GameErrorCode.PlayerAlreadySeated,
+                "You are already sitting at this table. Leave your seat before taking another.");
         }
 
         return Result<GameState>.Success(WithSeat(

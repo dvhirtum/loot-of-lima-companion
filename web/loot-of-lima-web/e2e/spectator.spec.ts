@@ -80,6 +80,74 @@ test.describe('Watching a table', () => {
     await leave([ada]);
   });
 
+  test('Should_seat_one_of_them_and_send_the_other_on_in_a_click_when_two_claim_one_seat', async ({ browser }) => {
+    // Arrange
+    // The ordinary shape of a lobby filling up, not a contrived race: five cards, everybody looking
+    // at the same screen in the middle of the table, two people reaching for the same one. Commands
+    // for one game are serialised by a semaphore in the store, so the seat goes to whichever
+    // ClaimSeat is processed first and never to both -- which is pinned in `MutateTests` where it
+    // can be made deterministic. What only a browser can say is what the *loser* is left holding.
+    //
+    // Both name fields are filled before either is submitted, because the offer disappears the
+    // moment a seat is taken: once one of these pages has been told the seat is human, its card no
+    // longer draws a field to submit. The window this exercises is the real one.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+
+    const contexts = await Promise.all([browser.newContext(), browser.newContext()]);
+    const [ada, grace] = await Promise.all(contexts.map((context) => context.newPage()));
+
+    for (const [page, name] of [
+      [ada, 'Ada'],
+      [grace, 'Grace'],
+    ] as const) {
+      await page.goto(`/play/${roomCode}`);
+      await seatCard(page, 2).getByRole('button', { name: 'Sit here' }).click();
+      await seatCard(page, 2).getByLabel('Your name').fill(name);
+    }
+
+    // Act
+    // Neither click is awaited before the other is made, so the server decides the order.
+    await Promise.all([
+      seatCard(ada, 2).getByRole('button', { name: 'Sit down', exact: true }).click(),
+      seatCard(grace, 2).getByRole('button', { name: 'Sit down', exact: true }).click(),
+    ]);
+
+    // Assert
+    // Read rather than assumed: which of them won is the server's business and this spec has no
+    // opinion about it. That there is exactly one name in the seat is the claim.
+    await expect(seatCard(ada, 2).locator('strong')).toHaveText(/^(Ada|Grace)$/);
+    const seated = (await seatCard(ada, 2).locator('strong').innerText()).trim();
+
+    const winner = seated === 'Ada' ? ada : grace;
+    const loser = seated === 'Ada' ? grace : ada;
+    const loserName = seated === 'Ada' ? 'Grace' : 'Ada';
+
+    await expect(seatCard(winner, 2).getByText('you', { exact: true })).toBeVisible();
+
+    // Told what happened, in words a player can check: the occupant's name, and no seat number --
+    // the engine's index is zero-based, so "Seat 2" would mean the third card.
+    await expect(loser.getByText(`That seat has already been taken by ${seated}.`)).toBeVisible();
+    await expect(loser.locator('.seat').filter({ hasText: 'you' })).toHaveCount(0);
+
+    // Act
+    // One click, and no field. The name was spent on the join that ran *before* the refused claim,
+    // so this browser has held an identity since the moment it lost the race.
+    await seatCard(loser, 3).getByRole('button', { name: 'Sit here' }).click();
+
+    // Assert
+    await expect(seatCard(loser, 3).getByText('you', { exact: true })).toBeVisible();
+    await expect(seatCard(loser, 3).locator('strong')).toHaveText(loserName);
+    await expect(loser.getByLabel('Your name')).toHaveCount(0);
+
+    // And the refusal is gone, because every command clears the last error on its way out. A banner
+    // still reading "already taken" over a seat this player is now sitting in would be worse than
+    // never having shown it.
+    await expect(loser.getByText('has already been taken by')).toHaveCount(0);
+
+    await Promise.all(contexts.map((context) => context.close()));
+  });
+
   test('Should_take_the_seat_without_asking_again_when_this_browser_has_already_joined', async ({ browser }) => {
     // Arrange
     // The identity holds the name, so a seat taken after the first is taken under it. Asking again

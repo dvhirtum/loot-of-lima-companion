@@ -46,6 +46,44 @@ public class ClaimSeatTests
     }
 
     [Fact]
+    public void Should_name_the_occupant_and_no_seat_number_when_the_seat_is_already_taken()
+    {
+        // Arrange
+        // Two people tapping the same card at once is ordinary, so this message is read by somebody
+        // who has done nothing wrong -- and it is shown to them verbatim. `seatIndex` is the
+        // engine's zero-based numbering, so "Seat 0" means the first card: telling a player that is
+        // telling them something false in the only units they can check it in.
+        GameState state = TestGame.Lobby(5, humans: 1);
+
+        // Act
+        Result<GameState> refused = Sut.ClaimSeat(state, 0, "player-abc", "Ada");
+
+        // Assert
+        Assert.NotNull(refused.Error);
+        Assert.Equal("That seat has already been taken by Player 1.", refused.Error.Message);
+    }
+
+    [Fact]
+    public void Should_say_how_to_move_and_name_no_credential_when_the_player_already_holds_a_seat()
+    {
+        // Arrange
+        // A player id is a bearer credential nobody has ever seen, so putting one in front of a
+        // player says nothing they can act on. What they can act on is leaving the seat they have.
+        GameState state = TestGame.Lobby(5, humans: 0);
+        state = TestGame.Unwrap(Sut.ClaimSeat(state, 0, "player-abc", "Ada"));
+
+        // Act
+        Result<GameState> refused = Sut.ClaimSeat(state, 1, "player-abc", "Ada");
+
+        // Assert
+        Assert.NotNull(refused.Error);
+        Assert.DoesNotContain("player-abc", refused.Error.Message, StringComparison.Ordinal);
+        Assert.Equal(
+            "You are already sitting at this table. Leave your seat before taking another.",
+            refused.Error.Message);
+    }
+
+    [Fact]
     public void Should_reject_the_claim_when_the_player_already_holds_another_seat()
     {
         // Arrange

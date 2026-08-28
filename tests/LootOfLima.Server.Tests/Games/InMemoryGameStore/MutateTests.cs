@@ -63,6 +63,43 @@ public class MutateTests
     }
 
     [Fact]
+    public async Task Should_seat_exactly_one_of_them_when_several_claim_the_same_seat_at_once()
+    {
+        // Arrange
+        // Two people tapping the same card is the ordinary shape of a lobby filling up: five cards,
+        // and everybody looking at the same screen in the middle of the table. Without the gate all
+        // four would read the same state, all four would build one with themselves in seat 1, and
+        // the last write would decide it -- having told the other three they were in.
+        //
+        // The sibling test below claims four *different* seats, so it would pass on a store that
+        // merged writes. This one cannot: the four commands contradict each other.
+        Sut store = new();
+        await store.TryAddAsync(TestGames.Lobby(), TestContext.Current.CancellationToken);
+
+        // Act
+        // Task.Run so the calls genuinely overlap, and the pause holds each read open long enough
+        // that an unguarded store would let all four read the same original state.
+        Result<Stored>?[] outcomes = await Task.WhenAll(Enumerable.Range(1, 4).Select(attempt => Task.Run(
+            () => store.MutateAsync(
+                "game-1",
+                state =>
+                {
+                    Thread.Sleep(TimeSpan.FromMilliseconds(25));
+                    return GameEngine.ClaimSeat(state, 1, $"player-{attempt + 1}", $"Player {attempt + 1}");
+                },
+                TestContext.Current.CancellationToken),
+            TestContext.Current.CancellationToken)));
+
+        // Assert
+        // One winner, three told so, and the seat holding the winner rather than the last writer.
+        Assert.Single(outcomes, outcome => outcome is { Error: null });
+        Assert.Equal(3, outcomes.Count(outcome => outcome?.Error?.Code == GameErrorCode.SeatAlreadyClaimed));
+
+        GameState stored = (await store.FindAsync("game-1", TestContext.Current.CancellationToken))!.State;
+        Assert.Equal(2, stored.HumanSeats.Count());
+    }
+
+    [Fact]
     public async Task Should_keep_every_command_when_they_all_arrive_at_once()
     {
         // Arrange

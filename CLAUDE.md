@@ -23,7 +23,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1659 .NET + 110 web + 49 e2e green |
+| M6 — polish | **In progress.** 1662 .NET + 110 web + 50 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -48,7 +48,7 @@ before touching the importer, `BoardLayout`, or how a location is spelled.
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1659 passing
+dotnet test       # expect 1662 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
@@ -63,8 +63,8 @@ npm test          # Vitest; expect 110 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 49 passing. Boots both halves itself — nothing else needed.
-npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
+npm run e2e        # Playwright; expect 50 passing. Boots both halves itself — nothing else needed.
+npm run e2e:docker # the same specs against the containers. Dick runs this one by hand, not you.
 ```
 
 Both e2e scripts run `e2e:prepare` first, which downloads Chromium if it is missing and type-checks
@@ -79,17 +79,43 @@ request's `Host` header, so rewriting it would put `localhost` in the code a pho
 **`npm run e2e` is the exception — it starts its own `dotnet run` and `ng serve`**, so it needs
 nothing already running, though it will reuse a dev server that is.
 
-**Stop the compose stack before running `npm run e2e`.** The web container listens on 4200 — the
-same port `ng serve` uses, which is the whole point of the swap — and `reuseExistingServer` cannot
-tell the two apart. With the containers up, the default mode silently becomes a second run of the
-docker mode: it serves the last *built* bundle, so a source change is not in it. The symptom is a
-suite that passes in a second and a half against code you have just broken, which is far worse than
-a failure.
+### The e2e procedure — these three steps, in this order, every time
 
-The docker mode covers what the default mode cannot: the production bundle rather than the dev
-server's, and nginx rather than the Angular proxy. The `^~` location bug that 404'd the QR
-endpoint was invisible to every other suite in this repository, and is the kind of thing only that
-mode sees.
+```
+docker compose down             # down, not stop
+npm run e2e                     # against the working tree
+docker compose up --build -d    # back up holding what was just tested
+```
+
+**The stack has to be down, because both halves want port 4200.** The web container listens on
+it — the same port `ng serve` uses, which is the whole point of the swap — and Playwright's
+`reuseExistingServer` cannot tell the two apart. With the containers up, the default mode silently
+becomes a run of the docker mode: it serves the last *built* bundle, so a source change is not in
+it. The symptom is a suite that passes in a second and a half against code you have just broken,
+which is far worse than a failure.
+
+**It has to be `down` rather than `stop`, and `up` rather than `start`.** A `stop`/`start` cycle can
+leave Docker Desktop's Windows port proxy bound but reachable only from this machine: `netstat`
+still shows `0.0.0.0:4200`, and `curl http://<lan-ip>:4200/` from the laptop still answers 200 —
+because that goes through loopback and never leaves the box — while a phone on the same wifi gets
+nothing at all. Every check that can be made from the laptop passes while the one thing the app is
+for is broken, so the diagnosis costs an evening if it starts from "what did I change?". Nothing in
+the repo causes it and nothing in the repo can detect it — the only symptom is on a device that is
+not this one. `down` and `up` rebuild the bindings; `start` reuses the broken ones.
+
+**`--build` on the way back up**, so the containers end up serving the code the suite just went
+green against rather than whatever happened to be built last. Leaving the stack down is not an
+option either: a phone at the table is pointed at it, and the third step is what hands it back.
+
+**`npm run e2e:docker` is Dick's to run — never run it for him.** It is the same specs against the
+containers, and it covers what no other suite here can: the production bundle rather than the dev
+server's, and nginx rather than the Angular proxy. The `^~` location bug that 404'd the QR endpoint
+was invisible to every other suite in this repository and is exactly the kind of thing only that
+mode sees. So it earns its keep — run by hand, when he chooses, against a stack whose state he
+knows. Reporting "green in both modes" is his to say, not something to claim on his behalf.
+
+The fallback while the containers are down is `npm run start:lan`, which binds node to `0.0.0.0`
+directly and is unaffected by any of this.
 
 **And the same collision runs the other way, silently, because the two bind different addresses.**
 `ng serve` listens on `::1` only; Docker publishes on `::` and `0.0.0.0`. So a leftover dev server
@@ -448,6 +474,26 @@ plays.
   of two hands for one person — so the other cards a seated player used to be offered carried
   buttons whose only possible answer was a refusal. Moving seat is leaving and sitting down again,
   and "Leave seat" is on your own card.
+- **Two people reaching for one seat is ordinary, and the loser keeps their name.** Five cards and
+  everybody looking at the same screen: the race is the normal shape of a lobby filling up, not an
+  edge case. `InMemoryGameStore.MutateAsync` holds a per-game `SemaphoreSlim`, so the two commands
+  are strictly ordered and the seat goes to whichever `ClaimSeat` is processed first — never to
+  both, which without the gate is exactly what would happen, since a game is a value and two
+  read-modify-writes would each derive a state from the same original.
+
+  The loser is told, and then costs one click. `Play.claim` joins *before* it claims, so a browser
+  that loses the race is still holding the identity that join issued: `needsName` is already false,
+  and the next seat is a single tap with no field. That ordering is not incidental — claiming first
+  and joining afterwards is impossible anyway, because `ClaimSeat` needs the token to be on the
+  connection, but it is also what makes the refusal cheap.
+
+  **Both refusals from `ClaimSeat` are written for a player, and neither names an index or a
+  credential.** `seatIndex` is the engine's own zero-based numbering, so "Seat 2" means the third
+  card — telling somebody that is telling them something false in the only units they can check it
+  in, and it is the same defect as the refusal that once named an internal seat index at a
+  spectator. So: "That seat has already been taken by Ada.", and "You are already sitting at this
+  table. Leave your seat before taking another." Both texts are pinned in `ClaimSeatTests`, because
+  a message a player reads is behaviour.
 - **There is one game-page layout, ordered by the loop, and the width decides only how many columns
   it is poured into.** The panels are the grid's own children in the order a player uses them —
   island → what this phase wants from you → history → abilities → accusation → hand — with no column
