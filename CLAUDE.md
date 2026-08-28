@@ -91,6 +91,27 @@ server's, and nginx rather than the Angular proxy. The `^~` location bug that 40
 endpoint was invisible to every other suite in this repository, and is the kind of thing only that
 mode sees.
 
+**And the same collision runs the other way, silently, because the two bind different addresses.**
+`ng serve` listens on `::1` only; Docker publishes on `::` and `0.0.0.0`. So a leftover dev server
+does *not* stop `docker compose up` — the container starts, `docker compose ps` shows
+`0.0.0.0:4200->4200`, and everything looks right — but `localhost` resolves to `::1` first, so
+`npm run e2e:docker` reaches the dev server and never touches nginx at all. It passes, and it has
+tested nothing the default mode had not already tested.
+
+Killing the dev server is not always enough to be sure: stopping the shell that ran `npm start`
+leaves `ng serve`'s own node process alive and still holding `::1`. **Check the port rather than
+trusting the stop**, and check what answered rather than that something did:
+
+```
+Get-NetTCPConnection -LocalPort 4200 -State Listen | ForEach-Object {
+  "$($_.LocalAddress) pid=$($_.OwningProcess) $((Get-Process -Id $_.OwningProcess).ProcessName)" }
+(Invoke-WebRequest http://localhost:4200 -UseBasicParsing).Headers.Server   # nginx/1.x, or nothing
+```
+
+nginx sends `Server: nginx/…` with an `ETag`; the dev server sends neither, and answers with
+`Vary: Origin` and `Cache-Control: no-cache`. One header is the whole difference between having run
+the docker mode and having believed you did.
+
 ## Running it without dev servers
 
 ```
