@@ -3,9 +3,10 @@
  *
  * Everything here dresses shapes the component has already placed; nothing in this file decides
  * where anything goes. There is exactly one thing being said in colour -- the terrain -- and it is
- * said twice over, by the band a token sits on and by the token itself. The band is the terrain
- * washed into the sea colour and the token is the terrain at full strength, so a disc reads as a
- * token lying on its own ground rather than disappearing into it.
+ * said by the band a token sits on, by the token itself, and by the arc lit across both while a
+ * question is being built. The band is the terrain washed into the sea colour and the token is the
+ * terrain at full strength, so a disc reads as a token lying on its own ground rather than
+ * disappearing into it.
  *
  * Nothing here dresses a token by who holds it, because nothing in this component knows.
  */
@@ -79,16 +80,33 @@
 
 /*
  * The lit segments, over the bands and under the tokens. Which bands are lit is the terrain the
- * question names; how far round they run is the arc it names. Neither says what is in it.
+ * question names; how far round they run is the arc it names. Neither says what is in it. Each
+ * segment is drawn in its own terrain's colour, so a question about anywhere lights three colours.
  */
 .map__arc {
-  fill: color-mix(in srgb, var(--brass) 32%, transparent);
-  stroke: var(--brass);
   stroke-width: 0.9;
 }
 
-/* A Pistol question, which only its two participants will ever see the answer to. */
-.map--secret .map__arc {
+.map__arc[data-terrain='Beach'] {
+  fill: color-mix(in srgb, var(--beach) 60%, transparent);
+  stroke: var(--beach);
+}
+
+.map__arc[data-terrain='Forest'] {
+  fill: color-mix(in srgb, var(--forest) 60%, transparent);
+  stroke: var(--forest);
+}
+
+.map__arc[data-terrain='Mountain'] {
+  fill: color-mix(in srgb, var(--mountain) 60%, transparent);
+  stroke: var(--mountain);
+}
+
+/*
+ * A Pistol question, which only its two participants will ever see the answer to. Selected on
+ * `[data-terrain]` so it outweighs the three terrain rules rather than merely following them.
+ */
+.map--secret .map__arc[data-terrain] {
   fill: color-mix(in srgb, var(--coral) 30%, transparent);
   stroke: var(--coral);
 }
@@ -138,16 +156,33 @@
 }
 
 /*
- * Inside the range being built. A ring the colour the arc is drawn in, so the tokens the question
- * covers and the slice it covers read as one thing rather than as two overlapping claims.
+ * Inside the range being built. A ring in a darker cut of the arc's own colour, so the tokens the
+ * question covers and the slice it covers read as one thing rather than as two overlapping claims.
  */
 .mark--lit .mark__disc {
-  stroke: var(--brass-bright);
-  stroke-width: 1.8;
+  stroke-width: 0.9;
 }
 
+.mark--lit .mark__disc--beach {
+  stroke: color-mix(in srgb, var(--beach) 50%, var(--ink));
+}
+
+.mark--lit .mark__disc--forest {
+  stroke: color-mix(in srgb, var(--forest) 50%, var(--ink));
+}
+
+.mark--lit .mark__disc--mountain {
+  stroke: color-mix(in srgb, var(--mountain) 50%, var(--ink));
+}
+
+/*
+ * The secret ring carries its own width. A terrain ring is nearly the colour of the unlit one and
+ * leans on the arc beneath it to read; coral on a terrain disc is the only per-token sign that the
+ * question is the secret one, so it stays heavy enough to see on its own.
+ */
 .map--secret .mark--lit .mark__disc {
   stroke: var(--coral);
+  stroke-width: 1.8;
 }
 
 .map--picking .mark {
