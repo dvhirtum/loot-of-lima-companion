@@ -1,26 +1,36 @@
 import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/core';
 import { BoardStore } from '../core/board-store';
-import { BoardLayoutDto, Direction, Terrain } from '../core/contracts';
-import { GameStore } from '../core/game-store';
+import { BoardLayoutDto, Direction, TERRAINS, Terrain } from '../core/contracts';
 import { locationLabel, terrainOf } from '../core/locations';
 import {
-  ARC_INNER_RADIUS,
-  ARC_OUTER_RADIUS,
+  BAND_RADIUS,
+  Band,
   COMPASS_RADIUS,
+  ISLAND_INNER_RADIUS,
+  ISLAND_OUTER_RADIUS,
   SECTOR_COUNT,
   TOKEN_SIZE,
   VIEW_BOX,
   arcPath,
   boundaryAngle,
   pointAt,
+  sectorInRange,
   tokenPoint,
 } from './map-geometry';
 import { TableUi } from './table-ui';
 
-/** What the viewer is entitled to say about one location. Nothing here is inferred. */
-export type TokenState = 'mine' | 'revealed' | 'passed' | 'treasure' | 'unknown';
+/** One of the three terrain bands, placed and named. */
+interface MapBand extends Band {
+  readonly terrain: Terrain;
+}
 
-/** One of the 24 tokens, placed and dressed. */
+/** One band's highlighted segment, or the whole band's ring when the arrows coincide. */
+interface MapArc {
+  readonly terrain: Terrain;
+  readonly d: string;
+}
+
+/** One of the 24 tokens, placed and coloured. */
 interface MapToken {
   /** The server's id, `B1`. Everything that identifies a token uses this: `data-location`, a tap. */
   readonly location: string;
@@ -29,8 +39,8 @@ interface MapToken {
   readonly terrain: Terrain;
   readonly x: number;
   readonly y: number;
-  readonly state: TokenState;
-  readonly note: string;
+  /** Inside the range being built, which is a question on screen and not a fact about the game. */
+  readonly lit: boolean;
   readonly picked: boolean;
 }
 
@@ -55,10 +65,16 @@ interface CompassLabel {
  * make that promise, would not be crisp on a phone held at arm's length across a table, and could
  * not be tapped to name a location.
  *
- * Every state a token can be drawn in comes straight out of the view: the viewer's own hand, the
- * face-up reveal, what setup passing taught them about somebody else's hand, and at the very end
- * the treasure. There is nothing here that works anything out. A token nobody has told this client
- * about is drawn as unknown, which is the truth and is also the entire game.
+ * **The map is about terrain, and about nothing else.** Three coloured bands, 24 coloured tokens,
+ * and a highlight showing which band and which slice the question being built covers. It does not
+ * say whose a token is, and it cannot: this component injects `BoardStore` and `TableUi` and
+ * emphatically not `GameStore`, so no hand, no reveal, no pass and no treasure is reachable from
+ * here at all. The leak the old map had to be tested against is now a compile error rather than a
+ * spec -- there is no expression in this class that could name a token's owner.
+ *
+ * What survives of the viewer is the range they are currently building, which they typed
+ * themselves, and the two locations they have tapped for an accusation. Both come from `TableUi`,
+ * which knows nothing about a game either.
  */
 @Component({
   selector: 'app-island-map',
@@ -67,7 +83,6 @@ interface CompassLabel {
   changeDetection: ChangeDetectionStrategy.OnPush,
 })
 export class IslandMap {
-  protected readonly store = inject(GameStore);
   protected readonly ui = inject(TableUi);
 
   private readonly board = inject(BoardStore);
@@ -76,6 +91,16 @@ export class IslandMap {
   protected readonly tokenSize = TOKEN_SIZE;
 
   protected readonly ready = computed(() => this.board.layout() !== null);
+
+  /**
+   * The three bands, shore outside forest outside peaks.
+   *
+   * Drawn as whole rings and always the same three, because that is what the island is. They are
+   * geography exactly as the compass letters are, and the printed board is painted the same way.
+   */
+  protected readonly bands = computed<readonly MapBand[]>(() =>
+    TERRAINS.map((terrain) => ({ terrain, ...BAND_RADIUS[terrain] })),
+  );
 
   /**
    * The eight compass lines, drawn because the arrows point at them.
@@ -88,8 +113,8 @@ export class IslandMap {
   protected readonly boundaries = computed<readonly Divider[]>(() =>
     Array.from({ length: SECTOR_COUNT }, (_unused, index) => {
       const angle = boundaryAngle(index);
-      const inner = pointAt(angle, ARC_INNER_RADIUS);
-      const outer = pointAt(angle, ARC_OUTER_RADIUS);
+      const inner = pointAt(angle, ISLAND_INNER_RADIUS);
+      const outer = pointAt(angle, ISLAND_OUTER_RADIUS);
       return { x1: inner.x, y1: inner.y, x2: outer.x, y2: outer.y };
     }),
   );
@@ -111,12 +136,90 @@ export class IslandMap {
   );
 
   /**
-   * The wedge the question being built would ask about, or nothing when none is.
+   * The lit segment of each band the question being built covers: one band for a terrain question,
+   * all three for a question about anywhere.
    *
-   * A preview and only a preview: it says which slice of the island the question covers, never how
-   * many tokens are in it. The answer arrives from the server like every other answer.
+   * A preview and only a preview: it says which slice of which terrain the question is about, never
+   * how many tokens are in it. The answer arrives from the server like every other answer.
    */
-  protected readonly arc = computed(() => {
+  protected readonly arcs = computed<readonly MapArc[]>(() => {
+    const range = this.range();
+
+    if (range === null) {
+      return [];
+    }
+
+    return range.terrains.flatMap<MapArc>((terrain) => {
+      const band = BAND_RADIUS[terrain];
+      const d = arcPath(range.start, range.end, range.fullCircleWhenEqual, band.inner, band.outer);
+
+      return d === '' ? [] : [{ terrain, d }];
+    });
+  });
+
+  protected readonly secretHighlight = computed(() => this.ui.highlight()?.secret === true);
+
+  protected readonly tokens = computed<readonly MapToken[]>(() => {
+    const layout = this.board.layout();
+    if (layout === null) {
+      return [];
+    }
+
+    const range = this.range();
+    const picks = this.ui.picks();
+
+    return layout.sectors.flatMap((sector, index) =>
+      sector.locations.flatMap<MapToken>((location) => {
+        const terrain = terrainOf(location);
+        if (terrain === null) {
+          return [];
+        }
+
+        const point = tokenPoint(index, terrain);
+        const lit =
+          range !== null &&
+          range.terrains.includes(terrain) &&
+          sectorInRange(index, range.start, range.end, range.fullCircleWhenEqual);
+
+        return [
+          {
+            location,
+            label: locationLabel(location),
+            terrain,
+            x: point.x,
+            y: point.y,
+            lit,
+            picked: picks.includes(location),
+          },
+        ];
+      }),
+    );
+  });
+
+  /**
+   * What a screen reader is told the whole picture is, since the tokens alone would be a list of ids.
+   *
+   * The same sentence for everybody at the table, and that is the point. A caption that read the
+   * viewer's hand out would be the map telling a screen-reader user something it no longer tells
+   * anyone else, which is a leak with an accessibility label on it.
+   */
+  protected readonly caption =
+    'The island: 24 locations in eight sectors, on three terrain bands — beach, forest, mountain.';
+
+  /** A tap names a location for an accusation, and does nothing at all the rest of the time. */
+  protected pick(location: string): void {
+    if (this.ui.accusing()) {
+      this.ui.togglePick(location);
+    }
+  }
+
+  /**
+   * The range being built, resolved to sector indices and to the terrains it lights.
+   *
+   * Shared by the segments and by the tokens so the two are read off one answer. A terrain question
+   * lights its own band; a question about anywhere lights all three, because that is what it asks.
+   */
+  private readonly range = computed(() => {
     const layout = this.board.layout();
     const highlight = this.ui.highlight();
 
@@ -131,105 +234,12 @@ export class IslandMap {
       return null;
     }
 
-    return arcPath(start, end, layout.arc.startEqualsEndMeansFullCircle);
+    const terrains: readonly Terrain[] = highlight.terrain === null ? TERRAINS : [highlight.terrain];
+
+    return { start, end, fullCircleWhenEqual: layout.arc.startEqualsEndMeansFullCircle, terrains };
   });
-
-  /** Whether the highlighted question is restricted to one terrain, which dims the other two rings. */
-  protected readonly highlightTerrain = computed(() => this.ui.highlight()?.terrain ?? null);
-
-  protected readonly secretHighlight = computed(() => this.ui.highlight()?.secret === true);
-
-  protected readonly tokens = computed<readonly MapToken[]>(() => {
-    const layout = this.board.layout();
-    if (layout === null) {
-      return [];
-    }
-
-    const mine = new Set(this.store.myHand());
-    const revealed = new Set(this.store.view()?.publicReveal ?? []);
-    const treasure = new Set(this.store.treasure() ?? []);
-    const picks = this.ui.picks();
-
-    // Only ever what passing told this viewer. `knownHand` on the viewer's own seat is their whole
-    // hand, which is already covered above, so taking it again here would put every one of their
-    // own tokens into the "you passed this to somebody" state.
-    const passedTo = new Map<string, string>();
-    for (const seat of this.store.seats()) {
-      if (!seat.isViewer) {
-        for (const location of seat.knownHand) {
-          passedTo.set(location, seat.displayName);
-        }
-      }
-    }
-
-    return layout.sectors.flatMap((sector, index) =>
-      sector.locations.flatMap<MapToken>((location) => {
-        const terrain = terrainOf(location);
-        if (terrain === null) {
-          return [];
-        }
-
-        const point = tokenPoint(index, terrain);
-        const state = treasure.has(location)
-          ? 'treasure'
-          : mine.has(location)
-            ? 'mine'
-            : revealed.has(location)
-              ? 'revealed'
-              : passedTo.has(location)
-                ? 'passed'
-                : 'unknown';
-
-        return [
-          {
-            location,
-            label: locationLabel(location),
-            terrain,
-            x: point.x,
-            y: point.y,
-            state,
-            note: this.noteFor(location, state, passedTo.get(location)),
-            picked: picks.includes(location),
-          },
-        ];
-      }),
-    );
-  });
-
-  /** What a screen reader is told the whole picture is, since the tokens alone would be a list of ids. */
-  protected readonly caption = computed(() => {
-    const held = this.store.myHand();
-    return held.length === 0
-      ? 'The island: 24 locations in eight sectors.'
-      : `The island: 24 locations in eight sectors. You hold ${held.map(locationLabel).join(', ')}.`;
-  });
-
-  /** A tap names a location for an accusation, and does nothing at all the rest of the time. */
-  protected pick(location: string): void {
-    if (this.ui.accusing()) {
-      this.ui.togglePick(location);
-    }
-  }
 
   private sectorOf(layout: BoardLayoutDto, direction: Direction): number {
     return layout.sectors.findIndex((sector) => sector.direction === direction);
-  }
-
-  /** The hover title, written the way the token in the player's hand is written. */
-  private noteFor(location: string, state: TokenState, holder: string | undefined): string {
-    const label = locationLabel(location);
-
-    switch (state) {
-      case 'mine':
-        return `${label} — yours`;
-      case 'revealed':
-        return `${label} — face up`;
-      case 'treasure':
-        return `${label} — the treasure`;
-      case 'passed':
-        return `${label} — you passed this to ${holder}`;
-      default:
-        return label;
-    }
   }
 }

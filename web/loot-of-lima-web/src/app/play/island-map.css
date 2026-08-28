@@ -2,9 +2,12 @@
  * The island.
  *
  * Everything here dresses shapes the component has already placed; nothing in this file decides
- * where anything goes. The four token states are drawn as four different weights of the same disc
- * rather than four different colours, because the colour already means the terrain and a token has
- * to keep saying which terrain it is even once it is known.
+ * where anything goes. There is exactly one thing being said in colour -- the terrain -- and it is
+ * said twice over, by the band a token sits on and by the token itself. The band is the terrain
+ * washed into the sea colour and the token is the terrain at full strength, so a disc reads as a
+ * token lying on its own ground rather than disappearing into it.
+ *
+ * Nothing here dresses a token by who holds it, because nothing in this component knows.
  */
 
 .map__head {
@@ -47,31 +50,46 @@
   stroke-width: 0.6;
 }
 
-.map__ring {
+/*
+ * A band is a stroked circle rather than a filled annulus: the stroke is centred on the path, so
+ * one radius and one width give an exact ring and there is no second path to keep in step with the
+ * tokens. The three widths meet, so the island is continuous terrain rather than three hoops.
+ */
+.map__band {
   fill: none;
-  stroke: var(--line);
-  stroke-width: 0.5;
+}
+
+.map__band--beach {
+  stroke: color-mix(in srgb, var(--beach) 30%, var(--sea-deep));
+}
+
+.map__band--forest {
+  stroke: color-mix(in srgb, var(--forest) 34%, var(--sea-deep));
+}
+
+.map__band--mountain {
+  stroke: color-mix(in srgb, var(--mountain) 30%, var(--sea-deep));
 }
 
 .map__divider {
-  stroke: color-mix(in srgb, var(--parchment) 22%, transparent);
+  stroke: color-mix(in srgb, var(--parchment) 26%, transparent);
   stroke-width: 0.7;
   stroke-dasharray: 3 2.5;
 }
 
 /*
- * Under the tokens and over the sea. It marks the slice the question covers and, deliberately,
- * nothing about what is in it.
+ * The lit segments, over the bands and under the tokens. Which bands are lit is the terrain the
+ * question names; how far round they run is the arc it names. Neither says what is in it.
  */
 .map__arc {
-  fill: color-mix(in srgb, var(--brass) 26%, transparent);
+  fill: color-mix(in srgb, var(--brass) 32%, transparent);
   stroke: var(--brass);
   stroke-width: 0.9;
 }
 
 /* A Pistol question, which only its two participants will ever see the answer to. */
-.map__arc--secret {
-  fill: color-mix(in srgb, var(--coral) 24%, transparent);
+.map--secret .map__arc {
+  fill: color-mix(in srgb, var(--coral) 30%, transparent);
   stroke: var(--coral);
 }
 
@@ -85,99 +103,51 @@
 
 /* --- tokens -------------------------------------------------------------- */
 
-.mark__disc {
-  fill: var(--sea-light);
-  stroke: color-mix(in srgb, var(--parchment) 30%, transparent);
-  stroke-width: 0.8;
-
-  /* An unknown token is a shape on the map, not a piece of information. */
-  opacity: 0.35;
-}
-
-.mark__label {
-  fill: var(--parchment);
-  font-family: var(--font-mono);
-  font-size: 6.5px;
-  font-weight: 600;
-  opacity: 0.5;
-  pointer-events: none;
-}
-
 /*
- * Terrain colour is geography, so it is on the token whenever the token is known. The board in
- * front of the player is painted the same way.
+ * Terrain colour, always. A token is a place on the island, and where a place is and what it is
+ * made of are both printed on the board in front of the player.
  */
-.mark--mine .mark__disc,
-.mark--revealed .mark__disc,
-.mark--passed .mark__disc,
-.mark--treasure .mark__disc {
-  opacity: 1;
+.mark__disc {
+  stroke: color-mix(in srgb, var(--ink) 45%, transparent);
+  stroke-width: 0.8;
 }
 
-.mark--mine .mark__label,
-.mark--revealed .mark__label,
-.mark--passed .mark__label,
-.mark--treasure .mark__label {
-  opacity: 1;
-  fill: var(--ink);
-}
-
-.mark--mine .mark__disc--beach,
-.mark--revealed .mark__disc--beach,
-.mark--passed .mark__disc--beach,
-.mark--treasure .mark__disc--beach {
+.mark__disc--beach {
   fill: var(--beach);
 }
 
-.mark--mine .mark__disc--forest,
-.mark--revealed .mark__disc--forest,
-.mark--passed .mark__disc--forest,
-.mark--treasure .mark__disc--forest {
+.mark__disc--forest {
   fill: var(--forest);
 }
 
-.mark--mine .mark__disc--mountain,
-.mark--revealed .mark__disc--mountain,
-.mark--passed .mark__disc--mountain,
-.mark--treasure .mark__disc--mountain {
+.mark__disc--mountain {
   fill: var(--mountain);
 }
 
-.mark--mine .mark__disc--forest + .mark__label,
-.mark--revealed .mark__disc--forest + .mark__label,
-.mark--passed .mark__disc--forest + .mark__label,
-.mark--treasure .mark__disc--forest + .mark__label {
+.mark__label {
+  fill: var(--ink);
+  font-family: var(--font-mono);
+  font-size: 6.5px;
+  font-weight: 600;
+  pointer-events: none;
+}
+
+/* The one terrain dark enough to need light lettering. */
+.mark__disc--forest + .mark__label {
   fill: var(--parchment);
 }
 
-/* Yours: a brass ring, the same colour this app uses for "you" everywhere else. */
-.mark--mine .mark__disc {
+/*
+ * Inside the range being built. A ring the colour the arc is drawn in, so the tokens the question
+ * covers and the slice it covers read as one thing rather than as two overlapping claims.
+ */
+.mark--lit .mark__disc {
   stroke: var(--brass-bright);
-  stroke-width: 2;
+  stroke-width: 1.8;
 }
 
-/* Face up on the table: solid, and belonging to nobody. */
-.mark--revealed .mark__disc {
-  stroke: var(--parchment);
-  stroke-width: 1;
-  stroke-dasharray: none;
-}
-
-/* You handed this one over, so you know where it is without holding it. */
-.mark--passed .mark__disc {
-  stroke: var(--brass);
-  stroke-width: 1.4;
-  stroke-dasharray: 3 2;
-}
-
-.mark--treasure .mark__disc {
+.map--secret .mark--lit .mark__disc {
   stroke: var(--coral);
-  stroke-width: 2.4;
-}
-
-/* Dimmed while a terrain-restricted question is being built, so the wedge reads as the question. */
-.mark--outside {
-  opacity: 0.3;
 }
 
 .map--picking .mark {
@@ -220,25 +190,17 @@
   width: 0.85rem;
   height: 0.85rem;
   border-radius: 50%;
-  background: var(--sea-light);
-  border: 1px solid color-mix(in srgb, var(--parchment) 30%, transparent);
-  opacity: 0.55;
+  border: 1px solid color-mix(in srgb, var(--ink) 45%, transparent);
 }
 
-.legend__swatch--mine {
-  background: var(--parchment-dim);
-  border: 2px solid var(--brass-bright);
-  opacity: 1;
+.legend__swatch--beach {
+  background: var(--beach);
 }
 
-.legend__swatch--revealed {
-  background: var(--parchment-dim);
-  border: 1px solid var(--parchment);
-  opacity: 1;
+.legend__swatch--forest {
+  background: var(--forest);
 }
 
-.legend__swatch--passed {
-  background: var(--parchment-dim);
-  border: 2px dashed var(--brass);
-  opacity: 1;
+.legend__swatch--mountain {
+  background: var(--mountain);
 }

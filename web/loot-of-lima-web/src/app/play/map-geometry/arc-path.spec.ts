@@ -1,12 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { ARC_OUTER_RADIUS, arcPath, boundaryAngle, pointAt } from '../map-geometry';
+import { BAND_RADIUS, arcPath, boundaryAngle, pointAt } from '../map-geometry';
 
 /**
- * The highlighted wedge, as an SVG path.
+ * One band's highlighted segment, as an SVG path.
  *
  * A path is a string, so these read the numbers back out of it rather than comparing whole strings:
  * an assertion on the exact text would break on a rounding change that moved nothing a player could
  * see, and would say nothing about the two flags that actually decide the shape.
+ *
+ * Each case names the band it is drawn on. The two radii are the terrain's own, because the map
+ * lights the band a question is about rather than a wedge across all three.
  */
 describe('mapGeometry.arcPath', () => {
   it('Should_start_on_the_outer_ring_at_the_starting_line_when_a_wedge_is_drawn', () => {
@@ -15,10 +18,10 @@ describe('mapGeometry.arcPath', () => {
     // and the tokens sit in the gaps, which is what makes start-inclusive and end-exclusive fall
     // out of the picture instead of having to be drawn in.
     const start = 2;
-    const expected = pointAt(boundaryAngle(start), ARC_OUTER_RADIUS);
+    const expected = pointAt(boundaryAngle(start), BAND_RADIUS.Beach.outer);
 
     // Act
-    const path = arcPath(start, 4, true);
+    const path = arcPath(start, 4, true, BAND_RADIUS.Beach.inner, BAND_RADIUS.Beach.outer);
 
     // Assert
     expect(path.startsWith(`M ${expected.x} ${expected.y} `)).toBe(true);
@@ -32,7 +35,7 @@ describe('mapGeometry.arcPath', () => {
     const end = 4;
 
     // Act
-    const flags = arcFlags(arcPath(start, end, true));
+    const flags = arcFlags(arcPath(start, end, true, BAND_RADIUS.Forest.inner, BAND_RADIUS.Forest.outer));
 
     // Assert
     expect(flags).toEqual([0, 0]);
@@ -44,7 +47,7 @@ describe('mapGeometry.arcPath', () => {
     const end = 7;
 
     // Act
-    const flags = arcFlags(arcPath(start, end, true));
+    const flags = arcFlags(arcPath(start, end, true, BAND_RADIUS.Forest.inner, BAND_RADIUS.Forest.outer));
 
     // Assert
     expect(flags).toEqual([1, 1]);
@@ -58,7 +61,7 @@ describe('mapGeometry.arcPath', () => {
     const start = 5;
 
     // Act
-    const path = arcPath(start, start, true);
+    const path = arcPath(start, start, true, BAND_RADIUS.Mountain.inner, BAND_RADIUS.Mountain.outer);
 
     // Assert
     expect(path.match(/M /g)).toHaveLength(2);
@@ -72,7 +75,7 @@ describe('mapGeometry.arcPath', () => {
     const start = 5;
 
     // Act
-    const path = arcPath(start, start, false);
+    const path = arcPath(start, start, false, BAND_RADIUS.Mountain.inner, BAND_RADIUS.Mountain.outer);
 
     // Assert
     expect(path).toBe('');

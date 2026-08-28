@@ -222,10 +222,11 @@ export async function statedHandSize(page: Page, seatIndex: number): Promise<num
  * Every token *chip* rendered anywhere on this page, wherever it came from.
  *
  * The island map is deliberately not included, and that is not an oversight to fix. The map draws
- * all 24 locations labelled, exactly as the printed board is labelled: where a location is on the
- * island is geography, and public. What a viewer may not know is whose it is, and the map says
- * that with `data-state` rather than with the label -- so `knownOnMap` is the right question to
- * ask of the map, and this is the right question to ask of everything else.
+ * all 24 locations labelled, exactly as the printed board is labelled, and it draws them the same
+ * way for everyone at the table: where a location is on the island and what terrain it is are both
+ * geography, and public. Extending this to the map would make it match all 24 on every page and
+ * quietly stop testing anything. What the map says is checked by `mapTokens` instead, which asks
+ * whether two players see the same island rather than what one of them sees.
  *
  * Comes back in the box's spelling. Both sides of every leak assertion are read off a screen, so
  * they compare like with like; a spec that mixed a screen read against a hard-coded `B1` would
@@ -233,6 +234,18 @@ export async function statedHandSize(page: Page, seatIndex: number): Promise<num
  */
 export async function visibleTokens(page: Page): Promise<string[]> {
   return page.locator('.token').allInnerTexts();
+}
+
+/**
+ * The treasure, once somebody has earned the right to see it. Spelled `3B`, like everything read
+ * off a screen.
+ *
+ * Anchored on its own heading and matched exactly: hand, face-up and treasure are three rows in
+ * one section, and `getByRole`'s name is a case-insensitive substring match.
+ */
+export async function treasureTokens(page: Page): Promise<string[]> {
+  await expect(page.getByRole('heading', { name: 'The treasure', exact: true })).toBeVisible();
+  return page.locator('h3:text-is("The treasure") + .row .token').allInnerTexts();
 }
 
 /**
@@ -247,33 +260,56 @@ export function mapToken(page: Page, location: string): ReturnType<Page['locator
 }
 
 /**
- * What the map says this viewer knows about a location: mine, revealed, passed, treasure, unknown.
+ * Every token on the island, as one string apiece: id, the terrain class it is coloured by, and
+ * everything it says — the hover title and the printed label.
  *
- * The label is not the interesting part. Every one of the 24 is drawn with its id on it, because the
- * printed board is labelled the same way and geography is public — what a viewer is not entitled to
- * is knowing *whose* it is, and that is what this reads.
+ * Written to be compared between two players rather than read against expected values, because the
+ * claim worth making about this map is that there is only one of it. The map no longer knows who
+ * holds anything: `IslandMap` injects the board and the ephemeral UI and not `GameStore`, so two
+ * players' islands must come back byte for byte identical, and any leak reintroduced here would
+ * have to make them differ.
+ *
+ * The `<g>`'s own classes are deliberately left out. `mark--lit` and `mark--picked` are the range
+ * this viewer is typing and the locations they have tapped, which are theirs alone and legitimately
+ * differ; the terrain class on the disc, the id and the text are the map itself.
+ *
+ * The map is waited for first, because `evaluateAll` is a one-shot with no auto-waiting and two
+ * empty islands compare equal — a leak spec that raced the first frame would pass for free.
  */
-export async function mapTokenState(page: Page, location: string): Promise<string | null> {
-  await expect(mapToken(page, location)).toBeVisible();
-  return mapToken(page, location).getAttribute('data-state');
+export async function mapTokens(page: Page): Promise<string[]> {
+  await expect(page.locator('.map .mark').first()).toBeVisible();
+
+  return page.locator('.map .mark').evaluateAll((marks) =>
+    marks.map((mark) => {
+      const id = mark.getAttribute('data-location') ?? '';
+      const terrain = mark.querySelector('.mark__disc')?.getAttribute('class') ?? '';
+      const said = (mark.textContent ?? '').replace(/\s+/g, ' ').trim();
+
+      return `${id} ${terrain} ${said}`;
+    }),
+  );
 }
 
-/**
- * Every location the map draws as anything other than unknown.
- *
- * The map is waited for first, because `evaluateAll` is a one-shot with no auto-waiting and an
- * empty island is a subset of everything -- a spec proving a leak is absent would pass for free.
- */
-export async function knownOnMap(page: Page): Promise<string[]> {
+/** The locations lit by the range being built, which is the tokens inside the highlighted bands. */
+export async function litOnMap(page: Page): Promise<string[]> {
   await expect(page.locator('.map .mark').first()).toBeVisible();
 
   return page
-    .locator('.map .mark:not([data-state="unknown"])')
+    .locator('.map .mark--lit')
     .evaluateAll((marks) => marks.map((mark) => mark.getAttribute('data-location') ?? ''));
 }
 
-/** The wedge drawn for the question being built, if there is one. */
-export function arcPath(page: Page): ReturnType<Page['locator']> {
+/** What a screen reader is told the island is, which is the one place a map can leak silently. */
+export async function mapCaption(page: Page): Promise<string | null> {
+  await expect(page.locator('.map')).toBeVisible();
+  return page.locator('.map').getAttribute('aria-label');
+}
+
+/**
+ * The lit band segments of the question being built: one per terrain the question covers, so one
+ * for a terrain question and three for a question about anywhere.
+ */
+export function arcPaths(page: Page): ReturnType<Page['locator']> {
   return page.locator('.map__arc');
 }
 

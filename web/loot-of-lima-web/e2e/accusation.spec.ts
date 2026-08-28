@@ -4,11 +4,12 @@ import {
   askQuestion,
   deal,
   leave,
-  mapTokenState,
   openTable,
   ownHand,
   sitDown,
   takeTokens,
+  treasureTokens,
+  visibleTokens,
 } from './fixtures/table';
 
 /**
@@ -57,7 +58,12 @@ test.describe('Accusing', () => {
     await expect(seen).toContainText('Ada accused, and was wrong. Nothing was revealed.');
     await expect(seen).not.toContainText('1B');
     await expect(seen).not.toContainText('2B');
-    expect(await mapTokenState(grace.page, 'B1')).toBe('unknown');
+
+    // And nowhere else on her screen either. Grace holds F1 F2 F3 F8 with B8 and M6 face up, so
+    // neither of the tokens Ada named has any business being drawn as a chip on this page.
+    const chips = await visibleTokens(grace.page);
+    expect(chips).not.toContain('1B');
+    expect(chips).not.toContain('2B');
 
     // Out, but still answerable: the turn has passed to Grace and Ada owes her an answer from the
     // hand she can no longer do anything with. Ada holds B1 and B2, so a beach question sweeping
@@ -105,18 +111,18 @@ test.describe('Accusing', () => {
     await takeTokens([ada]);
 
     // The field the whole design exists to protect. It is in the server's state from the deal, and
-    // null in every projection until this moment.
-    expect(await mapTokenState(ada.page, 'B3')).toBe('unknown');
+    // null in every projection until this moment — so neither half of it is anywhere on the page.
     await expect(ada.page.getByRole('heading', { name: 'The treasure' })).toHaveCount(0);
+    const before = await visibleTokens(ada.page);
+    expect(before).not.toContain('3B');
+    expect(before).not.toContain('5B');
 
     // Act
     await accuse(ada.page, 'B3', 'B5');
 
     // Assert
     await expect(ada.page.getByText('Ada wins.', { exact: true })).toBeVisible();
-    await expect(ada.page.getByRole('heading', { name: 'The treasure' })).toBeVisible();
-    expect(await mapTokenState(ada.page, 'B3')).toBe('treasure');
-    expect(await mapTokenState(ada.page, 'B5')).toBe('treasure');
+    expect(await treasureTokens(ada.page)).toEqual(['3B', '5B']);
 
     await leave([ada]);
   });

@@ -20,7 +20,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1659 .NET + 98 web + 46 e2e green |
+| M6 — polish | **In progress.** 1659 .NET + 104 web + 46 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -56,7 +56,7 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 98 passing
+npm test          # Vitest; expect 104 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
@@ -201,12 +201,19 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
    successor. The comparison is strict — a repeated version is a rejoin projecting the same
    revision to a seat instead of to a spectator, and dropping it would leave a player who has just
    sat down looking at somebody else's view.
-8. **The map draws all 24 locations, labelled, and that is not a leak.** Where a location is on the
-   island is geography, and the printed board is labelled the same way. What a viewer may not know is
-   *whose* it is, and the map says that with `data-state` — mine, revealed, passed, treasure,
-   unknown. So an e2e leak assertion asks `knownOnMap` about the map and `visibleTokens` about
-   everything else; extending `visibleTokens` to the map would make it match all 24 and quietly
-   stop testing anything.
+8. **`IslandMap` must not inject `GameStore`.** The map draws all 24 locations, labelled and
+   coloured by terrain, and draws them identically for everybody at the table — where a location is
+   on the island and what it is made of are both geography, and the printed board says both. What a
+   viewer may not know is *whose* a location is, and the map now says nothing about that at all: it
+   takes the public board layout from `BoardStore` and the range and taps from `TableUi`, so no
+   hand, reveal, pass or treasure is reachable from the component. That is the sixth layer of the
+   hidden-information design and the only one enforced by what is *not* imported, so adding the
+   injection back is the whole of the regression. The caption and the hover `<title>` are part of
+   this: a caption reading the viewer's hand out would be the map telling a screen-reader user what
+   it tells nobody else. The e2e claim is correspondingly `mapTokens`, which asserts two players'
+   islands are identical, and `visibleTokens`, which asks about everything *but* the map — extending
+   `visibleTokens` to the map would make it match all 24 on every page and quietly stop testing
+   anything.
 9. **A projected bool must never lie, even helpfully.** `SeatView.PistolArmed` is projected
    truthfully for *every* seat rather than only the viewer's, because redaction here is by type: a
    field that reads false for a seat that is armed is a falsehood, not a redaction. It leaks
@@ -325,6 +332,19 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   spent at most three times a game and the ask loop happens every turn, so the loop wins the top of
   the page. `e2e/phone-layout.spec.ts` asserts it by vertical position, because a DOM-order check
   would pass while `order` put the panels somewhere else entirely.
+- **The map is about the terrain, and says nothing about who holds what.** Three coloured bands and
+  24 terrain-coloured tokens, the same picture on every screen at the table. The four ownership
+  states it used to draw — mine, revealed, passed, treasure — are gone along with `data-state`, and
+  the reason is what that buys: with nothing on the map derived from a hand, `IslandMap` stops
+  injecting `GameStore` altogether, and the leak it was the likeliest component in this app to
+  spring becomes unwritable rather than merely untested. The cost is real and was accepted: the
+  treasure no longer lights up at the end (it is still spelled out in the hand panel, which is where
+  a player reads their tokens anyway), the face-up locations no longer read as public on the island,
+  and what setup passing taught you is left in the history where it was said. What the map is *for*
+  is the question being built — which band, which slice — and that got better rather than worse: the
+  highlight is now per terrain, so "how many forest locations from N up to SE" lights the forest band
+  and the three forest tokens in it instead of a wedge across all three rings that said "somewhere
+  in here" about a question that named one terrain.
 - **The accusation is a panel, not a modal.** The two locations are named by tapping the island, and
   a modal would cover the thing being tapped. It stays folded behind one button instead, because an
   accusation cannot be taken back.

@@ -5,11 +5,12 @@ import {
   deal,
   giveUpButton,
   leave,
-  mapTokenState,
   openTable,
   ownHand,
   sitDown,
   takeTokens,
+  treasureTokens,
+  visibleTokens,
 } from './fixtures/table';
 
 /**
@@ -47,10 +48,11 @@ test.describe('Playing on alone', () => {
     await expect(ada.page.getByText('You are out.', { exact: true })).toHaveCount(0);
     await expect(ada.page.getByText('Nobody wins.', { exact: true })).toHaveCount(0);
 
-    // The whole reason for not ending it. Both halves of the answer are still nothing on the map.
+    // The whole reason for not ending it. Both halves of the answer are still nowhere on the page.
     await expect(ada.page.getByRole('heading', { name: 'The treasure' })).toHaveCount(0);
-    expect(await mapTokenState(ada.page, 'B3')).toBe('unknown');
-    expect(await mapTokenState(ada.page, 'B5')).toBe('unknown');
+    const chips = await visibleTokens(ada.page);
+    expect(chips).not.toContain('3B');
+    expect(chips).not.toContain('5B');
 
     // Still playing, and still asking. Ada holds B1 and B2, so a beach question sweeping the whole
     // island comes back 2 — from the same hand, at the same table, one turn later.
@@ -76,7 +78,7 @@ test.describe('Playing on alone', () => {
 
     // Assert
     await expect(ada.page.getByText('Ada wins.', { exact: true })).toBeVisible();
-    expect(await mapTokenState(ada.page, 'B3')).toBe('treasure');
+    expect(await treasureTokens(ada.page)).toEqual(['3B', '5B']);
 
     await leave([ada]);
   });
@@ -117,9 +119,7 @@ test.describe('Playing on alone', () => {
 
     // Assert
     await expect(ada.page.getByText('You gave up. Here is the treasure.', { exact: true })).toBeVisible();
-    await expect(ada.page.getByRole('heading', { name: 'The treasure' })).toBeVisible();
-    expect(await mapTokenState(ada.page, 'B3')).toBe('treasure');
-    expect(await mapTokenState(ada.page, 'B5')).toBe('treasure');
+    expect(await treasureTokens(ada.page)).toEqual(['3B', '5B']);
 
     await leave([ada]);
   });

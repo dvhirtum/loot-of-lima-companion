@@ -24,7 +24,7 @@ export const SECTOR_SPAN = 45;
 export const SECTOR_COUNT = 8;
 
 /**
- * The three concentric rings the tokens sit on.
+ * The line each terrain's tokens sit on, which is also the middle of that terrain's band.
  *
  * Shore outermost, then forest, then the peaks in the middle, which is how the real board is
  * painted -- a player looking from the physical island to the screen should not have to translate.
@@ -35,12 +35,38 @@ export const TOKEN_RADIUS: Readonly<Record<Terrain, number>> = {
   Mountain: 55,
 };
 
-/** Small enough that consecutive rings do not touch: the gaps are 18, so this leaves one. */
+/** Small enough that two bands' tokens do not touch: the rings are 18 apart, so this leaves one. */
 export const TOKEN_SIZE = 8.5;
 
-/** The highlighted wedge spans all three rings, so it reads as "this slice of the island". */
-export const ARC_INNER_RADIUS = 43;
-export const ARC_OUTER_RADIUS = 102;
+/**
+ * Half a band's width, which is also half the distance between two token rings.
+ *
+ * So the three bands meet exactly and the island is one solid disc of terrain rather than three
+ * hoops with sea showing between them. The map's subject is the terrain, and terrain has no gaps.
+ */
+export const BAND_HALF_WIDTH = 9;
+
+/** An annulus: the two radii `arcPath` wants, and the two an SVG ring is drawn from. */
+export interface Band {
+  readonly inner: number;
+  readonly outer: number;
+}
+
+/**
+ * Where each terrain is painted, centred on the line its own tokens sit on.
+ *
+ * Derived from `TOKEN_RADIUS` rather than written out a second time. A band whose tokens sat off
+ * its own centre would be a picture disagreeing with itself, and nothing but an eye would catch it.
+ */
+export const BAND_RADIUS: Readonly<Record<Terrain, Band>> = {
+  Beach: bandAround(TOKEN_RADIUS.Beach),
+  Forest: bandAround(TOKEN_RADIUS.Forest),
+  Mountain: bandAround(TOKEN_RADIUS.Mountain),
+};
+
+/** The island itself: the inside of the peaks out to the far edge of the shore. */
+export const ISLAND_INNER_RADIUS = BAND_RADIUS.Mountain.inner;
+export const ISLAND_OUTER_RADIUS = BAND_RADIUS.Beach.outer;
 
 /** Just beyond the shore, at the far end of a compass line. */
 export const COMPASS_RADIUS = 108;
@@ -91,19 +117,46 @@ export function sectorsCovered(startIndex: number, endIndex: number, fullCircleW
 }
 
 /**
- * The `d` of the highlighted wedge: an annulus swept clockwise from one compass line to another.
+ * Whether one sector falls inside the wedge, so its tokens can be lit along with it.
+ *
+ * This decides what is *drawn brightly* and nothing else. It never counts, never sums and is never
+ * asked how many tokens it found: the answer to a question comes from the server like every other
+ * answer, and a client that could total the tokens in an arc would be the beginning of the rules
+ * engine this app deliberately does not have on the client.
+ *
+ * Measured as an offset clockwise from the start against the same `sectorsCovered` the wedge is
+ * drawn from, so the shape and the lit tokens cannot disagree about where the arc ends.
+ */
+export function sectorInRange(
+  sectorIndex: number,
+  startIndex: number,
+  endIndex: number,
+  fullCircleWhenEqual: boolean,
+): boolean {
+  const offset = (((sectorIndex - startIndex) % SECTOR_COUNT) + SECTOR_COUNT) % SECTOR_COUNT;
+
+  return offset < sectorsCovered(startIndex, endIndex, fullCircleWhenEqual);
+}
+
+/**
+ * The `d` of one band's highlighted segment: an annulus swept clockwise from one compass line to
+ * another, between that band's own two radii.
  *
  * Drawn line to line rather than token to token, and that is the whole reason the picture is worth
  * having. The dial's two arrows point at the eight compass *lines*, and the tokens sit in the gaps
  * between them, so a wedge bounded by the lines contains exactly the tokens the question asks about
  * -- start included, end excluded -- without this file ever having to know that rule.
+ *
+ * `inner` and `outer` have no defaults on purpose. A question is asked about one terrain or about
+ * all three, and the map says which by lighting one band or three. A wedge that spanned every ring
+ * by default would be a fourth shape, saying something no question ever says.
  */
 export function arcPath(
   startIndex: number,
   endIndex: number,
   fullCircleWhenEqual: boolean,
-  inner: number = ARC_INNER_RADIUS,
-  outer: number = ARC_OUTER_RADIUS,
+  inner: number,
+  outer: number,
 ): string {
   const sectors = sectorsCovered(startIndex, endIndex, fullCircleWhenEqual);
 
@@ -157,6 +210,10 @@ function halfArcs(radius: number, sweep: 0 | 1): string {
     `A ${radius} ${radius} 0 0 ${sweep} ${top.x} ${top.y}`,
     'Z',
   ].join(' ');
+}
+
+function bandAround(radius: number): Band {
+  return { inner: radius - BAND_HALF_WIDTH, outer: radius + BAND_HALF_WIDTH };
 }
 
 /** Two decimals is finer than a pixel at any size this is drawn, and keeps the path readable. */
