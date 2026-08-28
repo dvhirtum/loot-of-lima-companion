@@ -94,6 +94,64 @@ test.describe('Watching a table', () => {
     await watcher.close();
     await leave([ada]);
   });
+
+  test('Should_show_a_watcher_none_of_the_setup_panels_while_the_table_sets_up', async ({ browser }) => {
+    // Arrange
+    // A shuffled deal, because a five-player scenario skips passing and answers the announcements
+    // out of the book: the three setup panels only all appear on a generated one. Structural
+    // assertions only, since nothing about a shuffled table repeats.
+    //
+    // Every command behind these panels reaches the hub through `WithSeatAsync` — `StartGame`
+    // included, which is why the lobby's "Deal and begin" is in here too. Shown to a watcher the
+    // dealing panel did not merely clutter: it reads its count off `mySeat()`, so it asked
+    // somebody with no seat to take *any 0 tokens*.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+
+    const watcher = await browser.newContext();
+    const page = await watcher.newPage();
+    await page.goto(`/play/${roomCode}`);
+    await expect(page.locator('.seat').first()).toBeVisible();
+
+    // Dealing belongs to the people playing, but the way in is real here, so it is still offered.
+    await expect(page.getByRole('button', { name: 'Deal and begin' })).toHaveCount(0);
+    await expect(page.getByRole('link', { name: 'Join to sit here' }).first()).toBeVisible();
+
+    // Act
+    await deal(ada.page, null);
+
+    // Assert
+    // Each phase is waited for on the watcher's own header before its panel is looked for. The
+    // watcher's slot is empty in every phase, so an absence asserted too early would pass whatever
+    // the page did — the wait is what makes each of these mean anything.
+    await expect(page.locator('.head')).toContainText('Dealing');
+    await expect(page.getByRole('heading', { name: 'Set up behind your screen', exact: true })).toHaveCount(0);
+
+    // Act
+    await takeTokens([ada]);
+
+    // Assert
+    // Anchored on the heading, not the text. The log says "Bot 2 passed a token to Bot 3", and
+    // `getByText` matches case-insensitive substrings — so a text match would find the history
+    // panel and report a leak that is not there.
+    await expect(page.locator('.head')).toContainText('Passing');
+    await expect(page.getByRole('heading', { name: 'Pass a token', exact: true })).toHaveCount(0);
+
+    // Act
+    await ada.page.getByRole('button', { name: 'Done passing' }).click();
+
+    // Assert
+    await expect(page.locator('.head')).toContainText('Announcing');
+    await expect(page.getByRole('heading', { name: 'Announce your fewest terrain', exact: true })).toHaveCount(0);
+
+    // Ada has been offered all three throughout, so none of the above passed by the panels simply
+    // never being built.
+    await expect(ada.page.getByRole('heading', { name: 'Announce your fewest terrain', exact: true })).toBeVisible();
+
+    await watcher.close();
+    await leave([ada]);
+  });
 });
 
 /**

@@ -80,36 +80,45 @@
     <div class="board">
       <app-island-map />
 
-      <!-- Whatever this phase is waiting for this player to do. Exactly one of these is ever up. -->
-      @switch (store.phase()) {
-        @case ('Lobby') {
-          <app-lobby-panel (start)="start($event)" />
-        }
-        @case ('Dealing') {
-          <app-setup-panel (confirmTokens)="confirmTokens()" />
-        }
-        @case ('Passing') {
-          <app-setup-panel (confirmPass)="confirmPass()" />
-        }
-        @case ('Announcing') {
-          <app-setup-panel (announce)="announce($event)" />
-        }
-        @case ('InProgress') {
-          <!--
-            A spectator gets nothing here, and `isMyTurn` is already false for one because they
-            have no seat. "Watching. Take a seat to play." used to sit in this slot, and it was an
-            offer the engine would refuse: `ClaimSeat` starts with `Reject(state, GamePhase.Lobby)`,
-            so the way in closes the moment the game does. The seat strip has always known that —
-            it draws no "Sit here" outside the lobby — and this panel was the last place still
-            telling somebody to do a thing that cannot be done. They are still told they are
-            watching, by the tokens panel, which says so instead of showing a hand.
-          -->
-          @if (store.isMyTurn()) {
-            <app-question-builder (ask)="ask($event)" />
-          } @else if (!store.isSpectator()) {
-            <p class="card muted turn-note">
-              Waiting for {{ turnHolder() }}. Your answers are given for you, from the hand the app dealt you.
-            </p>
+      <!--
+        Whatever this phase wants from this player, and only while there is a player to want it
+        from. This whole slot belongs to a seat: every command behind it — `StartGame`,
+        `ConfirmTokensTaken`, `ConfirmPassDone`, `AnnounceFewestTerrain`, `AskQuestion` — reaches
+        the hub through `WithSeatAsync` and is refused outright from a viewer without one. So a
+        spectator gets none of it, and one condition says so for all five phases rather than four
+        panels each remembering separately.
+
+        Shown to a spectator it did not merely clutter, it lied: the dealing panel reads its count
+        off `mySeat()`, so it asked somebody with no seat to take *any 0 tokens*, and the buttons
+        beside it were an instruction to do a thing the engine would refuse. A spectator is still
+        told what they are, by the tokens panel, which says so instead of showing a hand — and in
+        the lobby the seat strip still offers them the way in, because there the way in is real.
+
+        Exactly one case is ever up, and `isMyTurn` is already false for a seat that does not
+        exist, so the turn note needs no spectator check of its own.
+      -->
+      @if (!store.isSpectator()) {
+        @switch (store.phase()) {
+          @case ('Lobby') {
+            <app-lobby-panel (start)="start($event)" />
+          }
+          @case ('Dealing') {
+            <app-setup-panel (confirmTokens)="confirmTokens()" />
+          }
+          @case ('Passing') {
+            <app-setup-panel (confirmPass)="confirmPass()" />
+          }
+          @case ('Announcing') {
+            <app-setup-panel (announce)="announce($event)" />
+          }
+          @case ('InProgress') {
+            @if (store.isMyTurn()) {
+              <app-question-builder (ask)="ask($event)" />
+            } @else {
+              <p class="card muted turn-note">
+                Waiting for {{ turnHolder() }}. Your answers are given for you, from the hand the app dealt you.
+              </p>
+            }
           }
         }
       }

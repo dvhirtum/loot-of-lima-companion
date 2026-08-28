@@ -23,7 +23,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1659 .NET + 104 web + 47 e2e green |
+| M6 — polish | **In progress.** 1659 .NET + 104 web + 48 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -63,7 +63,7 @@ npm test          # Vitest; expect 104 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 47 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 48 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
@@ -389,6 +389,17 @@ plays.
   it. Offering a button whose only outcome is a refusal is the same defect as the seat a spectator
   could not take — the refusal was correct, and it named an internal seat index at somebody who had
   done nothing but press what they were shown.
+- **The game page's phase slot belongs to a seat, and one `@if (!store.isSpectator())` says so for
+  every phase.** `StartGame`, `ConfirmTokensTaken`, `ConfirmPassDone`, `AnnounceFewestTerrain` and
+  both ask methods all reach the hub through `WithSeatAsync`, so a viewer without a seat is refused
+  every one of them; the lobby panel, all three faces of `SetupPanel` and the question builder are
+  therefore inside that one condition rather than each remembering separately. **A new phase panel
+  goes inside it too.** Shown to a spectator these did not merely clutter — `SetupPanel` reads its
+  count off `mySeat()`, so it asked somebody with no seat to take *any 0 tokens*. What a spectator
+  keeps is everything that is true of them: the island, the log, the seat strip, and the tokens
+  panel saying they are watching without a seat. In `Lobby` the seat strip still offers them the way
+  in, because there the way in is real — `ClaimSeat` is the one command that is refused by *phase*
+  rather than by seat, so it is the one offer that has to disappear on the deal instead.
 - **There is one game-page layout, ordered by the loop, and the width decides only how many columns
   it is poured into.** The panels are the grid's own children in the order a player uses them —
   island → what this phase wants from you → history → abilities → accusation → hand — with no column
