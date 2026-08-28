@@ -155,7 +155,8 @@ Three coloured bands and 24 terrain-coloured tokens, identical on every screen a
 shows where each location is and what it is made of, and says nothing about who holds what.
 
 The highlight follows the question being built, per terrain: a terrain question lights that band and
-its tokens inside the arc, a question about anywhere lights all three.
+its tokens inside the arc, a question about anywhere lights all three. Each band lights in its own
+terrain's colour, so the highlight names a terrain the same way everything else on the map does.
 
 ## Locations are shown the way the box stamps them
 
