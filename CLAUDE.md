@@ -1,12 +1,15 @@
 # Loot of Lima companion app
 
-A web companion for the board game *Loot of Lima* (Allplay, 3-5 players). Players scan a QR code,
+A web companion for the board game *Loot of Lima* (Allplay, 1-5 players). Players scan a QR code,
 claim a seat, and see their own information on the island map. The app owns the deal, routes
 questions, answers on behalf of bot **and** human players, tracks the special abilities, and keeps
 secret questions secret.
 
 **It is a companion, not a replacement.** The physical board, screens, tokens and dice stay on the
 table. The app replaces the printed scenario booklet and the bookkeeping.
+
+**`docs/rules.md` is the rules, and it is the authority.** See [The rulebook](#the-rulebook) before
+settling any question about how the game works.
 
 Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 
@@ -220,6 +223,40 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
    nothing either way — spending an ability writes a public `abilityUsed` entry carrying the same
    turn number.
 
+## The rulebook
+
+**`docs/rules.md` is the rulebook, transcribed by hand from the physical copy, and it is the
+authority on how this game works.** It supersedes the source PDFs, anything remembered, and
+anything in this file that disagrees with it. `docs/components.jpg`, `setup.jpg`, `gameplay.jpg`
+and `notes.jpg` are the plates it refers to and are committed with it — unlike the scenario-book
+PDFs, which stay gitignored because nothing but the importer reads them. They arrived as PNGs of
+publisher renders and were re-encoded at 1400px and quality 82, which is 8.8 MB down to 752 KB with
+the setup callouts and the notes-sheet grid still readable. Anything added here later deserves the
+same treatment: a PNG of a photograph or a render is several megabytes of a repository forever.
+
+Two things it is not:
+
+- **It is the main rulebook, so it covers 3, 4 and 5 players.** The box says 1-5, and solo and
+  two-player are separate rules that are not in this transcription. Everything this app does at
+  those table sizes is a decision recorded under [Settled product decisions](#settled-product-decisions),
+  not something to look for here.
+- **It does not settle the arc's inclusive/exclusive ends.** It voices a question as *between* two
+  directions and says to name the clockwise arrow first, which is as precise as the prose gets.
+  What makes it exact is the oracle: 244,736 published answers, which only one reading survives.
+
+One thing it describes as a physical act rather than as an entitlement, and the difference matters:
+**a wrong accuser is not shown the treasure.** At a table the accuser looks at the two set-aside
+tokens themselves, because somebody has to check, and if they are wrong they have seen the answer
+and are out. Here the app does the checking, so nobody needs to look, and `Projector` fills in
+`Treasure` only in `Finished` — an eliminated player still at the table and still answering is one
+tell away from ending everybody else's game. Taking the checking over is the app's whole job; being
+handed the answer was never the reward for guessing wrong.
+
+Where the app deliberately departs from it, the departure is written down as a settled decision
+with its reason. Every one of them follows from the app owning the deal, from the app not modelling
+the dice, or from a table size this book does not cover — none is a house rule about how the game
+plays.
+
 ## Domain facts worth not re-deriving
 
 - 24 locations: 8 Beach `B1`-`B8`, 8 Forest `F1`-`F8`, 8 Mountain `M1`-`M8`.
@@ -235,7 +272,17 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
 - **Sector *k* holds `{Bk, Fk, Mk}`** — B1/F1/M1 in N, through B8/F8/M8 in NW.
 - **The query arc is clockwise from start, inclusive of start, EXCLUSIVE of end.** Coincident
   arrows sweep the whole circle. This is the subtle part: the dial's arrows point at the eight
-  compass *lines*, not at sectors, and tokens sit in the gaps between lines.
+  compass *lines*, not at sectors, and tokens sit in the gaps between lines. The rulebook confirms
+  both halves without stating either outright: it says to name the clockwise arrow first and that
+  "between N and W" is a different question from "between W and N", and it says the two arrows may
+  point the same way but that doing so is only useful when the question names a terrain — which is
+  true of a full circle and of nothing else, since all three terrains across the whole island is
+  just that player's hand size, and everybody already knows it. The inclusive/exclusive ends
+  themselves come from the oracle, not from the prose.
+- **The app phrases a question more precisely than the book voices it, on purpose.** The book says
+  "between" two directions; the question builder reads "clockwise from N up to, but not including,
+  SE". That is the same question said unambiguously, and it is not a divergence to tidy away — the
+  arc's ends are exactly what a player is most likely to get wrong at the table.
 - Deal: 2 locations are set aside as the treasure; the other 22 are dealt evenly and the remainder
   revealed publicly.
 
@@ -252,15 +299,24 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   is a general rule, not a solo/2-player one, and it applies at every table size.
 - Abilities, once each per game: **Barrel** (re-roll dice), **Shovel** (treat a die as another
   terrain), **Pistol** (secret question, free range).
-- **A Pistol question may name a terrain.** The printed rulebook reads as though it may not; the
-  publisher has confirmed the printed text is wrong. What the Pistol lifts is the roll — you may
-  ask anything a roll could theoretically have given you — not the shapes a question may take, and
-  a question about one terrain in an arc is an ordinary shape. (What stays illegal is asking about
-  *two* terrains at once, which this app cannot express: `QueryRange.TerrainFilter` is one nullable
-  terrain.) So there is nothing extra for the engine to enforce here, and no `AskSecretQuestion`
-  refusal about terrain — the same reason ordinary question legality goes unchecked, that the app
-  does not model the roll, applies unchanged. `SecretQuestionView` carries the terrain to the two
-  participants; `SecretQuestionOccurredView` has no property for it, as it has none for the range.
+- **Abilities are spent on your own turn, while constructing your question.** `SpendAbility` starts
+  with `RejectTurnHolder` for exactly this reason, and that is the rulebook's rule rather than a
+  convenience.
+- **The roll decides only which terrains a question may name.** Three dice are rolled, two are
+  chosen: two of the same terrain means the question must be about *that* terrain, two different
+  terrains means it is about all of them, and blue faces are wild. So a question is about one
+  terrain or about all three — never two — which is why `QueryRange.TerrainFilter` is a single
+  nullable terrain and why the shape the rulebook calls out as illegal is inexpressible here.
+- **A Pistol question may name a terrain, and `docs/rules.md` says so.** This used to be recorded
+  the other way round — that the printed text forbade it and the publisher had corrected itself —
+  and the transcription from the physical book shows there was never anything to correct. The
+  Pistol lifts the *roll*: you may ask anything a legal roll could theoretically have given you,
+  and the one example it names as still illegal is asking about two terrains at once. A single
+  terrain in an arc is an ordinary shape. So there is nothing extra for the engine to enforce and
+  no `AskSecretQuestion` refusal about terrain — the same reason ordinary question legality goes
+  unchecked, that the app does not model the roll, applies unchanged. `SecretQuestionView` carries
+  the terrain to the two participants; `SecretQuestionOccurredView` has no property for it, as it
+  has none for the range.
 - Accusation is legal at any time, even off-turn. Wrong accusation reveals **nothing** and
   eliminates the accuser, who must still answer questions.
 - **A wrong accusation at a table of two humans ends the game**, because one survivor is
@@ -292,17 +348,27 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   only marked as spent. The die faces are recorded in `docs/dice.md` for reference; no code reads
   them.
 - **The app always owns the deal.** Nobody types a hand in.
-- **The physical tokens are counters, and every player takes any handful face down.** They do *not*
-  correspond to the hand the app dealt, and the app tells players so at setup. Having each player
-  pick up the tokens the app named would lose the game before the first question: 22 of the 24 are
-  dealt into hands or turned face up and exactly 2 are the treasure, so once every hand has left the
-  table the 2 remaining **are** the treasure — at three, four and five players alike, since the
-  arithmetic is 24 − 22 and has nothing to do with the table size. Watching who picks up what leaks
-  the hands on the way there as well. Nothing physical is read by the app, so the counters cost
-  nothing and keep the boards looking right.
-- **Setup passing moves no physical token either.** Every seat gives one and receives one, so the
-  counts never change, and there is no named token in front of anybody to hand over. The panel reads
-  as a statement of what the app moved rather than as an instruction.
+- **The lowest-numbered human seat starts**, which is `ActiveSeat = state.ActiveHumanSeats.First()`
+  in `BeginPlay`. The rulebook's tiebreak is that whoever most recently dug something up
+  goes first, and no app can know that; asking would be a question at setup for a decision nobody
+  cares about, and the seats are claimed in the order people sat down anyway.
+- **The physical tokens are counters, and every player takes any handful face down.** This replaces
+  setup step 8, where each player slots their own dealt tokens into their screen's map, and it is
+  the one place the app changes something a player physically does. They do *not* correspond to the
+  hand the app dealt, and the app tells players so at setup. Having each player pick up the tokens
+  the app named would lose the game before the first question: 22 of the 24 are dealt into hands or
+  turned face up and exactly 2 are the treasure, so once every hand has left the table the 2
+  remaining **are** the treasure — at three, four and five players alike, since the arithmetic is
+  24 − 22 and has nothing to do with the table size. Watching who picks up what leaks the hands on
+  the way there as well. **This is not a disagreement with the rulebook.** At a real table the 2
+  treasure tokens are set aside before the deal and are physically gone, so nothing is left over;
+  here the app holds them, so they would be the two nobody picked up. The deviation is forced by
+  the app owning the deal and disappears the moment it does not. Nothing physical is read by the
+  app, so the counters cost nothing and keep the boards looking right.
+- **Setup passing moves no physical token either.** Every seat gives exactly as many as it receives
+  — one each way at four players, two each way at five, since there a token goes to *each* neighbour
+  — so the counts never change, and there is no named token in front of anybody to hand over. The
+  panel reads as a statement of what the app moved rather than as an instruction.
 - **The app auto-answers for humans too**, from the hand it dealt.
 - **Bots never take turns**, they only answer — faithful to the scenario books, which are pure
   puzzles where only the human asks.
@@ -364,7 +430,9 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   phase in which `Projector` fills in `Treasure` — so the penalty for guessing wrong would be being
   handed the answer, and any "keep playing" offer made afterwards would sit next to it. The books
   are puzzles, and finding out a pair is wrong is how a puzzle is solved. So the game carries on
-  and `GameEngine.GiveUp` becomes the only other way out.
+  and `GameEngine.GiveUp` becomes the only other way out. This does not contradict `docs/rules.md`:
+  that is the main rulebook and it describes 3 to 5 players, where "eliminated, but still answering"
+  and "last player standing wins" are exactly what the engine does. A table of one is outside it.
 - **Giving up is refused until that seat has accused and been wrong at least once.** `GiveUp` is
   the one command in this application whose entire purpose is to reveal the treasure, so it is not
   available for the asking: a button sitting there from the first turn is one misclick from
