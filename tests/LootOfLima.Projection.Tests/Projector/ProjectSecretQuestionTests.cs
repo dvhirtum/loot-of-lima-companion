@@ -7,12 +7,12 @@ namespace LootOfLima.Projection.Tests.Projector;
 public class ProjectSecretQuestionTests
 {
     /// <summary>Seat 0 spends its Pistol and asks seat 2. Seats 1, 3 and 4 are not party to it.</summary>
-    private static GameState AfterPistol()
+    private static GameState AfterPistol(Terrain? terrain = null)
     {
         GameState state = TestGame.InProgress();
         state = TestGame.Unwrap(GameEngine.SpendAbility(state, 0, AbilityType.Pistol));
         return TestGame.Unwrap(GameEngine.AskSecretQuestion(
-            state, 0, 2, new QueryRange(Direction.NE, Direction.SW), TestGame.Layout));
+            state, 0, 2, new QueryRange(Direction.NE, Direction.SW, terrain), TestGame.Layout));
     }
 
     [Theory]
@@ -32,6 +32,44 @@ public class ProjectSecretQuestionTests
         Assert.Equal(entry.Answer, projected.Answer);
         Assert.Equal("NE", projected.Start);
         Assert.Equal("SW", projected.End);
+        Assert.Null(projected.Terrain);
+    }
+
+    [Theory]
+    [InlineData(0)]
+    [InlineData(2)]
+    public void Should_name_the_terrain_when_the_question_was_restricted_to_one(int viewerSeat)
+    {
+        // Arrange
+        // A Pistol question may name a terrain, so the two people entitled to the question have to
+        // be able to read back which one — otherwise the asker's own history misquotes them.
+        GameState state = AfterPistol(Terrain.Forest);
+
+        // Act
+        PlayerView view = Sut.Project(state, viewerSeat);
+
+        // Assert
+        SecretQuestionView projected = Assert.Single(view.History.OfType<SecretQuestionView>());
+        Assert.Equal("Forest", projected.Terrain);
+    }
+
+    [Theory]
+    [InlineData(1)]
+    [InlineData(3)]
+    [InlineData(4)]
+    public void Should_redact_the_terrain_by_type_when_a_restricted_question_was_not_the_viewer(int viewerSeat)
+    {
+        // Arrange
+        // The terrain rides on the participants' type only. The one everybody else receives has no
+        // property for it, exactly as it has none for the range or the answer.
+        GameState state = AfterPistol(Terrain.Forest);
+
+        // Act
+        PlayerView view = Sut.Project(state, viewerSeat);
+
+        // Assert
+        Assert.Empty(view.History.OfType<SecretQuestionView>());
+        Assert.Single(view.History.OfType<SecretQuestionOccurredView>());
     }
 
     [Theory]

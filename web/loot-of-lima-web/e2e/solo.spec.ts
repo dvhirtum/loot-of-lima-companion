@@ -37,7 +37,7 @@ test.describe('Playing on alone', () => {
     const ada = await sitDown(browser, roomCode, 'Ada', 0);
     await deal(ada.page, { book: 1, number: 1 });
     await takeTokens([ada]);
-    expect(await ownHand(ada.page)).toEqual(['B1', 'B2', 'F6', 'M3']);
+    expect(await ownHand(ada.page)).toEqual(['1B', '2B', '6F', '3M']);
 
     // Act
     await accuse(ada.page, 'B1', 'B2');

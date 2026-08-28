@@ -6,7 +6,7 @@ export interface ArcHighlight {
   readonly start: Direction;
   readonly end: Direction;
   readonly terrain: Terrain | null;
-  /** A Pistol question, which is drawn differently and is never terrain-restricted. */
+  /** A Pistol question, which is drawn differently. Its range is built exactly like any other. */
   readonly secret: boolean;
 }
 

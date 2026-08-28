@@ -43,6 +43,11 @@ public sealed record PublicQuestionView(
     int Answer) : HistoryEntryView(Sequence, TurnNumber);
 
 /// <summary>A Pistol question, as its asker and its target see it.</summary>
+/// <remarks>
+/// Carries the terrain for the same reason it carries the range: a secret question may name one,
+/// and without it the two people entitled to the question could not read back what was asked.
+/// <see cref="SecretQuestionOccurredView"/> gains no such property.
+/// </remarks>
 public sealed record SecretQuestionView(
     int Sequence,
     int TurnNumber,
@@ -50,6 +55,7 @@ public sealed record SecretQuestionView(
     int TargetSeat,
     string Start,
     string End,
+    string? Terrain,
     int Answer) : HistoryEntryView(Sequence, TurnNumber);
 
 /// <summary>

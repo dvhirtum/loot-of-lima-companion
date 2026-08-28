@@ -291,9 +291,14 @@ public static class GameEngine
 
     /// <summary>
     /// Asks a question only the two participants ever see. Requires a Pistol spent this turn, and
-    /// refuses a terrain filter: that is a rule about the ability rather than about the dice, so
-    /// unlike ordinary question legality it really is enforced.
+    /// takes the same range an ordinary question takes, terrain filter included.
     /// </summary>
+    /// <remarks>
+    /// The Pistol frees the asker from the dice they rolled, not from the shapes a question may
+    /// take: anything a roll could theoretically have allowed is allowed here, and a single terrain
+    /// is one of those. So there is nothing extra to enforce, and the reason ordinary question
+    /// legality goes unchecked — the app does not model the roll — applies here unchanged.
+    /// </remarks>
     public static Result<GameState> AskSecretQuestion(
         GameState state,
         int askerSeat,
@@ -307,13 +312,6 @@ public static class GameEngine
         if (RejectQuestion(state, askerSeat, targetSeat) is { } error)
         {
             return error;
-        }
-
-        if (range.TerrainFilter is not null)
-        {
-            return new GameError(
-                GameErrorCode.TerrainFilterNotAllowed,
-                "A Pistol question can never be restricted to a single terrain.");
         }
 
         if (state.SeatAt(askerSeat).PistolArmedTurn != state.TurnNumber)

@@ -2,7 +2,7 @@ import { ChangeDetectionStrategy, Component, computed, inject } from '@angular/c
 import { BoardStore } from '../core/board-store';
 import { BoardLayoutDto, Direction, Terrain } from '../core/contracts';
 import { GameStore } from '../core/game-store';
-import { terrainOf } from '../core/locations';
+import { locationLabel, terrainOf } from '../core/locations';
 import {
   ARC_INNER_RADIUS,
   ARC_OUTER_RADIUS,
@@ -22,7 +22,10 @@ export type TokenState = 'mine' | 'revealed' | 'passed' | 'treasure' | 'unknown'
 
 /** One of the 24 tokens, placed and dressed. */
 interface MapToken {
+  /** The server's id, `B1`. Everything that identifies a token uses this: `data-location`, a tap. */
   readonly location: string;
+  /** The same token as the box writes it, `1B`. Everything a player reads uses this. */
+  readonly label: string;
   readonly terrain: Terrain;
   readonly x: number;
   readonly y: number;
@@ -180,6 +183,7 @@ export class IslandMap {
         return [
           {
             location,
+            label: locationLabel(location),
             terrain,
             x: point.x,
             y: point.y,
@@ -197,7 +201,7 @@ export class IslandMap {
     const held = this.store.myHand();
     return held.length === 0
       ? 'The island: 24 locations in eight sectors.'
-      : `The island: 24 locations in eight sectors. You hold ${held.join(', ')}.`;
+      : `The island: 24 locations in eight sectors. You hold ${held.map(locationLabel).join(', ')}.`;
   });
 
   /** A tap names a location for an accusation, and does nothing at all the rest of the time. */
@@ -211,18 +215,21 @@ export class IslandMap {
     return layout.sectors.findIndex((sector) => sector.direction === direction);
   }
 
+  /** The hover title, written the way the token in the player's hand is written. */
   private noteFor(location: string, state: TokenState, holder: string | undefined): string {
+    const label = locationLabel(location);
+
     switch (state) {
       case 'mine':
-        return `${location} — yours`;
+        return `${label} — yours`;
       case 'revealed':
-        return `${location} — face up`;
+        return `${label} — face up`;
       case 'treasure':
-        return `${location} — the treasure`;
+        return `${label} — the treasure`;
       case 'passed':
-        return `${location} — you passed this to ${holder}`;
+        return `${label} — you passed this to ${holder}`;
       default:
-        return location;
+        return label;
     }
   }
 }

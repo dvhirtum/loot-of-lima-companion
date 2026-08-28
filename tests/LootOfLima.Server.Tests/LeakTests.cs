@@ -130,7 +130,8 @@ public class LeakTests
 
         // Act
         await harness.ActAsync(players[0], "SpendAbility", "Pistol");
-        await harness.ActAsync(players[0], "AskSecretQuestion", new AskSecretQuestionRequest(TargetSeat: 1, "N", "SE"));
+        await harness.ActAsync(
+            players[0], "AskSecretQuestion", new AskSecretQuestionRequest(TargetSeat: 1, "N", "SE", "Beach"));
 
         // Assert
         foreach (TestClient participant in new[] { players[0], players[1] })
@@ -139,6 +140,7 @@ public class LeakTests
             Assert.Equal("secretQuestion", entry.GetProperty("type").GetString());
             Assert.True(entry.TryGetProperty("answer", out _));
             Assert.True(entry.TryGetProperty("start", out _));
+            Assert.Equal("Beach", entry.GetProperty("terrain").GetString());
         }
 
         JsonElement redacted = SecretQuestionEntryIn(watcher);
@@ -146,6 +148,7 @@ public class LeakTests
         Assert.False(redacted.TryGetProperty("answer", out _));
         Assert.False(redacted.TryGetProperty("start", out _));
         Assert.False(redacted.TryGetProperty("end", out _));
+        Assert.False(redacted.TryGetProperty("terrain", out _));
     }
 
     [Fact]

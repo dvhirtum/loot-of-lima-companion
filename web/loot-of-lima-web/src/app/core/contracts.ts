@@ -156,6 +156,7 @@ export interface SecretQuestionView extends HistoryEntryBase {
   readonly targetSeat: number;
   readonly start: Direction;
   readonly end: Direction;
+  readonly terrain: Terrain | null;
   readonly answer: number;
 }
 
@@ -288,11 +289,12 @@ export interface AskQuestionRequest {
   readonly terrain: Terrain | null;
 }
 
-/** A Pistol question. No terrain property, because a secret question is never terrain-restricted. */
+/** A Pistol question. Shaped like an ordinary one: the ability frees the range, not the shape. */
 export interface AskSecretQuestionRequest {
   readonly targetSeat: number;
   readonly start: Direction;
   readonly end: Direction;
+  readonly terrain: Terrain | null;
 }
 
 export interface AccuseRequest {

@@ -29,7 +29,7 @@
             <span class="turn">t{{ entry.turnNumber }}</span>
             <span class="body">
               Secretly, {{ nameOf(entry.askerSeat) }} asked {{ nameOf(entry.targetSeat) }}:
-              {{ phrase(entry.start, entry.end, null) }}
+              {{ phrase(entry.start, entry.end, entry.terrain) }}
             </span>
             <span class="answer">{{ entry.answer }}</span>
           </li>

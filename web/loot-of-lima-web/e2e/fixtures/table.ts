@@ -117,7 +117,13 @@ export function seatCard(page: Page, seatIndex: number): ReturnType<Page['locato
 }
 
 /**
- * The tokens the viewer holds, as the strings printed on them.
+ * The tokens the viewer holds, written the way the app writes them: `1B`, not `B1`.
+ *
+ * Two vocabularies meet in this file, and which one a helper speaks follows from what it does.
+ * Anything that *reads the screen* -- this, `faceUpTokens`, `visibleTokens` -- comes back in the
+ * box's spelling, because that is what is on the screen. Anything that *addresses an element* --
+ * `mapToken` through `data-location`, `accuse` through a select value -- takes the server's id,
+ * because that is what the DOM is keyed by and what goes back on the wire.
  *
  * Anchored on the heading rather than taken as the first `.row` in the panel. Hand, face-up and
  * treasure are three rows in one section, and the first of them is only the hand when there *is* a
@@ -141,7 +147,7 @@ export async function ownHand(page: Page): Promise<string[]> {
 
 /**
  * The locations dealt face up: the remainder after 22 are dealt evenly, so one at three players and
- * two at four or five.
+ * two at four or five. Read off the screen, so spelled `1B` like everything else a player reads.
  */
 export async function faceUpTokens(page: Page): Promise<string[]> {
   await expect(page.getByRole('heading', { name: 'Face up', exact: true })).toBeVisible();
@@ -216,10 +222,14 @@ export async function statedHandSize(page: Page, seatIndex: number): Promise<num
  * Every token *chip* rendered anywhere on this page, wherever it came from.
  *
  * The island map is deliberately not included, and that is not an oversight to fix. The map draws
- * all 24 locations with their ids on them, exactly as the printed board is labelled: where a
- * location is on the island is geography, and public. What a viewer may not know is whose it is,
- * and the map says that with `data-state` rather than with the label -- so `knownOnMap` is the
- * right question to ask of the map, and this is the right question to ask of everything else.
+ * all 24 locations labelled, exactly as the printed board is labelled: where a location is on the
+ * island is geography, and public. What a viewer may not know is whose it is, and the map says
+ * that with `data-state` rather than with the label -- so `knownOnMap` is the right question to
+ * ask of the map, and this is the right question to ask of everything else.
+ *
+ * Comes back in the box's spelling. Both sides of every leak assertion are read off a screen, so
+ * they compare like with like; a spec that mixed a screen read against a hard-coded `B1` would
+ * pass by never matching anything, which is the one way a leak test can fail silently.
  */
 export async function visibleTokens(page: Page): Promise<string[]> {
   return page.locator('.token').allInnerTexts();
@@ -228,8 +238,9 @@ export async function visibleTokens(page: Page): Promise<string[]> {
 /**
  * One location on the island map.
  *
- * Addressed by `data-location`, which the map writes for exactly this reason: the id is also drawn
- * as a label, and a text match would find the log, the hand panel and the seat strip as well.
+ * Takes the server's id, `B1`. Addressed by `data-location`, which the map writes for exactly this
+ * reason: the label is also drawn on the token, and a text match would find the log, the hand panel
+ * and the seat strip as well.
  */
 export function mapToken(page: Page, location: string): ReturnType<Page['locator']> {
   return page.locator(`.map [data-location="${location}"]`);
@@ -277,10 +288,14 @@ export async function spendAbility(page: Page, ability: 'Barrel' | 'Shovel' | 'P
 }
 
 /** Asks the secret question the Pistol unlocked, and waits for it to reach the asker's own log. */
-export async function askSecretly(page: Page, question: { of: string; from: string; upTo: string }): Promise<void> {
+export async function askSecretly(
+  page: Page,
+  question: { of: string; from: string; upTo: string; terrain?: 'Beach' | 'Forest' | 'Mountain' },
+): Promise<void> {
   await field(page, 'Ask').selectOption({ label: question.of });
   await field(page, 'From').selectOption(question.from);
   await field(page, 'Up to').selectOption(question.upTo);
+  await field(page, 'Terrain').selectOption(question.terrain ?? '');
 
   const before = await page.locator('.log .entry').count();
 

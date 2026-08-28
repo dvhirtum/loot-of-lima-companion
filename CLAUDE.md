@@ -20,7 +20,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1651 .NET + 94 web + 45 e2e green |
+| M6 — polish | **In progress.** 1659 .NET + 98 web + 46 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -39,13 +39,13 @@ not done:
 repo). Read it before starting a milestone.
 
 Known defects that are understood but deliberately unfixed live in `docs/known-issues.md`. Check it
-before touching the importer or `BoardLayout`.
+before touching the importer, `BoardLayout`, or how a location is spelled.
 
 ## Build and test
 
 ```
 dotnet build      # warnings are errors
-dotnet test       # expect 1651 passing
+dotnet test       # expect 1659 passing
 
 # The M2 demo: two scripted games, printed once per seat so the redaction is visible.
 dotnet run --project tools/LootOfLima.Harness
@@ -56,11 +56,11 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 94 passing
+npm test          # Vitest; expect 98 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 45 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 46 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
@@ -201,8 +201,8 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
    successor. The comparison is strict — a repeated version is a rejoin projecting the same
    revision to a seat instead of to a spectator, and dropping it would leave a player who has just
    sat down looking at somebody else's view.
-8. **The map draws all 24 location ids, and that is not a leak.** Where a location is on the island
-   is geography, and the printed board is labelled the same way. What a viewer may not know is
+8. **The map draws all 24 locations, labelled, and that is not a leak.** Where a location is on the
+   island is geography, and the printed board is labelled the same way. What a viewer may not know is
    *whose* it is, and the map says that with `data-state` — mine, revealed, passed, treasure,
    unknown. So an e2e leak assertion asks `knownOnMap` about the map and `visibleTokens` about
    everything else; extending `visibleTokens` to the map would make it match all 24 and quietly
@@ -216,6 +216,15 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
 ## Domain facts worth not re-deriving
 
 - 24 locations: 8 Beach `B1`-`B8`, 8 Forest `F1`-`F8`, 8 Mountain `M1`-`M8`.
+- **The id is `B1`; the physical token is stamped `1B`, and that is what a player is shown.** The
+  flip is presentation and happens only in the client, in `core/locations.ts`'s `locationLabel`.
+  Nothing else is renamed: the engine, `board-layout.json`, all 239 scenario files, the wire and
+  the accusation a client sends back all still say `B1`, and so does the map's `data-location`.
+  So in the web code and the e2e suite, **anything that addresses an element takes the id and
+  anything that reads the screen comes back a label** — `mapToken` and `accuse` take `B1`,
+  `ownHand` and `visibleTokens` return `1B`. Mixing them is how a leak assertion passes by never
+  matching anything. Making the two halves agree is wanted eventually and is known issue 8 —
+  a rename through the engine, the seed data and the importer at once, not a widening.
 - **Sector *k* holds `{Bk, Fk, Mk}`** — B1/F1/M1 in N, through B8/F8/M8 in NW.
 - **The query arc is clockwise from start, inclusive of start, EXCLUSIVE of end.** Coincident
   arrows sweep the whole circle. This is the subtle part: the dial's arrows point at the eight
@@ -235,7 +244,16 @@ game into it, so it would be a state no game is ever observed in. Seats are clai
   an announcement is truthful, and nothing downstream records how many terrains were eligible. This
   is a general rule, not a solo/2-player one, and it applies at every table size.
 - Abilities, once each per game: **Barrel** (re-roll dice), **Shovel** (treat a die as another
-  terrain), **Pistol** (secret question, free range, *never* terrain-restricted).
+  terrain), **Pistol** (secret question, free range).
+- **A Pistol question may name a terrain.** The printed rulebook reads as though it may not; the
+  publisher has confirmed the printed text is wrong. What the Pistol lifts is the roll — you may
+  ask anything a roll could theoretically have given you — not the shapes a question may take, and
+  a question about one terrain in an arc is an ordinary shape. (What stays illegal is asking about
+  *two* terrains at once, which this app cannot express: `QueryRange.TerrainFilter` is one nullable
+  terrain.) So there is nothing extra for the engine to enforce here, and no `AskSecretQuestion`
+  refusal about terrain — the same reason ordinary question legality goes unchecked, that the app
+  does not model the roll, applies unchanged. `SecretQuestionView` carries the terrain to the two
+  participants; `SecretQuestionOccurredView` has no property for it, as it has none for the range.
 - Accusation is legal at any time, even off-turn. Wrong accusation reveals **nothing** and
   eliminates the accuser, who must still answer questions.
 - **A wrong accusation at a table of two humans ends the game**, because one survivor is

@@ -17,14 +17,14 @@ namespace LootOfLima.Contracts;
 public sealed record AskQuestionRequest(int TargetSeat, string Start, string End, string? Terrain = null);
 
 /// <summary>
-/// A Pistol question.
+/// A Pistol question. Shaped exactly like <see cref="AskQuestionRequest"/>, terrain included.
 /// </summary>
 /// <remarks>
-/// There is deliberately no terrain property. A secret question is never terrain-restricted, and
-/// that is a rule about the ability rather than about the dice, so it is the one question-shape
-/// rule the server really does enforce — most easily by giving the request nowhere to say it.
+/// The Pistol frees the asker from the dice, not from the shapes a question may take, so a secret
+/// question may name a terrain like any other. It carries no seat index for the same reason no
+/// request does.
 /// </remarks>
-public sealed record AskSecretQuestionRequest(int TargetSeat, string Start, string End);
+public sealed record AskSecretQuestionRequest(int TargetSeat, string Start, string End, string? Terrain = null);
 
 /// <summary>An accusation naming the two locations the accuser believes are the treasure.</summary>
 public sealed record AccuseRequest(string First, string Second);

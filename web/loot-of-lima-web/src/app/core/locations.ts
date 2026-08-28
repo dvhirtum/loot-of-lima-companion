@@ -23,3 +23,18 @@ export function terrainClass(location: string): string {
   const terrain = terrainOf(location);
   return terrain === null ? '' : `token--${terrain.toLowerCase()}`;
 }
+
+/**
+ * How a location is written on the physical tokens: the number first, so `B1` reads as `1B`.
+ *
+ * Presentation only, and the id itself is never rewritten. `B1` is what the server sends, what the
+ * board layout and all 239 scenario files are keyed by, and what goes back on the wire in an
+ * accusation, so the flip happens at the last possible moment -- on the way to a player's eyes.
+ * A player reading `B1` on a screen next to a token stamped `1B` has to translate between the app
+ * and the box, which is exactly the bookkeeping this app exists to take off them.
+ *
+ * Anything this does not recognise is handed back untouched rather than mangled into half a label.
+ */
+export function locationLabel(location: string): string {
+  return terrainOf(location) === null ? location : `${location.slice(1)}${location.charAt(0).toUpperCase()}`;
+}

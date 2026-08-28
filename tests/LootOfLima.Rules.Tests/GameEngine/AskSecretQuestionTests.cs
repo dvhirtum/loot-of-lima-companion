@@ -77,20 +77,23 @@ public class AskSecretQuestionTests
     [InlineData(Terrain.Beach)]
     [InlineData(Terrain.Forest)]
     [InlineData(Terrain.Mountain)]
-    public void Should_reject_the_question_when_it_is_restricted_to_one_terrain(Terrain terrain)
+    public void Should_answer_within_one_terrain_when_the_question_names_one(Terrain terrain)
     {
         // Arrange
-        // This is the one question-shape rule the app really does enforce, because it is a rule
-        // about the ability rather than about the dice the app deliberately does not model.
+        // The Pistol lifts the roll, not the shapes a question may take: a single terrain is a
+        // question a roll could have allowed, so it is allowed here and answered like any other.
         GameState state = TestGame.InProgress(5);
         state = TestGame.Unwrap(Sut.SpendAbility(state, 0, AbilityType.Pistol));
+        QueryRange range = new(Direction.N, Direction.S, terrain);
+        int expected = Counter.CountInRange(state.SeatAt(2).Hand, range, Board.Default);
 
         // Act
-        GameErrorCode code = TestGame.Rejection(
-            Sut.AskSecretQuestion(state, 0, 2, new QueryRange(Direction.N, Direction.S, terrain), Board.Default));
+        GameState asked = TestGame.Unwrap(Sut.AskSecretQuestion(state, 0, 2, range, Board.Default));
 
         // Assert
-        Assert.Equal(GameErrorCode.TerrainFilterNotAllowed, code);
+        SecretQuestionEntry entry = Assert.Single(asked.History.OfType<SecretQuestionEntry>());
+        Assert.Equal(terrain, entry.Range.TerrainFilter);
+        Assert.Equal(expected, entry.Answer);
     }
 
     [Fact]

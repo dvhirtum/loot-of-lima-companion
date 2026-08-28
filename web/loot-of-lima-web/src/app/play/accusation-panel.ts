@@ -1,6 +1,7 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output } from '@angular/core';
 import { BoardStore } from '../core/board-store';
 import { GameStore } from '../core/game-store';
+import { locationLabel } from '../core/locations';
 import { LocationToken } from './location-token';
 import { TableUi } from './table-ui';
 
@@ -71,8 +72,10 @@ export interface NamedTreasure {
               <span>{{ slot === 0 ? 'First' : 'Second' }}</span>
               <select [value]="ui.picks()[slot] ?? ''" (change)="choose(slot, $any($event.target).value)">
                 <option value="">Choose…</option>
+                <!-- The value is the server's id and the caption is the box's, so what travels in
+                     the accusation is still B1 while what a player picks from reads 1B. -->
                 @for (location of board.locations(); track location) {
-                  <option [value]="location">{{ location }}</option>
+                  <option [value]="location">{{ label(location) }}</option>
                 }
               </select>
             </label>
@@ -127,6 +130,9 @@ export class AccusationPanel {
   readonly giveUp = output<void>();
 
   protected readonly slots = [0, 1] as const;
+
+  /** How a location is written on the box: the number first. The value stays the server's id. */
+  protected readonly label = locationLabel;
 
   protected readonly eliminated = computed(() => this.store.mySeat()?.eliminated === true);
 

@@ -12,7 +12,7 @@ interface AbilityChoice {
 const BLURBS: Readonly<Record<AbilityType, string>> = {
   Barrel: 'Re-roll any number of dice.',
   Shovel: 'Treat one die as a terrain of your choice.',
-  Pistol: 'Ask one question in secret: any range, never a single terrain.',
+  Pistol: 'Ask one question in secret, at any range the dice could have given you.',
 };
 
 /**

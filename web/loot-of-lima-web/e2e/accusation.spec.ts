@@ -39,7 +39,7 @@ test.describe('Accusing', () => {
     const hedy = await sitDown(browser, roomCode, 'Hedy', 2);
     await deal(ada.page, { book: 1, number: 1 });
     await takeTokens([ada, grace, hedy]);
-    expect(await ownHand(ada.page)).toEqual(['B1', 'B2', 'F6', 'M3']);
+    expect(await ownHand(ada.page)).toEqual(['1B', '2B', '6F', '3M']);
 
     // Act
     await accuse(ada.page, 'B1', 'B2');
@@ -48,14 +48,15 @@ test.describe('Accusing', () => {
     // Ada sees what she named, because she named it.
     await expect(ada.page.getByText('You are out.', { exact: true })).toBeVisible();
     await expect(ada.page.locator('.log .entry').first()).toContainText('and was wrong');
-    await expect(ada.page.locator('.log .entry').first()).toContainText('B1');
+    await expect(ada.page.locator('.log .entry').first()).toContainText('1B');
 
     // Grace is told it happened and nothing else. The entry she receives has no property for the
-    // pair, so there is nowhere on this line for one to appear.
+    // pair, so there is nowhere on this line for one to appear. Named the way the log writes them:
+    // asserting the absence of `B1` would pass for the wrong reason, since no log line says `B1`.
     const seen = grace.page.locator('.log .entry').first();
     await expect(seen).toContainText('Ada accused, and was wrong. Nothing was revealed.');
-    await expect(seen).not.toContainText('B1');
-    await expect(seen).not.toContainText('B2');
+    await expect(seen).not.toContainText('1B');
+    await expect(seen).not.toContainText('2B');
     expect(await mapTokenState(grace.page, 'B1')).toBe('unknown');
 
     // Out, but still answerable: the turn has passed to Grace and Ada owes her an answer from the

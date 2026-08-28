@@ -194,9 +194,8 @@ internal sealed class GameHub(
     }
 
     /// <summary>
-    /// A Pistol question. The request has no terrain property at all, so the rule that a secret
-    /// question is never terrain-restricted is enforced by the shape of the call rather than by a
-    /// check somebody could forget to write.
+    /// A Pistol question. It reads the same range an ordinary question does, terrain included: the
+    /// ability lifts the roll, not the rules about what a question may ask.
     /// </summary>
     public async Task AskSecretQuestion(AskSecretQuestionRequest request)
     {
@@ -205,7 +204,7 @@ internal sealed class GameHub(
             return;
         }
 
-        if (!TryReadRange(request.Start, request.End, null, out QueryRange range, out string? complaint))
+        if (!TryReadRange(request.Start, request.End, request.Terrain, out QueryRange range, out string? complaint))
         {
             await FailAsync("BadRequest", complaint).ConfigureAwait(false);
             return;

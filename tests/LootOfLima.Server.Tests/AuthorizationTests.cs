@@ -200,6 +200,28 @@ public class AuthorizationTests
     [Theory]
     [InlineData("3")]
     [InlineData("0")]
+    [InlineData("sand")]
+    public async Task Should_refuse_the_secret_question_when_the_terrain_filter_is_not_a_terrain(string terrain)
+    {
+        // Arrange
+        // A Pistol question reads its terrain the same way an open one does, so it has to refuse
+        // the same rubbish. The Pistol is spent first, or the refusal could be the arming check.
+        await using HubHarness harness = new();
+        await harness.SeedLobbyAsync();
+        IReadOnlyList<TestClient> players = await HubGame.PlayToInProgressAsync(harness);
+        await players[0].InvokeAsync("SpendAbility", "Pistol");
+
+        // Act
+        await players[0].InvokeAsync(
+            "AskSecretQuestion", new AskSecretQuestionRequest(TargetSeat: 3, "N", "SE", terrain));
+
+        // Assert
+        Assert.Equal("BadRequest", Assert.Single(players[0].Errors).Code);
+    }
+
+    [Theory]
+    [InlineData("3")]
+    [InlineData("0")]
     [InlineData("swamp")]
     public async Task Should_refuse_the_announcement_when_the_terrain_is_not_a_terrain(string terrain)
     {

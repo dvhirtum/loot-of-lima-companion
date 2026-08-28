@@ -194,8 +194,13 @@ export class GameConnection {
     return this.send('AskQuestion', request);
   }
 
-  askSecretQuestion(targetSeat: number, start: Direction, end: Direction): Promise<void> {
-    const request: AskSecretQuestionRequest = { targetSeat, start, end };
+  askSecretQuestion(
+    targetSeat: number,
+    start: Direction,
+    end: Direction,
+    terrain: Terrain | null,
+  ): Promise<void> {
+    const request: AskSecretQuestionRequest = { targetSeat, start, end, terrain };
     return this.send('AskSecretQuestion', request);
   }
 

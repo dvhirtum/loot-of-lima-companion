@@ -116,6 +116,7 @@ public static class Projector
                 secret.TargetSeat,
                 secret.Range.Start.ToString(),
                 secret.Range.End.ToString(),
+                secret.Range.TerrainFilter?.ToString(),
                 secret.Answer),
 
         SecretQuestionEntry secret => new SecretQuestionOccurredView(

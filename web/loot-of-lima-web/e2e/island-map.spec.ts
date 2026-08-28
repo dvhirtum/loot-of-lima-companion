@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test';
-import { arcPath, deal, field, knownOnMap, leave, mapTokenState, openTable, sitDown, takeTokens } from './fixtures/table';
+import { arcPath, deal, field, knownOnMap, leave, mapToken, mapTokenState, openTable, sitDown, takeTokens } from './fixtures/table';
 
 /**
  * The island, as a player looks at it.
@@ -37,6 +37,11 @@ test.describe('The island map', () => {
     // the deal, and every other location on this map is drawn from a list this client was sent.
     expect(await mapTokenState(ada.page, 'B3')).toBe('unknown');
     expect(await mapTokenState(ada.page, 'B5')).toBe('unknown');
+
+    // Addressed by the server's id and drawn as the box writes it. The split is the whole of the
+    // renaming: this is the one place both halves are visible in a single assertion, and if the
+    // label ever went back to matching the id there would be nothing else to notice it.
+    await expect(mapToken(ada.page, 'B1').locator('.mark__label')).toHaveText('1B');
 
     await leave([ada]);
   });

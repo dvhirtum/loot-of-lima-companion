@@ -134,13 +134,18 @@ export class Play {
   /**
    * Sends the question the builder assembled, secretly or in the open.
    *
-   * Two hub methods rather than one with a flag, because they are two different requests: the
-   * secret one has no terrain field at all, which is how the rule that a Pistol question is never
-   * terrain-restricted is enforced.
+   * Two hub methods rather than one with a flag, because they produce two different history
+   * entries and only one of them requires a Pistol spent this turn. The two requests carry the
+   * same fields; what differs is who is ever allowed to read the answer.
    */
   protected ask(question: AskedQuestion): void {
     if (question.secret) {
-      void this.connection.askSecretQuestion(question.targetSeat, question.start, question.end);
+      void this.connection.askSecretQuestion(
+        question.targetSeat,
+        question.start,
+        question.end,
+        question.terrain,
+      );
       return;
     }
 

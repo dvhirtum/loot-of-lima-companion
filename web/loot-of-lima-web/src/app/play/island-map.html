@@ -72,7 +72,7 @@
           [attr.role]="ui.accusing() ? 'button' : null"
           [attr.tabindex]="ui.accusing() ? 0 : null"
           [attr.aria-pressed]="ui.accusing() ? token.picked : null"
-          [attr.aria-label]="ui.accusing() ? 'Name ' + token.location : null"
+          [attr.aria-label]="ui.accusing() ? 'Name ' + token.label : null"
           (click)="pick(token.location)"
           (keydown.enter)="pick(token.location)"
           (keydown.space)="pick(token.location)"
@@ -88,7 +88,7 @@
             [attr.r]="tokenSize"
           />
           <text class="mark__label" [attr.x]="token.x" [attr.y]="token.y" text-anchor="middle" dy="0.35em">
-            {{ token.location }}
+            {{ token.label }}
           </text>
         </g>
       }

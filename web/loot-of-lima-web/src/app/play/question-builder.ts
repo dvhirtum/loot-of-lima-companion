@@ -31,9 +31,8 @@ export interface AskedQuestion {
  * at the table, and the app trusts them exactly as the table does.
  *
  * Spending the Pistol turns this panel into the secret one, because that is what spending it is
- * for. The terrain field goes with it rather than being disabled: a secret question is never
- * terrain-restricted, and the request the server accepts has no field for one — the rule is
- * enforced by the shape of the call, so the panel should have the same shape.
+ * for. Nothing else about the panel changes: the ability lifts the roll, not the shapes a question
+ * may take, so the terrain field stays exactly where it was and means exactly what it meant.
  */
 @Component({
   selector: 'app-question-builder',
@@ -107,7 +106,7 @@ export class QuestionBuilder {
    * app says it in words rather than leaving a player to infer it from an answer that surprised them.
    */
   protected readonly reading = computed(() => {
-    const scope = this.scopedTerrain() === null ? 'locations' : `${this.scopedTerrain()!.toLowerCase()} locations`;
+    const scope = this.terrain() === null ? 'locations' : `${this.terrain()!.toLowerCase()} locations`;
     const arc =
       this.start() === this.end()
         ? 'anywhere on the island'
@@ -123,7 +122,7 @@ export class QuestionBuilder {
       this.ui.setHighlight({
         start: this.start(),
         end: this.end(),
-        terrain: this.scopedTerrain(),
+        terrain: this.terrain(),
         secret: this.secret(),
       });
     });
@@ -151,18 +150,10 @@ export class QuestionBuilder {
       targetSeat: target,
       start: this.start(),
       end: this.end(),
-      terrain: this.scopedTerrain(),
+      terrain: this.terrain(),
       secret: this.secret(),
     });
   }
-
-  /**
-   * The terrain this question is actually restricted to, which is never one for a Pistol question.
-   *
-   * Read through here everywhere rather than from the signal, so a terrain chosen before the Pistol
-   * was spent cannot survive into the sentence, the wedge or the request.
-   */
-  private readonly scopedTerrain = computed(() => (this.secret() ? null : this.terrain()));
 
   /**
    * The chosen seat, but only while it is still a seat somebody could be asked about.

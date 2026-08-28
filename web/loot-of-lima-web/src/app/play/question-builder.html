@@ -4,7 +4,7 @@
   @if (secret()) {
     <p class="small muted">
       Your Pistol is spent, so this one is between you and the player you ask. The rest of the table is told only that
-      it happened — and a Pistol question is never restricted to a single terrain.
+      it happened — and you are free of the dice you rolled, so ask any range you like.
     </p>
   }
 
@@ -38,21 +38,19 @@
     </label>
 
     <!--
-      Gone rather than disabled while the Pistol is spent. `AskSecretQuestionRequest` has no terrain
-      property at all, so the rule is enforced by the shape of the call; a greyed-out field would
-      suggest the restriction is merely unavailable rather than impossible.
+      Present whether or not the Pistol is spent. A secret question may name a terrain like any
+      other, so hiding the field here would be the app inventing a restriction the game does not
+      have — and it would drop a terrain the player had already chosen the moment they armed.
     -->
-    @if (!secret()) {
-      <label class="field">
-        <span>Terrain</span>
-        <select [value]="terrain() ?? ''" (change)="chooseTerrain($any($event.target).value)">
-          <option value="">Any</option>
-          @for (option of terrains; track option) {
-            <option [value]="option">{{ option }}</option>
-          }
-        </select>
-      </label>
-    }
+    <label class="field">
+      <span>Terrain</span>
+      <select [value]="terrain() ?? ''" (change)="chooseTerrain($any($event.target).value)">
+        <option value="">Any</option>
+        @for (option of terrains; track option) {
+          <option [value]="option">{{ option }}</option>
+        }
+      </select>
+    </label>
   </div>
 
   <p class="reading" [class.reading--secret]="secret()">{{ reading() }}</p>

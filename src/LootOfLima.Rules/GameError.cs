@@ -17,7 +17,6 @@ public enum GameErrorCode
     CannotTargetYourself,
     AbilityAlreadySpent,
     PistolNotSpentThisTurn,
-    TerrainFilterNotAllowed,
     NotAFewestTerrain,
     InvalidAccusation,
     AlreadyConfirmed,

@@ -45,9 +45,9 @@ test.describe('Spending an ability', () => {
 
   test('Should_turn_the_panel_into_a_secret_one_when_the_pistol_is_spent', async ({ browser }) => {
     // Arrange
-    // A Pistol question is never terrain-restricted, and `AskSecretQuestionRequest` has no field for
-    // one. The panel takes the same shape rather than greying the field out, which would suggest the
-    // restriction was merely unavailable.
+    // Only the wording and the button change. The Pistol lifts the roll, not the shapes a question
+    // may take, so the terrain field stays exactly where it was — losing it here would be the app
+    // inventing a restriction the game does not have.
     const host = await browser.newPage();
     const roomCode = await openTable(host, 5);
     const ada = await sitDown(browser, roomCode, 'Ada', 0);
@@ -59,10 +59,37 @@ test.describe('Spending an ability', () => {
 
     // Assert
     await expect(ada.page.getByRole('heading', { name: 'Ask a secret question' })).toBeVisible();
-    await expect(field(ada.page, 'Terrain')).toHaveCount(0);
+    await expect(field(ada.page, 'Terrain')).toBeEnabled();
     await expect(ada.page.getByRole('button', { name: 'Ask secretly' })).toBeVisible();
 
     await leave([ada]);
+  });
+
+  test('Should_answer_within_one_terrain_when_the_secret_question_names_one', async ({ browser }) => {
+    // Arrange
+    // Grace holds F1 F2 F3 F8 by the book, so the whole island answers 4 unrestricted and 0 for
+    // mountains — which is what makes this worth asserting: a terrain dropped anywhere between the
+    // panel and the engine comes back as 4, and the log would misquote the question as well.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+    const grace = await sitDown(browser, roomCode, 'Grace', 1);
+    await deal(ada.page, { book: 1, number: 1 });
+    await takeTokens([ada, grace]);
+
+    // Act
+    await spendAbility(ada.page, 'Pistol');
+    await askSecretly(ada.page, { of: 'Grace', from: 'N', upTo: 'N', terrain: 'Mountain' });
+
+    // Assert
+    for (const page of [ada.page, grace.page]) {
+      const entry = page.locator('.log .entry').first();
+      await expect(entry).toContainText('Secretly, Ada asked Grace');
+      await expect(entry).toContainText('mountain locations');
+      await expect(entry.locator('.answer')).toHaveText('0');
+    }
+
+    await leave([ada, grace]);
   });
 
   test('Should_tell_only_the_two_of_them_when_a_secret_question_is_asked', async ({ browser }) => {

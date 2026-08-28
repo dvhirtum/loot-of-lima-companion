@@ -118,3 +118,38 @@ observed in play.
 socket and no attachment can recover, so surfacing "disconnected" would be a lie. M6 lists
 "Reconnect UX", which is where this belongs, but note that this is a correctness bug underneath it
 rather than presentation: styling the banner would ship straight past it.
+
+Raised while renaming the locations for the physical game.
+
+## 8. The two halves spell a location differently
+
+The physical game stamps the number first, so the token in a player's hand reads `1B`. The client
+now shows that everywhere a player looks, but the flip is presentation only —
+`web/.../core/locations.ts`, `locationLabel` — and everything behind it still says `B1`: the engine,
+`board-layout.json`, all 239 scenario files, the wire, `data-location`, the server's logs and the
+harness's output.
+
+So the two spellings coexist and the seam is where they meet:
+
+- `GameHub.TryReadLocation` refuses an unreadable location with `'1B' is not one of the 24 island
+  locations.` — naming the id format at a player who typed exactly what the box says. Nothing in
+  the app can currently produce that message (the client only ever sends ids it was given), but it
+  is the first thing a hand-written client or a future free-text field would hit.
+- `tools/LootOfLima.Harness` prints `B1`, so its per-seat output no longer reads like the screens it
+  is demonstrating.
+- Anyone reading a server log next to a phone is translating between the two.
+
+**Why it can wait:** nothing is wrong at runtime, and the boundary is drawn where it is cheap to
+hold — one function, called from the four presentation surfaces, with the rule "anything that
+addresses an element takes the id, anything that reads the screen comes back a label" written down
+in `CLAUDE.md` and enforced by the e2e suite. The client is where players are, so the client is
+where the rename earns most of what it is worth.
+
+**Fix, when it is worth doing:** rename in the engine, so `LocationId.ToString()` and its parse are
+the box's spelling and everything downstream inherits it — then delete `locationLabel`. That is a
+bigger change than it sounds and is the reason it is not this change: the 239 committed scenario
+files and `board-layout.json` are keyed by the id, the oracle checks 244,736 answers against them,
+and `LocationId` round-trips through `ToString`/parse on the wire. Doing it properly means the seed
+data and the importer move together with the engine, in one commit, with the oracle as the proof.
+Accepting both spellings on the way in would leave the app permanently ambiguous about which it
+means, so it should be a rename rather than a widening.
