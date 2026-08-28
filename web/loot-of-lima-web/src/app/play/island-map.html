@@ -17,7 +17,18 @@
     }
   </div>
 
-  @if (!ready()) {
+  <!--
+    A failed fetch is not a slow one, and it says so. The board is asked for once for the life of
+    the app, so this does not fix itself — and it takes more than the picture with it, since the
+    accusation panel names its two locations from the same 24. Hence a button rather than a
+    sentence: one retry here serves both panels, because the store is provided at the root.
+  -->
+  @if (board.failed()) {
+    <p class="small warn">The island could not be loaded, so there is nothing to draw or to tap.</p>
+    <button type="button" class="button" [disabled]="board.loading()" (click)="board.reload()">
+      {{ board.loading() ? 'Trying again…' : 'Try again' }}
+    </button>
+  } @else if (!ready()) {
     <p class="muted small">Drawing the island…</p>
   } @else {
     <svg
@@ -82,8 +93,8 @@
           [attr.aria-pressed]="ui.accusing() ? token.picked : null"
           [attr.aria-label]="ui.accusing() ? 'Name ' + token.label : null"
           (click)="pick(token.location)"
-          (keydown.enter)="pick(token.location)"
-          (keydown.space)="pick(token.location)"
+          (keydown.enter)="pickByKey($event, token.location)"
+          (keydown.space)="pickByKey($event, token.location)"
         >
           <!-- The label and nothing else. The map has nothing to add about whose this is. -->
           <title>{{ token.label }}</title>

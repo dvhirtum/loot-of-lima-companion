@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, computed, inject, output, resource, signal } from '@angular/core';
 import { ApiClient } from '../core/api-client';
+import { ScenarioSummary } from '../core/contracts';
 import { GameStore } from '../core/game-store';
 
 /**
@@ -41,13 +42,18 @@ import { GameStore } from '../core/game-store';
           the component holds. Marking the chosen option instead puts the write on the option
           itself, which cannot exist before there is something to mark.
         -->
-        @if (fromBook()) {
+        @if (fromBook() && loading()) {
+          <p class="small muted">Fetching the list of printed scenarios…</p>
+        } @else if (fromBook() && failed()) {
+          <p class="small warn">The list of printed scenarios could not be loaded.</p>
+          <button type="button" class="button" (click)="scenarios.reload()">Try again</button>
+        } @else if (fromBook()) {
           <div class="row">
             <label class="field">
               <span>Book</span>
               <select (change)="chooseBook($any($event.target).value)">
                 @for (option of books(); track option) {
-                  <option [value]="option" [selected]="option === book()">{{ option }}</option>
+                  <option [value]="option" [selected]="option === shownBook()">{{ option }}</option>
                 }
               </select>
             </label>
@@ -55,7 +61,7 @@ import { GameStore } from '../core/game-store';
               <span>Scenario</span>
               <select (change)="number.set(+$any($event.target).value)">
                 @for (option of numbers(); track option) {
-                  <option [value]="option" [selected]="option === number()">{{ option }}</option>
+                  <option [value]="option" [selected]="option === shownNumber()">{{ option }}</option>
                 }
               </select>
             </label>
@@ -90,11 +96,16 @@ import { GameStore } from '../core/game-store';
       </button>
       @if (!seated()) {
         <p class="small muted">Take a seat first — only a player at the table can start the game.</p>
-      } @else if (fromBook() && chosen() === null) {
+      } @else if (fromBook() && listed() && chosen() === null) {
         <!--
           One of the 240 is missing on purpose: book 16 prints scenario 12's tokens as a duplicate of
           scenario 11's, contradicting its own question table. It is an error in the book, so the
           scenario is absent rather than guessed at, and this is where a player meets that.
+
+          Only once the list has actually arrived. The chosen pair is null while the fetch is in flight
+          and null forever if it fails, so without that guard this blamed the printed book for the
+          whole loading window and for every network fault — 238 pairs it is not about, and one it
+          is.
         -->
         <p class="small muted">That scenario is not in the app — the printed book contradicts itself there.</p>
       }
@@ -129,17 +140,65 @@ export class LobbyPanel {
     defaultValue: [],
   });
 
-  protected readonly books = computed<readonly number[]>(() =>
-    [...new Set(this.scenarios.value().map((scenario) => scenario.book))].sort((left, right) => left - right),
+  protected readonly loading = computed(() => this.scenarios.isLoading());
+
+  protected readonly failed = computed(() => this.scenarios.error() !== undefined);
+
+  /**
+   * The scenarios there are, which is none until the fetch says otherwise.
+   *
+   * Every read below goes through here rather than through `scenarios.value()` directly, because a
+   * resource in the error state re-throws the loader's error out of `value()` — it does not fall
+   * back to `defaultValue`, which is easy to assume and wrong. An unguarded read therefore does not
+   * leave the picker empty, it throws out of the render, and the panel that was going to explain
+   * the failure never draws.
+   */
+  private readonly available = computed<readonly ScenarioSummary[]>(() =>
+    this.failed() ? [] : this.scenarios.value(),
   );
 
+  /**
+   * Whether the list has actually arrived, as opposed to being empty because it has not.
+   *
+   * `defaultValue: []` means every question about the scenarios reads the same before the fetch
+   * lands as it would if the seed data held nothing, so the panel needs this to tell "that pair is
+   * not in the app" from "nobody has said yet".
+   */
+  protected readonly listed = computed(() => !this.loading() && !this.failed() && this.available().length > 0);
+
+  protected readonly books = computed<readonly number[]>(() =>
+    [...new Set(this.available().map((scenario) => scenario.book))].sort((left, right) => left - right),
+  );
+
+  /**
+   * The book actually being shown, which is what was chosen only if the list holds it.
+   *
+   * `book` starts at 1 because it has to start somewhere, and nothing had reconciled that with the
+   * books the fetch came back with. That is the same show-versus-hold split the options binding
+   * had, arriving from the other side: with no option matching, the select falls back to its first
+   * and paints a book the component is not holding, and the scenario list beside it comes up empty
+   * because it is filtered on the one nobody can see.
+   *
+   * Resolved here rather than corrected by an effect, so there is no write during a render and no
+   * moment where the two disagree.
+   */
+  protected readonly shownBook = computed(() => {
+    const available = this.books();
+    return available.includes(this.book()) ? this.book() : (available[0] ?? this.book());
+  });
+
   protected readonly numbers = computed<readonly number[]>(() =>
-    this.scenarios
-      .value()
-      .filter((scenario) => scenario.book === this.book())
+    this.available()
+      .filter((scenario) => scenario.book === this.shownBook())
       .map((scenario) => scenario.number)
       .sort((left, right) => left - right),
   );
+
+  /** The same rule for the number: what was chosen, or the first this book has. */
+  protected readonly shownNumber = computed(() => {
+    const available = this.numbers();
+    return available.includes(this.number()) ? this.number() : (available[0] ?? this.number());
+  });
 
   /** The id the server knows this pair by, or null when the pair names no scenario the app holds. */
   protected readonly chosen = computed<string | null>(() => {
@@ -147,9 +206,11 @@ export class LobbyPanel {
       return null;
     }
 
-    const match = this.scenarios
-      .value()
-      .find((scenario) => scenario.book === this.book() && scenario.number === this.number());
+    // The resolved pair, not the raw signals: what is dealt has to be what the two selects are
+    // showing, and those are drawn from these.
+    const match = this.available().find(
+      (scenario) => scenario.book === this.shownBook() && scenario.number === this.shownNumber(),
+    );
 
     return match?.id ?? null;
   });
@@ -161,13 +222,11 @@ export class LobbyPanel {
    *
    * Every book has all twelve but one, so this almost always keeps the player where they were — and
    * in the case where it cannot, landing on the book's first scenario beats leaving a pair selected
-   * that names nothing.
+   * that names nothing. That fallback used to be written out here, reading `numbers()` back
+   * immediately after the write that changes it; `shownNumber` now expresses the same rule for
+   * every way the pair can go stale, this one included.
    */
   protected chooseBook(value: string): void {
     this.book.set(Number(value));
-
-    if (!this.numbers().includes(this.number())) {
-      this.number.set(this.numbers()[0] ?? 1);
-    }
   }
 }

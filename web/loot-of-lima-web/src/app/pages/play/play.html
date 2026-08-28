@@ -34,10 +34,20 @@
     @if (store.phase() === 'Finished') {
       <section class="banner banner--warn stack">
         <p class="ending">
+          <!--
+            "You" only where there is a you. Conceded is reachable at a table of one, and this page
+            is watched by more than that one: the host laptop sends itself here the moment the deal
+            happens, so the screen most likely to be showing this banner belongs to nobody. It is
+            told who gave up instead, which it can be — who is human is public from the lobby on.
+          -->
           @if (winnerName(); as winner) {
             <strong>{{ winner }} wins.</strong>
           } @else if (store.view()!.endReason === 'Conceded') {
-            <strong>You gave up. Here is the treasure.</strong>
+            @if (store.isSpectator()) {
+              <strong>{{ concededBy() }} gave up. Here is the treasure.</strong>
+            } @else {
+              <strong>You gave up. Here is the treasure.</strong>
+            }
           } @else {
             <strong>Nobody wins.</strong>
           }

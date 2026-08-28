@@ -23,7 +23,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1665 .NET + 113 web + 50 e2e green |
+| M6 — polish | **In progress.** 1665 .NET + 122 web + 50 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -65,7 +65,7 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 113 passing
+npm test          # Vitest; expect 122 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
@@ -646,6 +646,13 @@ reads them, and its output is committed, so build and test never need them.
   Nothing looks wrong until the block is destroyed and rebuilt with the signal already moved off its
   default, which is why `LobbyPanel` shipped it and `QuestionBuilder` (whose default `'N'` is
   `DIRECTIONS[0]`) and the accusation selects (whose first option is a static `value=""`) did not.
+- **A `resource` in the error state re-throws out of `value()`, and a `defaultValue` does not save
+  you.** It is natural to read `defaultValue: []` as "empty until it works, empty if it never
+  does" — it is not. On failure `value()` throws the loader's error at whoever reads it, so an
+  unguarded read from a template does not degrade to an empty list, it throws out of the render and
+  takes the panel that was going to explain the failure with it. Ask `error()` first and only then
+  `value()`: `BoardStore.layout` and `LobbyPanel.available` both do, and both say so. `isLoading()`
+  and `error()` are safe at any time.
 - **Three Playwright traps this app walks straight into.** Every `<select>` sits *inside* its
   `<label>`, so its accessible name is the caption plus every option — `getByLabel('Ask')` never
   matches exactly, and matches for the wrong reason otherwise. Use the `field()` helper. And

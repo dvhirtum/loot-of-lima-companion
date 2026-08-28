@@ -76,6 +76,21 @@ export class Play {
 
   protected readonly eliminated = computed(() => this.store.mySeat()?.eliminated === true);
 
+  /**
+   * Who gave up, for a screen that is not theirs.
+   *
+   * `Conceded` carries no seat — `GiveUp` finishes with no winner — but it does not need to: it is
+   * reachable only at a table of one, so the single human seat is the player who conceded. A count
+   * of a field every viewer is sent in full, like `isSolo` beside it, and not a deduction.
+   *
+   * Falls back to naming nobody rather than to naming the wrong person, which is what a bare
+   * `displayName` off the first seat would risk if this were ever reached another way.
+   */
+  protected readonly concededBy = computed(() => {
+    const humans = this.store.seats().filter((seat) => seat.kind === 'Human');
+    return humans.length === 1 ? humans[0].displayName : 'The player';
+  });
+
   constructor() {
     // The table this page is currently attached to, which is not always the one it started on.
     //

@@ -85,7 +85,7 @@ interface CompassLabel {
 export class IslandMap {
   protected readonly ui = inject(TableUi);
 
-  private readonly board = inject(BoardStore);
+  protected readonly board = inject(BoardStore);
 
   protected readonly viewBox = VIEW_BOX;
   protected readonly tokenSize = TOKEN_SIZE;
@@ -211,6 +211,20 @@ export class IslandMap {
     if (this.ui.accusing()) {
       this.ui.togglePick(location);
     }
+  }
+
+  /**
+   * The same tap from the keyboard, with the key's own behaviour suppressed.
+   *
+   * Space scrolls the page on anything focusable that is not a real button, and these tokens are
+   * `<g>` elements wearing `role="button"`. An accusation names two of them, so without this the
+   * first one scrolls the island out from under the second — on a phone, off the screen entirely.
+   * Enter does not scroll, but it goes through here too: the two keys activate one control, and
+   * splitting them so that only one is handled properly is how the other quietly drifts.
+   */
+  protected pickByKey(event: Event, location: string): void {
+    event.preventDefault();
+    this.pick(location);
   }
 
   /**

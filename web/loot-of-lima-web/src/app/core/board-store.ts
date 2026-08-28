@@ -21,10 +21,39 @@ export class BoardStore {
 
   private readonly board = resource({ loader: () => this.api.board() });
 
-  readonly layout = computed<BoardLayoutDto | null>(() => this.board.value() ?? null);
+  /**
+   * Whether the fetch failed, as opposed to not having finished.
+   *
+   * Told apart because they are not the same thing to look at. `layout` is null for both, so
+   * without this the island sits on "Drawing the island…" forever and the accusation selects come
+   * up empty — and the two panels this store feeds are the map and the only way to name a
+   * treasure, so a fetch nobody mentions takes accusing with it and says nothing about why.
+   *
+   * There is no automatic retry. The board is fetched once for the life of the app, so a failure
+   * here is a page that will not fix itself, and asking is what `reload` is for.
+   */
+  readonly failed = computed(() => this.board.error() !== undefined);
+
+  readonly loading = computed(() => this.board.isLoading());
+
+  /**
+   * The layout, or null until there is one — including when there never will be.
+   *
+   * Asked of `failed` before the value is read, and that order is the whole of it: a resource in
+   * the error state does not hand back its last value or a default, it *re-throws the loader's
+   * error out of `value()`*. So an unguarded read does not degrade to an empty island, it throws
+   * out of whatever is rendering — which for this store is the game page. `error()` may be asked
+   * at any time; `value()` may not.
+   */
+  readonly layout = computed<BoardLayoutDto | null>(() => (this.failed() ? null : (this.board.value() ?? null)));
 
   /** All 24 location ids in sector order, which is the order the compass runs. */
   readonly locations = computed<readonly string[]>(() =>
-    (this.board.value()?.sectors ?? []).flatMap((sector) => sector.locations),
+    (this.layout()?.sectors ?? []).flatMap((sector) => sector.locations),
   );
+
+  /** Asks again, for the button a player is offered when the first attempt failed. */
+  reload(): void {
+    this.board.reload();
+  }
 }

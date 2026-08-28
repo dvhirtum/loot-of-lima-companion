@@ -64,7 +64,22 @@ export interface NamedTreasure {
         }
       } @else {
         <h3>Name the treasure</h3>
-        <p class="small muted">Tap two locations on the island, or choose them here.</p>
+
+        <!--
+          Both ways of naming a location run through the board layout: the selects are built from
+          it, and tapping the island needs an island to tap. So when that fetch has failed there is
+          nothing here to offer, and saying so beats two empty selects above a disabled button. The
+          retry lives on the map, because that is where the failure is visible and one button
+          serves both panels.
+        -->
+        @if (board.failed()) {
+          <p class="small warn">
+            The island could not be loaded, so there are no locations to name. Try again from the
+            island above, and this comes back with it.
+          </p>
+        } @else {
+          <p class="small muted">Tap two locations on the island, or choose them here.</p>
+        }
 
         <div class="pair">
           @for (slot of slots; track slot) {
@@ -105,11 +120,6 @@ export interface NamedTreasure {
       display: grid;
       gap: 0.5rem;
       grid-template-columns: repeat(auto-fit, minmax(8rem, 1fr));
-    }
-
-    .warn {
-      margin: 0;
-      color: var(--coral);
     }
 
     /* Ruled off, because it is the opposite of the button above it and sits in the same card. */
