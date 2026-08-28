@@ -142,8 +142,8 @@ So the two spellings coexist and the seam is where they meet:
 **Why it can wait:** nothing is wrong at runtime, and the boundary is drawn where it is cheap to
 hold — one function, called from the four presentation surfaces, with the rule "anything that
 addresses an element takes the id, anything that reads the screen comes back a label" written down
-in `docs/technical.md` and enforced by the e2e suite. The client is where players are, so the
-client is where the rename earns most of what it is worth.
+in [technical.md](technical.md) and enforced by the e2e suite. The client is where players are,
+so the client is where the rename earns most of what it is worth.
 
 **Fix, when it is worth doing:** rename in the engine, so `LocationId.ToString()` and its parse are
 the box's spelling and everything downstream inherits it — then delete `locationLabel`. That is a

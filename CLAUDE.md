@@ -55,12 +55,12 @@ Branch off `main` and open a PR; never commit to `main` directly.
    `dotnet run`.
 4. The documentation reflects what is now true — test counts, any new invariant.
 
-**Terms 2 and 3 are Dick's to run and Dick's to report.** Say which terms were checked and which are
-outstanding; never call a change done off the back of the suites alone.
+**Terms 2 and 3 are run and reported by the user, never by you.** Say which terms were checked and
+which are outstanding; never call a change done off the back of the suites alone.
 
 Also:
 
-- **The compose stack's default state is down; bringing it up or down is Dick's call.** Run
+- **The compose stack's default state is down; bringing it up or down is the user's call.** Run
   `docker compose ps` before `npm run e2e` and ask if anything is listed. Never run
   `docker compose down`/`up` unprompted, and never run `npm run e2e:docker`.
 - **A new guard is not finished until it has been seen to fail.**

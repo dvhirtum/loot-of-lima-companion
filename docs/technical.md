@@ -84,7 +84,7 @@ npm test           # Vitest
 npm start          # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan  # the same, reachable from a phone on the table's wifi
 npm run e2e        # Playwright. Boots both halves itself — nothing else needed
-npm run e2e:docker # the same specs against the containers. Dick runs this one, never you
+npm run e2e:docker # the same specs against the containers. The user runs this one
 ```
 
 Both e2e scripts run `e2e:prepare` first: it downloads Chromium if missing and type-checks `e2e/`.
@@ -127,8 +127,9 @@ npm run e2e                     # against the working tree
 
 The compose stack's default state is down, so the ordinary case needs nothing doing first.
 
-- **Never run `docker compose down` or `up` unprompted.** Anything listed, Dick put there.
-- **Never run `npm run e2e:docker`.** It is his, and "green in both modes" is his to report.
+- **Never run `docker compose down` or `up` unprompted.** Anything listed, the user put there.
+- **Never run `npm run e2e:docker`.** It is the user's to run, and "green in both modes" is theirs
+  to report.
 - **`down`/`up`, never `stop`/`start`.** A stop/start cycle can leave Docker Desktop's port proxy
   bound but reachable only from this machine — every check from the laptop passes while a phone on
   the same wifi gets nothing. `--build` whenever it goes back up.

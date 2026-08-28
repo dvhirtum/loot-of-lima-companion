@@ -3,8 +3,8 @@
 A web companion for *Loot of Lima* (Allplay, 1-5 players). The physical board, screens, tokens and
 dice stay on the table; the app replaces the printed scenario booklet and the bookkeeping.
 
-`docs/rules.md` is the rulebook and the authority on how the game works. This file says what the app
-does with it; [Departures from the rulebook](#departures-from-the-rulebook) lists every difference.
+[The rulebook](rules.md) is the authority on how the game works. This file says what the app does
+with it; [Departures from the rulebook](#departures-from-the-rulebook) lists every difference.
 
 ## Screens
 
@@ -93,7 +93,7 @@ Once each per game, spent on your own turn while constructing your question:
 | Shovel | Treat a die as another terrain |
 | Pistol | Secret question, free range |
 
-The app does not model the roll, so Barrel and Shovel are only marked as spent. `docs/dice.md`
+The app does not model the roll, so Barrel and Shovel are only marked as spent. [dice.md](dice.md)
 records the die faces; no code reads them.
 
 A Pistol question may name a terrain. The Pistol lifts the *roll*; the one shape it leaves illegal

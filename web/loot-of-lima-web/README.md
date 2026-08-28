@@ -1,7 +1,7 @@
 # Loot of Lima — web client
 
 Angular 22, standalone components, zoneless, signals, Vitest. See the repository's
-`docs/technical.md` for the project as a whole.
+[docs/technical.md](../../docs/technical.md) for the project as a whole.
 
 ## Running it
 
