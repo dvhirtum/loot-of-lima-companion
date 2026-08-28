@@ -1,7 +1,8 @@
 # What the app does
 
-A web companion for *Loot of Lima* (Allplay, 1-5 players). The physical board, screens, tokens and
-dice stay on the table; the app replaces the printed scenario booklet and the bookkeeping.
+A web companion for *[Loot of Lima](https://www.allplay.com/board-games/loot-of-lima)*
+(Allplay, 1-5 players). The physical board, screens, tokens and dice stay on the table; the app
+replaces the printed scenario booklet and the bookkeeping.
 
 [The rulebook](rules.md) is the authority on how the game works. This file says what the app does
 with it; [Departures from the rulebook](#departures-from-the-rulebook) lists every difference.

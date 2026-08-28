@@ -1,5 +1,7 @@
 # Loot of Lima
 
+Transcribed by hand from the physical copy of [Loot of Lima](https://www.allplay.com/board-games/loot-of-lima) (Allplay).
+
 ## Stats
 - 1-5 Players
 - 75 Minutes

@@ -1,9 +1,10 @@
 # Loot of Lima companion app
 
-A web companion for the board game *Loot of Lima* (Allplay, 1-5 players). Players scan a QR code,
-claim a seat, and see their own information on the island map. The app owns the deal, routes
-questions, answers on behalf of bot **and** human players, tracks the special abilities, and keeps
-secret questions secret.
+A web companion for the board game
+*[Loot of Lima](https://www.allplay.com/board-games/loot-of-lima)* (Allplay, 1-5 players).
+Players scan a QR code, claim a seat, and see their own information on the island map. The app owns
+the deal, routes questions, answers on behalf of bot **and** human players, tracks the special
+abilities, and keeps secret questions secret.
 
 **It is a companion, not a replacement.** The physical board, screens, tokens and dice stay on the
 table. The app replaces the printed scenario booklet and the bookkeeping.
