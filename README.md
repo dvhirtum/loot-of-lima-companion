@@ -38,6 +38,8 @@ docker compose stop api   →   dotnet run --project src/LootOfLima.Server
 
 ## The pieces
 
+- [src/LootOfLima.Server](src/LootOfLima.Server/README.md) — the API and the SignalR hub, and how
+  hidden information stays hidden on the way out.
 - [web/loot-of-lima-web](web/loot-of-lima-web/README.md) — the Angular client, its dev server and
   its container.
 - [tools/LootOfLima.Harness](tools/LootOfLima.Harness/README.md) — headless demo. Replays two
