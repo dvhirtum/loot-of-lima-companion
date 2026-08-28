@@ -25,7 +25,7 @@ test.describe('Coming back to a table', () => {
 
     // Assert
     await expect(ada.page.getByText('InProgress')).toBeVisible();
-    await expect(seatCard(ada.page, 0).getByText('you')).toBeVisible();
+    await expect(seatCard(ada.page, 0).getByText('you', { exact: true })).toBeVisible();
     expect(await ownHand(ada.page)).toEqual(before);
 
     await leave([ada]);
@@ -47,15 +47,16 @@ test.describe('Coming back to a table', () => {
     // Assert
     expect(response?.status()).toBe(200);
     await expect(ada.page.getByRole('heading', { name: 'Loot of Lima' })).toBeVisible();
-    await expect(seatCard(ada.page, 0).getByText('you')).toBeVisible();
+    await expect(seatCard(ada.page, 0).getByText('you', { exact: true })).toBeVisible();
 
     await leave([ada]);
   });
 
   test('Should_watch_without_a_seat_when_a_browser_has_never_joined', async ({ browser }) => {
     // Arrange
-    // The host screen's own "Watch the table" link lands here, so a page with no token is a normal
-    // visitor rather than an edge case.
+    // Every arrival lands here -- the QR code and the host screen's own button both open the table
+    // -- so a page with no token is the ordinary case rather than an edge one. What makes this
+    // browser a watcher is only that nobody has tapped a seat in it.
     const host = await browser.newPage();
     const roomCode = await openTable(host, 5);
     const ada = await sitDown(browser, roomCode, 'Ada', 0);

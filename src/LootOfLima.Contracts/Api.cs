@@ -7,11 +7,12 @@ public sealed record CreateGameRequest(int PlayerCount);
 /// <summary>
 /// A new table.
 /// </summary>
-/// <param name="JoinUrl">
-/// What the QR code encodes and what a phone opens. Handed back rather than assembled by the
-/// client, because the host's screen is the only thing that knows the address players can reach.
+/// <param name="TableUrl">
+/// What the QR code encodes and what a phone opens: the table itself, not a form to fill in first.
+/// Handed back rather than assembled by the client, because the host's screen is the only thing
+/// that knows the address players can reach.
 /// </param>
-public sealed record CreateGameResponse(string GameId, string RoomCode, string JoinUrl);
+public sealed record CreateGameResponse(string GameId, string RoomCode, string TableUrl);
 
 /// <summary>
 /// A table as somebody deciding whether to join it may see it.

@@ -11,11 +11,15 @@ import { GameStore } from '../../core/game-store';
  * everybody can see is the last place a hand should ever be. What it shows is what is written on
  * the outside of the box — the code to scan and who has sat down.
  *
- * It has nothing to show once the deal happens, so it takes itself to the table. `ClaimSeat` is
- * refused outside `Lobby`, and joining is *not* — so a latecomer scanning the code after the deal
- * gets a player token and then a seat they cannot take, which is a worse dead end than the code
- * simply being gone. The laptop in the middle of the table should be showing the table by then
- * anyway.
+ * It has nothing to show once the deal happens, so it takes itself to the table. What the code
+ * offers is a seat, and `ClaimSeat` is refused outside `Lobby` — so after the deal it is an offer
+ * of something nobody can have, and the laptop in the middle of the table should be showing the
+ * table by then anyway.
+ *
+ * Scanning it late is no longer a trap, which is a change worth knowing about rather than a reason
+ * to leave the code up. The code now encodes the table itself, so a latecomer lands on the game and
+ * watches it; it used to encode a form that issued a player token and then handed them a seat the
+ * hub would refuse, which was a dead end two steps long entered from another device.
  */
 @Component({
   selector: 'app-host',
@@ -29,9 +33,9 @@ import { GameStore } from '../../core/game-store';
 
       <div class="host">
         <!--
-          Both the code and the way in disappear together, because after the deal they are the same
-          dead end: scanning issues a token and then the hub refuses the seat. Everything below is
-          what a player sees for the moment before the redirect lands, so it has to be true.
+          The code goes when the seat it offers does. Everything below it stays, because everything
+          below it is still true after the deal: the seats are the seats, and the button leads to a
+          table anybody may watch.
         -->
         @if (!started()) {
           <img class="qr" [src]="qr()" alt="QR code linking to this table" width="264" height="264" />
@@ -56,15 +60,18 @@ import { GameStore } from '../../core/game-store';
             <p class="banner banner--warn">Taking you to the table…</p>
           }
 
+          <!--
+            One button, and the same address the QR code encodes. "Sit down here" and "Watch the
+            table" were two links to one page from the moment the name stopped being asked for in
+            front of it: everybody arrives at the table without a seat, and taking one is a tap on a
+            seat card. Offering the choice here asked somebody to decide something before they had
+            seen the table, and then let them undo it in one tap anyway.
+
+            Kept in both states. It is the manual form of the redirect below, and the one thing on
+            this screen that still works if navigation never happens.
+          -->
           <div class="row">
-            @if (!started()) {
-              <a class="button button--primary" [routerLink]="['/join', roomCode()]">Sit down here</a>
-            }
-            <!--
-              Kept in both states. It is the manual form of the redirect, and the one thing on this
-              screen that still works if navigation never happens.
-            -->
-            <a class="button" [routerLink]="['/play', roomCode()]">Watch the table</a>
+            <a class="button button--primary" [routerLink]="['/play', roomCode()]">Join table</a>
           </div>
         </section>
       </div>

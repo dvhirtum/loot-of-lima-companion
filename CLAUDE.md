@@ -23,7 +23,7 @@ Stack: Angular 22 + .NET 10. Local-only for now — no CI/CD.
 | M4 — Angular skeleton, first playable loop | **Done.** 1629 .NET tests + 48 web tests green |
 | M4.5 — Playwright e2e harness, first loop pinned | **Done.** 17 e2e specs, green in both modes |
 | M5 — SVG island map, abilities, accusation, scenario picker | **Done.** 1633 .NET + 84 web + 37 e2e green |
-| M6 — polish | **In progress.** 1659 .NET + 104 web + 48 e2e green |
+| M6 — polish | **In progress.** 1659 .NET + 110 web + 49 e2e green |
 
 **Every milestone is finished on the same terms**, and a milestone meeting all but one of them is
 not done:
@@ -59,11 +59,11 @@ dotnet run --project src/LootOfLima.Server
 
 ```
 cd web/loot-of-lima-web
-npm test          # Vitest; expect 104 passing
+npm test          # Vitest; expect 110 passing
 npm start         # dev server on :4200, proxying /api and /hub to Kestrel on :5000
 npm run start:lan # the same, reachable from a phone on the table's wifi
 
-npm run e2e        # Playwright; expect 48 passing. Boots both halves itself — nothing else needed.
+npm run e2e        # Playwright; expect 49 passing. Boots both halves itself — nothing else needed.
 npm run e2e:docker # the same specs against `docker compose up -d`, so nginx and the built bundle
 ```
 
@@ -73,7 +73,7 @@ checking them, so without that step "nothing else needed" would be false and a t
 would fail no command at all.
 
 Both halves have to be running: `npm start` serves the app and proxies to `dotnet run`. The proxy
-sets `changeOrigin: false` on purpose — the server builds the join URL the QR code encodes from the
+sets `changeOrigin: false` on purpose — the server builds the table URL the QR code encodes from the
 request's `Host` header, so rewriting it would put `localhost` in the code a phone scans.
 
 **`npm run e2e` is the exception — it starts its own `dotnet run` and `ng serve`**, so it needs
@@ -137,7 +137,7 @@ Consequences worth knowing before editing any of it:
 - **`nginx-proxy.conf` is a separate file on purpose.** nginx does not merge `proxy_set_header`: a
   location that sets one of its own discards every inherited one. `/hub` must set `Upgrade` and
   `Connection`, so putting the shared headers at server level would silently drop `Host`.
-- **`Host` is forwarded as `$http_host`, not `$host`.** `$host` drops the port, and the join URL is
+- **`Host` is forwarded as `$http_host`, not `$host`.** `$host` drops the port, and the table URL is
   built from this header — same reason the dev proxy sets `changeOrigin: false`.
 - **`/api` and `/hub` are `location ^~`.** A regex location outranks a plain prefix one, so the
   static-asset rule otherwise wins `/api/games/ABCD/qr.png` and 404s the QR code.
@@ -421,6 +421,33 @@ plays.
   panel saying they are watching without a seat. In `Lobby` the seat strip still offers them the way
   in, because there the way in is real — `ClaimSeat` is the one command that is refused by *phase*
   rather than by seat, so it is the one offer that has to disappear on the deal instead.
+- **The QR code opens the table, and the name is asked for at the seat.** There is no join page and
+  no `/join` route. Everybody who scans the code — or presses the host screen's one **Join table**
+  button, which encodes the same address — arrives watching the game with no seat and no token, and
+  becoming a player is one tap on a seat card plus the name that card then asks for. Three things
+  follow, and each of them was a defect before. A player used to pay a name before seeing whether
+  they wanted a seat. A watcher who had skipped that form was shown a link back to it beside every
+  open seat while the working button was withheld — `ClaimSeat` is refused from a browser holding no
+  token, so a page was keeping a button back over a step taken on a different screen. And scanning
+  the code after the deal was a dead end two steps long: the form issued a token and then offered a
+  seat the hub would refuse. A latecomer now lands on the game and watches it.
+
+  The host screen's two buttons became one for the same reason. "Sit down here" and "Watch the
+  table" led to the same page the moment the name stopped being asked in front of it.
+
+  Joining now happens on the page that owns the connection, and that forces two things elsewhere.
+  `PlayerIdentityStore` holds its in-memory identities in a **signal**, because the game page's
+  reconnect effect reads them through a `computed` and a plain `Map` notifies nobody — the token
+  would be written down and the socket would stay the spectator's, so the seat could only be
+  refused. And `GameConnection.connect` and `disconnect` are **queued against each other**: the
+  claim reconnects with the new token and the effect does too, the early return recognises only a
+  connection already in place, and `attach` spends its first await holding none — so unqueued, both
+  got past it and one socket was built, started and abandoned without ever being stopped.
+- **A seat is offered only to somebody who has not got one.** `ClaimSeat` answers
+  `PlayerAlreadySeated` to a second — one identity, one hand, or `Projector` would build a full view
+  of two hands for one person — so the other cards a seated player used to be offered carried
+  buttons whose only possible answer was a refusal. Moving seat is leaving and sitting down again,
+  and "Leave seat" is on your own card.
 - **There is one game-page layout, ordered by the loop, and the width decides only how many columns
   it is poured into.** The panels are the grid's own children in the order a player uses them —
   island → what this phase wants from you → history → abilities → accusation → hand — with no column
@@ -533,6 +560,11 @@ reads them, and its output is committed, so build and test never need them.
   table repeats. 3- and 4-player specs assert structure — hand sizes, whether passing happens, that
   every seat announces. Adding a test-only seed would put a hook in the wire contract to buy
   assertions `b1s1` already makes.
+- **No backtick may appear inside an inline component template, comments included.** The template is
+  a template literal, so one backtick in an HTML comment ends the string and the component fails to
+  parse — reported as a syntax error at the `@Component({` twenty lines above, which is nowhere near
+  the comment. Write `ClaimSeat`, not the quoted form, inside `template:` and `styles:`. The JSDoc
+  above the class is ordinary source and may quote freely.
 - **Three Playwright traps this app walks straight into.** Every `<select>` sits *inside* its
   `<label>`, so its accessible name is the caption plus every option — `getByLabel('Ask')` never
   matches exactly, and matches for the wrong reason otherwise. Use the `field()` helper. And
@@ -545,6 +577,17 @@ reads them, and its output is committed, so build and test never need them.
   true` and `:text-is()` because the next overlap will not announce itself. It only showed up
   against Docker, where the phase changes fast enough to still be showing when the read happens: a
   locator ambiguity is a flake whose probability depends on how quick the server is.
+
+  **It bites hardest inside a fixture, where it does not fail at all.** `sitDown` proves a seat was
+  taken with `getByText('you')` against the seat's own tag. Moving the name field into the seat card
+  put the caption "Your name" in that card — which contains "you" — so the assertion went green the
+  instant the field opened, and the helper returned before the claim had reached the server. The
+  caller then dealt at a table the third player was not sitting at, and it surfaced three files away
+  as a wait for a "Ready" button on a page that had never been given a seat. An over-matching
+  assertion inside a helper does not report a locator problem; it reports whatever the next step
+  does with a precondition that was never true. `getByText('you', { exact: true })`, and the seat's
+  `strong` is asserted to hold the player's name as well, because only the server can have put it
+  there.
 - **`count()`, `allInnerTexts()` and friends are one-shots with no auto-waiting.** Reading one
   before the first frame has rendered is a race that passes locally and fails under load. Do the
   waiting with a locator assertion first, then read.

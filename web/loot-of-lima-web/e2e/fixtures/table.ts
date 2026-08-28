@@ -42,6 +42,10 @@ export async function openTable(page: Page, playerCount: 3 | 4 | 5): Promise<str
  * `localStorage` and two pages of one context share it -- which would make the second player the
  * first one again, and would quietly make every two-player assertion vacuous.
  *
+ * The whole journey is now one page. The room code opens the table, everybody arrives watching it,
+ * and the name is asked for by the seat card at the moment a seat is taken -- so this walks the
+ * route a scanned QR code actually walks, which is the reason the helper exists at all.
+ *
  * Seats fill in order: the first free "Sit here" is always the lowest-numbered bot seat, so the
  * n-th player to call this sits in seat n - 1.
  */
@@ -49,15 +53,24 @@ export async function sitDown(browser: Browser, roomCode: string, name: string, 
   const context = await browser.newContext();
   const page = await context.newPage();
 
-  await page.goto(`/join/${roomCode}`);
-  await page.getByLabel('Your name').fill(name);
-  await page.getByRole('button', { name: 'Join the table' }).click();
-
-  await page.waitForURL(new RegExp(`/play/${roomCode}$`));
+  await page.goto(`/play/${roomCode}`);
   await page.getByRole('button', { name: 'Sit here' }).first().click();
+  await page.getByLabel('Your name').fill(name);
+  await page.getByRole('button', { name: 'Sit down', exact: true }).click();
 
   // The seat is not taken until the server says so, and every following step assumes it is.
-  await expect(seatCard(page, seatIndex).getByText('you')).toBeVisible();
+  //
+  // `exact`, and it is load-bearing rather than tidy. `getByText` matches case-insensitive
+  // substrings, and the name field this card now opens is captioned "Your name" -- which contains
+  // "you". Loosely matched, this went green the instant the field appeared, so `sitDown` returned
+  // before the claim had reached the server and the caller dealt at a table the player was not yet
+  // sitting at. It surfaced three files away, as a wait for a "Ready" button on a page that had
+  // never been given a seat.
+  await expect(seatCard(page, seatIndex).getByText('you', { exact: true })).toBeVisible();
+
+  // And the name in the seat's own heading, which only the server can have put there. The tag above
+  // says this card is the viewer's; this says the table has been told who the viewer is.
+  await expect(seatCard(page, seatIndex).locator('strong')).toHaveText(name);
 
   return { name, page, context, seatIndex };
 }

@@ -37,8 +37,8 @@ export interface CreateGameRequest {
 export interface CreateGameResponse {
   readonly gameId: string;
   readonly roomCode: string;
-  /** What the QR code encodes. Handed back by the server, which alone knows a reachable address. */
-  readonly joinUrl: string;
+  /** What the QR code encodes: the table itself. Only the server knows an address a phone can reach. */
+  readonly tableUrl: string;
 }
 
 export interface LobbySeat {

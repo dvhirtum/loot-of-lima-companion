@@ -1,5 +1,6 @@
 import { ChangeDetectionStrategy, Component, DestroyRef, computed, effect, inject, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
+import { ApiClient } from '../../core/api-client';
 import { AbilityType, Terrain } from '../../core/contracts';
 import { GameConnection } from '../../core/game-connection';
 import { GameStore } from '../../core/game-store';
@@ -12,7 +13,7 @@ import { IslandMap } from '../../play/island-map';
 import { LobbyPanel } from '../../play/lobby-panel';
 import { MyHandPanel } from '../../play/my-hand-panel';
 import { AskedQuestion, QuestionBuilder } from '../../play/question-builder';
-import { SeatStrip } from '../../play/seat-strip';
+import { SeatClaim, SeatStrip } from '../../play/seat-strip';
 import { SetupPanel } from '../../play/setup-panel';
 import { TableUi } from '../../play/table-ui';
 
@@ -53,6 +54,7 @@ export class Play {
 
   protected readonly store = inject(GameStore);
 
+  private readonly api = inject(ApiClient);
   private readonly connection = inject(GameConnection);
   private readonly identities = inject(PlayerIdentityStore);
 
@@ -60,14 +62,13 @@ export class Play {
   private readonly identity = computed(() => this.identities.find(this.roomCode()));
 
   /**
-   * Whether this browser could take a seat if it wanted one.
+   * Whether the seat strip has to ask who this is before it can offer a seat.
    *
-   * Having a token, not having a seat: somebody who has just come through the QR code has the first
-   * and not the second, and sitting down is what they came for. Somebody who arrived from the host
-   * screen's "Watch the table" has neither, and the hub refuses `ClaimSeat` from them — so they are
-   * shown the way to join instead of a button that answers back.
+   * The QR code opens the table now, so the common case on this page is a browser holding no token
+   * at all — which used to be the one state where a seat could not be taken. It is now the state
+   * where taking one costs a name first.
    */
-  protected readonly canClaim = computed(() => this.identity() !== null);
+  protected readonly needsName = computed(() => this.identity() === null);
 
   protected readonly turnHolder = computed(() => this.nameOf(this.store.activeSeat()));
 
@@ -103,8 +104,39 @@ export class Play {
     });
   }
 
-  protected claim(seatIndex: number): void {
-    void this.connection.claimSeat(seatIndex);
+  /**
+   * Takes a seat, joining the table first if this browser has not joined it.
+   *
+   * Two steps, in this order, and they cannot be one: `POST /join` is what issues the token, and
+   * `ClaimSeat` is a hub command the *connection* has to be carrying that token for. The socket
+   * open at this moment is a spectator's, so it is replaced in between. The effect below would do
+   * that too, since it watches the identity — but not until the next tick, which is after the
+   * claim would have gone out and come back refused. Both calls land on the same queue inside
+   * `GameConnection`, so whichever runs second finds the connection already made and returns.
+   *
+   * A name is required exactly when `needsName` said so. Trimmed and re-checked here rather than
+   * trusted from the strip: this is the call that puts it in front of the whole table.
+   */
+  protected async claim(request: SeatClaim): Promise<void> {
+    if (this.identity() === null) {
+      const name = request.name?.trim() ?? '';
+      if (name.length === 0) {
+        return;
+      }
+
+      try {
+        const joined = await this.api.join(this.roomCode(), name);
+        const identity = this.identities.remember(this.roomCode(), joined, name);
+        await this.connection.connect(this.roomCode(), identity.playerToken);
+      } catch {
+        // The same channel every refusal from the hub uses, so there is one place on this page
+        // where a player finds out something did not happen.
+        this.store.noteError({ code: 'JoinFailed', message: `Could not take a seat at table ${this.roomCode()}.` });
+        return;
+      }
+    }
+
+    await this.connection.claimSeat(request.seatIndex);
   }
 
   protected release(): void {

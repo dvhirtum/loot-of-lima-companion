@@ -6,8 +6,8 @@ import { accuse, deal, leave, openTable, sitDown, takeTokens } from './fixtures/
  *
  * There was no way. Once a phone had scanned the code it was on `/play/ABCD` for good: no link
  * home, no way to start another table, and nothing on the screen that ends a game to suggest what
- * to do next. The browser's back button went to the join page, which put the same seat straight
- * back on the same table.
+ * to do next. Back was no way out either -- it went to the join form, which led straight back to
+ * the same seat at the same table.
  *
  * Both links are plain navigation and neither disturbs the game — the seat is held by a token in
  * this browser's storage, so leaving and coming back to the same code sits back down. That is why

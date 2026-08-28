@@ -1,4 +1,4 @@
-import { Injectable } from '@angular/core';
+import { Injectable, signal } from '@angular/core';
 import { JoinResponse } from './contracts';
 
 /** What this browser holds to prove it owns a seat at one particular table. */
@@ -26,19 +26,28 @@ export class PlayerIdentityStore {
   /**
    * The identities handed out during this page load, whether or not storage kept them.
    *
-   * Joining and playing are two routes, and the second one re-reads the identity rather than being
-   * handed it. With storage unavailable -- a private window, or site data blocked -- that read came
-   * back empty, so a player who had just joined successfully arrived at the table as a spectator
-   * with no hand and a "Sit here" button that could only answer NotAPlayer. Holding the identity
-   * here as well makes storage what it actually is: what survives a refresh, not what makes the
-   * seat work at all.
+   * With storage unavailable -- a private window, or site data blocked -- reading it back comes up
+   * empty, so a player who had just joined successfully would arrive at their own table as a
+   * spectator with no hand. Holding the identity here as well makes storage what it actually is:
+   * what survives a refresh, not what makes the seat work at all.
+   *
+   * A signal, and holding a new Map on every write rather than mutating one, because joining is no
+   * longer a page of its own. The name is asked for at the seat, so `remember` now runs on the very
+   * page whose connection has to pick the token up -- and the effect that reconnects reads this
+   * through a `computed`. A plain Map is invisible to that: the token would be written down and the
+   * socket would stay the spectator's, so the seat could only ever be refused.
    */
-  private readonly inMemory = new Map<string, PlayerIdentity>();
+  private readonly inMemory = signal<ReadonlyMap<string, PlayerIdentity>>(new Map());
 
   find(roomCode: string): PlayerIdentity | null {
+    // Read first and unconditionally, before the branch that may not need it. This is the only
+    // reactive read in the method -- `localStorage` notifies nobody -- so a caller inside a
+    // `computed` is subscribed to `remember` and `forget` however the lookup below turns out.
+    const thisPageLoad = this.inMemory().get(key(roomCode)) ?? null;
+
     const raw = PlayerIdentityStore.read(PREFIX + key(roomCode));
     if (raw === null) {
-      return this.inMemory.get(key(roomCode)) ?? null;
+      return thisPageLoad;
     }
 
     try {
@@ -52,7 +61,7 @@ export class PlayerIdentityStore {
     }
 
     // Unreadable is the same as absent, and this page load may still know who this is.
-    return this.inMemory.get(key(roomCode)) ?? null;
+    return thisPageLoad;
   }
 
   remember(roomCode: string, joined: JoinResponse, displayName: string): PlayerIdentity {
@@ -62,13 +71,18 @@ export class PlayerIdentityStore {
       displayName,
     };
 
-    this.inMemory.set(key(roomCode), identity);
+    this.inMemory.update((held) => new Map(held).set(key(roomCode), identity));
     PlayerIdentityStore.write(PREFIX + key(roomCode), JSON.stringify(identity));
     return identity;
   }
 
   forget(roomCode: string): void {
-    this.inMemory.delete(key(roomCode));
+    this.inMemory.update((held) => {
+      const next = new Map(held);
+      next.delete(key(roomCode));
+      return next;
+    });
+
     PlayerIdentityStore.write(PREFIX + key(roomCode), null);
   }
 

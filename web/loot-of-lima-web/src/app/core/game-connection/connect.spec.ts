@@ -152,6 +152,30 @@ describe('GameConnection.connect', () => {
     expect(store.status()).toBe('connected');
   });
 
+  it('Should_build_one_socket_when_a_second_connect_arrives_before_the_first_has_finished', async () => {
+    // Arrange
+    // Taking a seat does exactly this. The name is now asked for at the seat card, so joining writes
+    // a token down on the page that already holds a connection, and two things then reconnect with
+    // it: the claim, which cannot send ClaimSeat down a spectator's socket, and the page's effect,
+    // which watches the identity.
+    //
+    // The early return recognises only a connection already in place, and the attach spends its
+    // first await holding none -- it has just cleared the fields and is waiting on the old socket's
+    // stop. So both calls used to get past it, and the loser's socket was built, started, and then
+    // abandoned without ever being stopped: silent, because its handlers check whether they are
+    // current and the page looks perfectly healthy on the winner.
+    await connection.connect('ABCD', null);
+    built.length = 0;
+
+    // Act
+    // Started together rather than awaited in turn, which is the whole point of the case.
+    await Promise.all([connection.connect('ABCD', 'token-1'), connection.connect('ABCD', 'token-1')]);
+
+    // Assert
+    expect(built).toHaveLength(1);
+    expect(store.status()).toBe('connected');
+  });
+
   it('Should_ignore_the_frame_when_it_arrives_on_a_replaced_connection', async () => {
     // Arrange
     // A frame the server sent before the stop is already in flight and cannot be un-sent. The

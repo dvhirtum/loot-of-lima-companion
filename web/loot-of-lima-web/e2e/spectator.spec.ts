@@ -2,22 +2,23 @@ import { expect, test } from '@playwright/test';
 import { deal, leave, openTable, seatCard, sitDown, takeTokens } from './fixtures/table';
 
 /**
- * Watching a table without a seat.
+ * Watching a table, and sitting down at one.
  *
- * The host screen links straight here, so arriving as a spectator is a normal route rather than a
- * contrived one — and until now every open seat offered a "Sit here" button that could only ever
- * come back refused, because the hub will not take `ClaimSeat` from somebody who has not joined and
- * joining happens at `/join`, behind the QR code.
+ * Everybody arrives without a seat now: the QR code opens the table itself, so a phone that has
+ * just scanned it and the laptop in the middle of the table are in exactly the same state. What
+ * separates a watcher from a player is one tap on a seat card and the name it asks for.
  *
- * The obvious fix is the wrong one, and that is why both halves are here. Gating the button on
- * "has no seat" would take it away from the player who has just come through the QR code and has
- * not sat down yet, which is the single most common state anybody is ever in on this page. The
- * question is whether this browser holds a token, not whether it holds a seat.
+ * Where that name is asked is the claim these specs pin, and it is the only thing this app ever
+ * asks anybody. It used to be a form in front of the table, which cost a watcher the seat button
+ * entirely: the hub will not take `ClaimSeat` from a browser holding no token, so every open seat
+ * offered somebody who had skipped the form a link back to it instead. A page was withholding a
+ * working button because of a step taken on a different screen.
  */
 test.describe('Watching a table', () => {
-  test('Should_offer_the_way_in_rather_than_a_seat_when_the_watcher_has_not_joined', async ({ browser }) => {
+  test('Should_ask_for_a_name_at_the_seat_when_a_watcher_has_never_joined', async ({ browser }) => {
     // Arrange
-    // No `sitDown`, so this context has no player token for this table at all.
+    // No `sitDown`, so this context holds no player token for this table at all — which is now the
+    // state every single arrival is in, including the one this spec is named for.
     const host = await browser.newPage();
     const roomCode = await openTable(host, 5);
     const watcher = await browser.newContext();
@@ -27,22 +28,42 @@ test.describe('Watching a table', () => {
     await page.goto(`/play/${roomCode}`);
 
     // Assert
+    // Every seat is offered, and nothing has asked who this is. The second half is the point: a
+    // name up front is exactly what this flow removed, so a field on arrival is the regression.
     await expect(seatCard(page, 0)).toBeVisible();
-    await expect(page.getByRole('button', { name: 'Sit here' })).toHaveCount(0);
+    await expect(page.getByRole('button', { name: 'Sit here' })).toHaveCount(5);
+    await expect(page.getByLabel('Your name')).toHaveCount(0);
 
-    const join = page.getByRole('link', { name: 'Join to sit here' }).first();
-    await expect(join).toBeVisible();
-    await join.click();
-    await page.waitForURL(new RegExp(`/join/${roomCode}$`));
+    // Act
+    await seatCard(page, 0).getByRole('button', { name: 'Sit here' }).click();
+
+    // Assert
+    // Asked in the card being claimed, not over the table, and asked only of that one seat.
+    await expect(seatCard(page, 0).getByLabel('Your name')).toBeVisible();
+    await expect(page.getByLabel('Your name')).toHaveCount(1);
+
+    // Act
+    await seatCard(page, 0).getByLabel('Your name').fill('Ada');
+    await seatCard(page, 0).getByRole('button', { name: 'Sit down', exact: true }).click();
+
+    // Assert
+    // One tap and one name is the whole distance from watching to playing.
+    //
+    // `exact`: the field that was open a line ago is captioned "Your name", and `getByText` matches
+    // case-insensitive substrings, so a loose match here would go green on the form rather than on
+    // the seat and would assert nothing at all about the claim.
+    await expect(seatCard(page, 0).getByText('you', { exact: true })).toBeVisible();
+    await expect(seatCard(page, 0)).toContainText('Ada');
 
     await watcher.close();
   });
 
-  test('Should_offer_every_open_seat_when_the_player_has_joined_but_not_sat_down', async ({ browser }) => {
+  test('Should_offer_no_second_seat_once_a_player_is_sitting_in_one', async ({ browser }) => {
     // Arrange
-    // A joined player has a token and no seat, which is exactly the state a spectator check has to
-    // be careful not to catch. `sitDown` walks the whole route — join, land on the play page, take
-    // the first free seat — so it only returns if the button was there to be pressed.
+    // `ClaimSeat` refuses a second seat with `PlayerAlreadySeated` — one identity, one hand, or the
+    // projector would build a full view of two hands for one person. The four other cards used to
+    // carry a "Sit here" apiece anyway, which is the same defect as the button a watcher could not
+    // press, pointing the other way: an offer whose only possible answer is a refusal.
     const host = await browser.newPage();
     const roomCode = await openTable(host, 5);
 
@@ -50,11 +71,33 @@ test.describe('Watching a table', () => {
     const ada = await sitDown(browser, roomCode, 'Ada', 0);
 
     // Assert
-    await expect(seatCard(ada.page, 0).getByText('you')).toBeVisible();
-    await expect(ada.page.getByRole('link', { name: 'Join to sit here' })).toHaveCount(0);
+    await expect(seatCard(ada.page, 0).getByText('you', { exact: true })).toBeVisible();
+    await expect(ada.page.getByRole('button', { name: 'Sit here' })).toHaveCount(0);
 
-    // Four seats are still bots, and Ada is entitled to be offered any of them if she wants to move.
-    await expect(ada.page.getByRole('button', { name: 'Sit here' })).toHaveCount(4);
+    // The way to move is to give this one up first, and that button is on her own card.
+    await expect(seatCard(ada.page, 0).getByRole('button', { name: 'Leave seat' })).toBeVisible();
+
+    await leave([ada]);
+  });
+
+  test('Should_take_the_seat_without_asking_again_when_this_browser_has_already_joined', async ({ browser }) => {
+    // Arrange
+    // The identity holds the name, so a seat taken after the first is taken under it. Asking again
+    // would let one person be two people at one table, and the name is what the rest of the table
+    // reads off the seat.
+    const host = await browser.newPage();
+    const roomCode = await openTable(host, 5);
+    const ada = await sitDown(browser, roomCode, 'Ada', 0);
+    await seatCard(ada.page, 0).getByRole('button', { name: 'Leave seat' }).click();
+    await expect(seatCard(ada.page, 3).getByRole('button', { name: 'Sit here' })).toBeVisible();
+
+    // Act
+    await seatCard(ada.page, 3).getByRole('button', { name: 'Sit here' }).click();
+
+    // Assert
+    await expect(seatCard(ada.page, 3).getByText('you', { exact: true })).toBeVisible();
+    await expect(seatCard(ada.page, 3)).toContainText('Ada');
+    await expect(ada.page.getByLabel('Your name')).toHaveCount(0);
 
     await leave([ada]);
   });
@@ -74,7 +117,7 @@ test.describe('Watching a table', () => {
     await page.goto(`/play/${roomCode}`);
 
     // The offer is real while the lobby is open, so its disappearance below means something.
-    await expect(page.getByRole('link', { name: 'Join to sit here' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sit here' }).first()).toBeVisible();
 
     // Act
     await deal(ada.page, { book: 1, number: 1 });
@@ -83,8 +126,8 @@ test.describe('Watching a table', () => {
 
     // Assert
     await expect(page.getByText('Take a seat to play')).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Join to sit here' })).toHaveCount(0);
     await expect(page.getByRole('button', { name: 'Sit here' })).toHaveCount(0);
+    await expect(page.getByLabel('Your name')).toHaveCount(0);
 
     // Still watching, and still told so — by the panel that would otherwise hold a hand. Asserted
     // because the fix for an untrue offer must not be a page that says nothing about who you are.
@@ -116,7 +159,7 @@ test.describe('Watching a table', () => {
 
     // Dealing belongs to the people playing, but the way in is real here, so it is still offered.
     await expect(page.getByRole('button', { name: 'Deal and begin' })).toHaveCount(0);
-    await expect(page.getByRole('link', { name: 'Join to sit here' }).first()).toBeVisible();
+    await expect(page.getByRole('button', { name: 'Sit here' }).first()).toBeVisible();
 
     // Act
     await deal(ada.page, null);
@@ -157,10 +200,10 @@ test.describe('Watching a table', () => {
 /**
  * The laptop in the middle of the table.
  *
- * Its whole job is the QR code, and the deal ends that job: `ClaimSeat` is refused outside `Lobby`,
- * while joining is not, so a latecomer scanning the code afterwards gets a player token and *then* a
- * seat the hub will not give them. Leaving the code on screen is worse than a dead button — it is a
- * dead end two steps long, entered from another device.
+ * Its whole job is the QR code, and the deal ends that job: what the code offers is a seat, and
+ * `ClaimSeat` is refused outside `Lobby`. Scanning it late is no longer a trap — the code encodes
+ * the table itself, so a latecomer lands on the game and watches it — but an offer of something
+ * nobody can have is still worth taking down, and by then the laptop should be showing the table.
  *
  * Nothing cheaper than a browser can see this. It is a route changing by itself in response to a
  * frame that arrived because somebody else pressed a button on a different machine.
@@ -221,7 +264,11 @@ test.describe('The host screen', () => {
 
     // Assert
     await expect(host.getByRole('img', { name: 'QR code linking to this table' })).toBeVisible();
-    await expect(host.getByRole('link', { name: 'Sit down here' })).toBeVisible();
     await expect(host).toHaveURL(new RegExp(`/host/${roomCode}$`));
+
+    // One button where there were two. "Sit down here" and "Watch the table" led to the same page
+    // the moment the name stopped being asked for in front of it.
+    await expect(host.getByRole('link', { name: 'Join table' })).toBeVisible();
+    await expect(host.getByRole('link', { name: 'Watch the table' })).toHaveCount(0);
   });
 });
