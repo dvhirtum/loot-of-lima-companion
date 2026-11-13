@@ -1,6 +1,6 @@
 # How it is built
 
-Angular 22 + .NET 10. Local-only — no CI/CD. `global.json` pins SDK **10.0.203**; do not remove it.
+Angular 22 + .NET 10. Local-only; the one workflow, `.github/workflows/docs.yml`, publishes the docs site to GitHub Pages when `docs/` changes on `main`. `global.json` pins SDK **10.0.203**; do not remove it.
 
 ## Layout
 

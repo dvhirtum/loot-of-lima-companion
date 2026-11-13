@@ -9,7 +9,7 @@ abilities, and keeps secret questions secret.
 **It is a companion, not a replacement.** The physical board, screens, tokens and dice stay on the
 table. The app replaces the printed scenario booklet and the bookkeeping.
 
-Stack: Angular 22 + .NET 10. Local-only — no CI/CD.
+Stack: Angular 22 + .NET 10. Local-only; the one workflow, `.github/workflows/docs.yml`, publishes the docs site to GitHub Pages when `docs/` changes on `main`.
 
 ## The documentation
 

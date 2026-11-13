@@ -1,0 +1,10 @@
+title: Loot of Lima companion
+description: A web companion for the board game Loot of Lima. It owns the deal, answers questions and keeps secrets secret.
+theme: jekyll-theme-cayman
+plugins:
+  - jekyll-relative-links
+relative_links:
+  enabled: true
+  collection: false
+exclude:
+  - "solo and 2-player rules"
